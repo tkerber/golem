@@ -30,6 +30,7 @@ func main() {
 	go cmdHandler.Run()
 
 	gtk.Init(nil)
+
 	win, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
 	if err != nil {
 		panic(fmt.Sprintf("Unable to create window: %v", err))
@@ -50,6 +51,7 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("Unable to create webview: %v", err))
 	}
+
 	webView.LoadURI(os.Args[1])
 	win.Add(webView)
 
@@ -57,20 +59,12 @@ func main() {
 	win.ShowAll()
 
 	sh, err := glib.IdleAdd(func() bool {
-		//if webView.IsLoading() {
-		//log.Printf("%v", webView.GetEstimatedLoadProgress())
-		//}
 		select {
 		case i := <-cmdHandler.InstructionChan:
-			switch i := i.(type) {
-			case *cmd.OpenInstruction:
-				log.Printf("\"%v\"", i.Uri)
-				// TODO: figure out why this fails to actually laod a page.
-				webView.LoadURI(i.Uri)
-			default:
-				log.Printf("Recieved unknown instruction type: %v", i.Command())
+			err := i(webView)
+			if i != nil {
+				log.Printf("Command failed to execute: %v", err)
 			}
-			log.Printf("Recieved instruction: %v", i)
 		default:
 		}
 		return true

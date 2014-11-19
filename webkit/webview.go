@@ -5,7 +5,6 @@ package webkit
 // #include <webkit2/webkit2.h>
 // #include <gtk/gtk.h>
 // #include <stdlib.h>
-// #include <stdio.h>
 /*
 static GtkWidget* toGtkWidget(void* p) {
 	return (GTK_WIDGET(p));
@@ -16,7 +15,6 @@ import "github.com/conformal/gotk3/gtk"
 import "github.com/conformal/gotk3/glib"
 import "unsafe"
 import "runtime"
-import "fmt"
 
 // WebView represents a webkit webview widget.
 type WebView struct {

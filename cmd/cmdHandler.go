@@ -1,7 +1,7 @@
 package cmd
 
-import "log"
 import "strings"
+import "github.com/tkerber/golem/webkit"
 
 // A Handler is a collection of cannels golem requires to communicate with
 // the Cmd routine.
@@ -16,26 +16,7 @@ type Handler struct {
 	InstructionChan chan Instruction
 }
 
-// An Instruction is a single atomic command for golem.
-type Instruction interface {
-	// This is a placeholder.
-
-	// Get the instructions command (or nil if the instruction was internal)
-	Command() string
-}
-
-type CommandInstruction struct {
-	CommandStr string
-}
-
-func (i *CommandInstruction) Command() string {
-	return i.CommandStr
-}
-
-type OpenInstruction struct {
-	CommandInstruction
-	Uri string
-}
+type Instruction func(*webkit.WebView) error
 
 // Run runs the command handler, which listens for keypresses and converts
 // them into instructions for golem.
@@ -43,7 +24,6 @@ func (c *Handler) Run() {
 	cmdStr := ""
 	for {
 		keycode := <-c.KeyPressHandle
-		//log.Printf("Keypress %x [%v] recieved!", keycode, KeyvalName(keycode))
 		if len(cmdStr) == 0 {
 			if keycode == colonKey {
 				c.KeyPressSwallowChan <- true
@@ -62,7 +42,10 @@ func (c *Handler) Run() {
 				continue
 			} else {
 				c.KeyPressSwallowChan <- true
-				cmdStr += string(KeyvalToUnicode(keycode))
+				r := KeyvalToUnicode(keycode)
+				if r != 0 {
+					cmdStr += string(r)
+				}
 				continue
 			}
 		}
@@ -71,8 +54,10 @@ func (c *Handler) Run() {
 }
 
 func (c *Handler) runCmd(cmd string) {
-	log.Printf("Command \"%v\" entered.", cmd)
 	if strings.HasPrefix(cmd, "open ") {
-		c.InstructionChan <- &OpenInstruction{CommandInstruction{cmd}, cmd[5:]}
+		c.InstructionChan <- func(w *webkit.WebView) error {
+			w.LoadURI(cmd[5:])
+			return nil
+		}
 	}
 }
