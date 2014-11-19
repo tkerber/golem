@@ -12,8 +12,6 @@ import "fmt"
 import "os"
 import "log"
 
-var gsrc *C.GSource = nil
-
 // command line argument.
 func main() {
 	if len(os.Args) != 2 {
@@ -25,6 +23,7 @@ func main() {
 		make(chan uint),
 		make(chan bool),
 		make(chan cmd.Instruction, 8),
+		make(chan string, 8),
 	}
 
 	go cmdHandler.Run()
@@ -53,18 +52,44 @@ func main() {
 	}
 
 	webView.LoadURI(os.Args[1])
-	win.Add(webView)
+
+	statusBar, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
+	if err != nil {
+		panic(fmt.Sprintf("Unable to create UI box: %v", err))
+	}
+
+	cmdStatus, err := gtk.LabelNew("")
+	if err != nil {
+		panic(fmt.Sprintf("Unable to create status label: %v", err))
+	}
+	//cmdStatus.SetUseMarkup(true)
+	cmdStatus.OverrideFont("monospace")
+
+	statusBar.PackStart(cmdStatus, false, false, 0)
+
+	box, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 0)
+	if err != nil {
+		panic(fmt.Sprintf("Unable to create UI box: %v", err))
+	}
+
+	box.PackStart(webView, true, true, 0)
+	box.PackStart(statusBar, false, false, 0)
+	win.Add(box)
 
 	win.SetDefaultSize(800, 600)
 	win.ShowAll()
 
-	sh, err := glib.IdleAdd(func() bool {
+	_, err = glib.IdleAdd(func() bool {
 		select {
 		case i := <-cmdHandler.InstructionChan:
 			err := i(webView)
-			if i != nil {
+			if err != nil {
 				log.Printf("Command failed to execute: %v", err)
 			}
+		case s := <-cmdHandler.StatusChan:
+			cmdStatus.SetLabel(s)
+		// Very important so that this function doesn't block (and cause a
+		// deadlock)
 		default:
 		}
 		return true
@@ -72,8 +97,6 @@ func main() {
 	if err != nil {
 		panic("Failed to attach to glib event loop.")
 	}
-	gsrc = C.g_main_context_find_source_by_id(nil, C.guint(sh))
-	C.g_source_ref(gsrc)
 
 	gtk.Main()
 }

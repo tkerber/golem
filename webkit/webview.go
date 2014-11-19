@@ -18,14 +18,14 @@ import "runtime"
 
 // WebView represents a webkit webview widget.
 type WebView struct {
-	gtk.Widget
+	gtk.Container
 }
 
 // NewWebView creates and returns a new webkit webview.
 func NewWebView() (*WebView, error) {
 	w := C.webkit_web_view_new()
 	if w == nil {
-		return nil, nilPtrErr
+		return nil, errNilPtr
 	}
 	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(w))}
 	webView := wrapWebView(obj)
@@ -35,7 +35,7 @@ func NewWebView() (*WebView, error) {
 }
 
 func wrapWebView(obj *glib.Object) *WebView {
-	return &WebView{gtk.Widget{glib.InitiallyUnowned{obj}}}
+	return &WebView{gtk.Container{gtk.Widget{glib.InitiallyUnowned{obj}}}}
 }
 
 // LoadURI requests loading of the speicified URI string.
@@ -46,20 +46,23 @@ func (w *WebView) LoadURI(uri string) {
 	C.webkit_web_view_load_uri(webViewPtr, cURI)
 }
 
+// IsLoading checks if a WebView is currently loading.
 func (w *WebView) IsLoading() bool {
 	webViewPtr := (*C.WebKitWebView)(unsafe.Pointer(w.Native()))
 	if C.webkit_web_view_is_loading(webViewPtr) != 0 {
 		return true
-	} else {
-		return false
 	}
+	return false
 }
 
+// Reload request the WebView to reload.
 func (w *WebView) Reload() {
 	webViewPtr := (*C.WebKitWebView)(unsafe.Pointer(w.Native()))
 	C.webkit_web_view_reload(webViewPtr)
 }
 
+// GetEstimatedLoadProgress gets an estimation for the progress of a load
+// operation.
 func (w *WebView) GetEstimatedLoadProgress() float64 {
 	webViewPtr := (*C.WebKitWebView)(unsafe.Pointer(w.Native()))
 	return float64(C.webkit_web_view_get_estimated_load_progress(webViewPtr))

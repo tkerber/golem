@@ -1,4 +1,4 @@
-# `golem` web browser
+# golem web browser
 
 ## Naming
 
