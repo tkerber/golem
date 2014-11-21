@@ -1,2 +1,7 @@
 # Vim swp files
 *.swp
+# C object files
+*.o
+*.so
+# The golem executable
+/golem

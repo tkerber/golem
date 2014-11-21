@@ -5,40 +5,34 @@ package main
 import "C"
 import "github.com/conformal/gotk3/gtk"
 import "github.com/conformal/gotk3/gdk"
-import "github.com/conformal/gotk3/glib"
-import "github.com/tkerber/golem/webkit"
 import "github.com/tkerber/golem/cmd"
+import "github.com/tkerber/golem/ui"
 import "fmt"
 import "os"
-import "log"
 
 // command line argument.
 func main() {
-	if len(os.Args) != 2 {
+	if len(os.Args) == 2 && os.Args[1] == "-h" || os.Args[1] == "--help" {
 		usage()
 		return
 	}
 
-	cmdHandler := &cmd.Handler{
-		make(chan uint),
-		make(chan bool),
-		make(chan cmd.Instruction, 8),
-		make(chan string, 8),
+	gtk.Init(nil)
+
+	ui, err := ui.NewUI()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to initialize UI: %v", err))
 	}
+
+	cmdHandler := cmd.NewHandler(ui)
 
 	go cmdHandler.Run()
 
-	gtk.Init(nil)
-
-	win, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
-	if err != nil {
-		panic(fmt.Sprintf("Unable to create window: %v", err))
+	if len(os.Args) > 1 {
+		cmdHandler.RunCmd("open " + os.Args[1])
 	}
-	win.SetTitle("Golem")
-	win.Connect("destroy", func() {
-		gtk.MainQuit()
-	})
-	win.Connect("key-press-event", func(w *gtk.Window, e *gdk.Event) bool {
+
+	ui.Window.Connect("key-press-event", func(w *gtk.Window, e *gdk.Event) bool {
 		// This conversion *shouldn't* be unsafe, BUT we really don't want
 		// crashes here. TODO
 		e2 := gdk.EventKey{e}
@@ -46,61 +40,11 @@ func main() {
 		return <-cmdHandler.KeyPressSwallowChan
 	})
 
-	webView, err := webkit.NewWebView()
-	if err != nil {
-		panic(fmt.Sprintf("Unable to create webview: %v", err))
-	}
-
-	webView.LoadURI(os.Args[1])
-
-	statusBar, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
-	if err != nil {
-		panic(fmt.Sprintf("Unable to create UI box: %v", err))
-	}
-
-	cmdStatus, err := gtk.LabelNew("")
-	if err != nil {
-		panic(fmt.Sprintf("Unable to create status label: %v", err))
-	}
-	//cmdStatus.SetUseMarkup(true)
-	cmdStatus.OverrideFont("monospace")
-
-	statusBar.PackStart(cmdStatus, false, false, 0)
-
-	box, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 0)
-	if err != nil {
-		panic(fmt.Sprintf("Unable to create UI box: %v", err))
-	}
-
-	box.PackStart(webView, true, true, 0)
-	box.PackStart(statusBar, false, false, 0)
-	win.Add(box)
-
-	win.SetDefaultSize(800, 600)
-	win.ShowAll()
-
-	_, err = glib.IdleAdd(func() bool {
-		select {
-		case i := <-cmdHandler.InstructionChan:
-			err := i(webView)
-			if err != nil {
-				log.Printf("Command failed to execute: %v", err)
-			}
-		case s := <-cmdHandler.StatusChan:
-			cmdStatus.SetLabel(s)
-		// Very important so that this function doesn't block (and cause a
-		// deadlock)
-		default:
-		}
-		return true
-	})
-	if err != nil {
-		panic("Failed to attach to glib event loop.")
-	}
+	ui.Window.ShowAll()
 
 	gtk.Main()
 }
 
 func usage() {
-	fmt.Printf("Usage: golem URI\n")
+	fmt.Printf("Usage: golem [URI]\n")
 }

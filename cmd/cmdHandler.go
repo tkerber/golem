@@ -3,11 +3,8 @@ package cmd
 import "regexp"
 import "strings"
 import "log"
-
-//import "fmt"
 import "github.com/tkerber/golem/webkit"
-
-//import "github.com/conformal/gotk3/gtk"
+import "github.com/tkerber/golem/ui"
 
 // A Handler is a collection of cannels golem requires to communicate with
 // the Cmd routine.
@@ -19,9 +16,18 @@ type Handler struct {
 	KeyPressSwallowChan chan bool
 	// Channel through which the CmdHandler passes final Instruction objects
 	// to the main thread.
-	InstructionChan chan Instruction
+	//InstructionChan chan Instruction
 	// Channel through which to pass updates to the status bar.
-	StatusChan chan string
+	//StatusChan chan string
+
+	// The user interface associated with this command handler
+	UI *ui.UI
+	// The currect command string
+	cmdStr string
+	// The currect state
+	state cmdState
+	// The current subtree which is being mapped
+	mappingTree *mappingTree
 }
 
 // An Instruction is a function to be called by the main event loop.
@@ -46,17 +52,25 @@ var rootMappingTree = compileMappingTree(map[string]string{
 	"command": "_enter_command_mode",
 })
 
+func NewHandler(ui *ui.UI) *Handler {
+	return &Handler{
+		make(chan uint),
+		make(chan bool),
+		ui,
+		"",
+		normalMode,
+		rootMappingTree,
+	}
+}
+
 // Run runs the command handler, which listens for keypresses and converts
 // them into instructions for golem.
 func (c *Handler) Run() {
-	cmdStr := ""
-	state := normalMode
-	mapTreePos := rootMappingTree
 	for {
-		c.StatusChan <- cmdStr
+		c.UI.SetCmdStatus(c.cmdStr)
 		keycode := <-c.KeyPressHandle
 		//log.Printf("%v [%v]", keycode, KeyvalName(keycode))
-		switch state {
+		switch c.state {
 		case normalMode:
 			r := KeyvalToUnicode(keycode)
 			if r != 0 {
@@ -64,45 +78,39 @@ func (c *Handler) Run() {
 				if ok {
 					cmd, ok := subtree.command()
 					if ok {
-						c.runCmd(cmd, &cmdStr, &state)
+						c.RunCmd(cmd)
 					} else {
-						mapTreePos = subtree
-						state = partialMappingMode
-						cmdStr = string(r)
+						c.mappingTree = subtree
+						c.state = partialMappingMode
+						c.cmdStr = string(r)
 					}
 					c.KeyPressSwallowChan <- true
 					continue
 				}
 			}
-			//if keycode == colonKey {
-			//	c.KeyPressSwallowChan <- true
-			//	cmdStr += ":"
-			//	state = commandMode
-			//	continue
-			//}
 			c.KeyPressSwallowChan <- false
 		case commandMode:
 			c.KeyPressSwallowChan <- true
 			switch keycode {
 			case returnKey:
-				cmd := cmdStr[1:]
+				cmd := c.cmdStr[1:]
 				// We don't fallthrough to do that, as the command must be
 				// run *after* the mode set.
-				cmdStr = ""
-				state = normalMode
-				c.runCmd(cmd, &cmdStr, &state)
+				c.cmdStr = ""
+				c.state = normalMode
+				c.RunCmd(cmd)
 			case escapeKey:
-				cmdStr = ""
-				state = normalMode
+				c.cmdStr = ""
+				c.state = normalMode
 			case backSpaceKey:
-				cmdStr = cmdStr[:len(cmdStr)-1]
-				if len(cmdStr) == 0 {
-					state = normalMode
+				c.cmdStr = c.cmdStr[:len(c.cmdStr)-1]
+				if len(c.cmdStr) == 0 {
+					c.state = normalMode
 				}
 			default:
 				r := KeyvalToUnicode(keycode)
 				if r != 0 {
-					cmdStr += string(r)
+					c.cmdStr += string(r)
 				}
 			}
 		case partialMappingMode:
@@ -110,16 +118,16 @@ func (c *Handler) Run() {
 			// start with other commands properly (eg. k, kk)
 			r := KeyvalToUnicode(keycode)
 			if r != 0 {
-				subtree, ok := mapTreePos.subtree(r)
+				subtree, ok := c.mappingTree.subtree(r)
 				if ok {
 					cmd, ok := subtree.command()
 					if ok {
-						cmdStr = ""
-						state = normalMode
-						c.runCmd(cmd, &cmdStr, &state)
+						c.cmdStr = ""
+						c.state = normalMode
+						c.RunCmd(cmd)
 					} else {
-						mapTreePos = subtree
-						cmdStr += string(r)
+						c.mappingTree = subtree
+						c.cmdStr += string(r)
 					}
 					c.KeyPressSwallowChan <- true
 					continue
@@ -128,22 +136,22 @@ func (c *Handler) Run() {
 			// If no matching mappings are available, don't swallow the
 			// character and silently break off partialMappingMode.
 			c.KeyPressSwallowChan <- false
-			cmdStr = ""
-			state = normalMode
+			c.cmdStr = ""
+			c.state = normalMode
 			// TODO
 		case insertMode:
 			// Swallow *no* characters. Break off insert mode for *only*
 			// the escape character.
 			c.KeyPressSwallowChan <- false
 			if keycode == escapeKey {
-				state = normalMode
+				c.state = normalMode
 			}
 		}
 	}
 }
 
-// runCmd runs a command.
-func (c *Handler) runCmd(cmd string, cmdStr *string, state *cmdState) {
+// RunCmd runs a command.
+func (c *Handler) RunCmd(cmd string) {
 	splitCmd := regexp.MustCompile("\\s+").Split(cmd, 2)
 	switch splitCmd[0] {
 	case "open":
@@ -156,15 +164,9 @@ func (c *Handler) runCmd(cmd string, cmdStr *string, state *cmdState) {
 			strings.HasPrefix(uri, "https://")) {
 			uri = "http://" + uri
 		}
-		c.InstructionChan <- func(w *webkit.WebView) error {
-			w.LoadURI(uri)
-			return nil
-		}
+		c.UI.WebView.LoadURI(uri)
 	case "reload":
-		c.InstructionChan <- func(w *webkit.WebView) error {
-			w.Reload()
-			return nil
-		}
+		c.UI.WebView.Reload()
 	case "mode":
 		if len(splitCmd) < 2 {
 			log.Printf("Not enough arguments for command: \"%v\"", cmd)
@@ -172,22 +174,24 @@ func (c *Handler) runCmd(cmd string, cmdStr *string, state *cmdState) {
 		}
 		switch splitCmd[1] {
 		case "normal":
-			*state = normalMode
+			c.state = normalMode
 		case "insert":
-			*state = insertMode
+			c.state = insertMode
 		default:
 			log.Printf("Attempted to access invalid mode: \"%v\"", splitCmd[1])
+			return
 		}
+		c.cmdStr = ""
 	case "_enter_command_mode":
-		*cmdStr = ":"
-		*state = commandMode
+		c.cmdStr = ":"
+		c.state = commandMode
 	case "_start_command":
 		if len(splitCmd) < 2 {
 			log.Printf("Not enough arguments for command: \"%v\"", cmd)
 			return
 		}
-		*cmdStr = ":" + splitCmd[1]
-		*state = commandMode
+		c.cmdStr = ":" + splitCmd[1]
+		c.state = commandMode
 	case "scroll":
 		if len(splitCmd) < 2 {
 			log.Printf("Not enough arguments for command: \"%v\"", cmd)
@@ -205,31 +209,28 @@ func (c *Handler) runCmd(cmd string, cmdStr *string, state *cmdState) {
 			return
 		}
 		if vDelta != 0.0 {
-			c.InstructionChan <- func(w *webkit.WebView) error {
-				// TODO This will take some doing.
-				// See http://stackoverflow.com/questions/21781868/scrolling-a-webkit2-webkit-window-in-gtk3
-				// Problem is getting an instance of the DOM; but we *do* need
-				// this. Create C WebExtension & figure out how to access it
-				// from go (callbacks?)
+			// TODO This will take some doing.
+			// See http://stackoverflow.com/questions/21781868/scrolling-a-webkit2-webkit-window-in-gtk3
+			// Problem is getting an instance of the DOM; but we *do* need
+			// this. Create C WebExtension & figure out how to access it
+			// from go (callbacks?)
 
-				//log.Printf("%v", w.GetFocusChild())
-				//var c *gtk.Container = w
-				//var adj gtk.Adjustment
-				//for {
-				//	// This is ugly. fix it TODO
-				//	adj = c.GetFocusVAdjustment()
-				//	if adj == nil {
-				//		c = c.GetFocusChild()
-				//		if c == nil {
-				//			return fmt.Errorf("No scrollable field found.")
-				//		}
-				//	}
-				//}
-				//log.Printf("%v", adj)
-				//adj.Set("value", adj.GetDouble("value")+vDelta)
-				//return nil
-				return nil
-			}
+			//log.Printf("%v", w.GetFocusChild())
+			//var c *gtk.Container = w
+			//var adj gtk.Adjustment
+			//for {
+			//	// This is ugly. fix it TODO
+			//	adj = c.GetFocusVAdjustment()
+			//	if adj == nil {
+			//		c = c.GetFocusChild()
+			//		if c == nil {
+			//			return fmt.Errorf("No scrollable field found.")
+			//		}
+			//	}
+			//}
+			//log.Printf("%v", adj)
+			//adj.Set("value", adj.GetDouble("value")+vDelta)
+			//return nil
 		}
 	default:
 		log.Printf("Unknown command: \"%v\"", cmd)
