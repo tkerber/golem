@@ -12,7 +12,7 @@ import "os"
 
 // command line argument.
 func main() {
-	if len(os.Args) == 2 && os.Args[1] == "-h" || os.Args[1] == "--help" {
+	if len(os.Args) == 2 && (os.Args[1] == "-h" || os.Args[1] == "--help") {
 		usage()
 		return
 	}
