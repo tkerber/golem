@@ -36,7 +36,7 @@ web_page_created_callback(WebKitWebExtension *extension,
                           gpointer            user_data)
 {
     gchar *dir = getenv("GOLEM_TMP");
-    // create fifo, at $GOLEM_TMP/webkitfifo
+    // Create fifo, at $GOLEM_TMP/webkitfifo
     gchar *fifo_path = g_build_path(G_DIR_SEPARATOR_S, dir, "webkitfifo", NULL);
     struct stat sb;
     int err = stat(fifo_path, &sb);
@@ -44,6 +44,8 @@ web_page_created_callback(WebKitWebExtension *extension,
         g_printerr("Failed to create fifo: %s - Non-fifo file already exists.\n", fifo_path);
         exit(1);
     } else if(err && errno == ENOENT) {
+        // File permissions: rw-------
+        // As this is an IPC pipe, other users should have nothing to say here.
         err = mkfifo(fifo_path, S_IRUSR | S_IWUSR);
         if(err) {
             g_printerr("Failed to create fifo: %s\n", fifo_path);
@@ -53,8 +55,10 @@ web_page_created_callback(WebKitWebExtension *extension,
         g_printerr("Failed to create fifo: %s - Failed to stat.\n", fifo_path);
         exit(1);
     }
-    // create listener to said fifo
+    // Create GIOChannel and watch it for available reads.
     GError *g_err = NULL;
+    // We need to open the fifo in nonblocking mode, otherwise the browser
+    // freezes until a command is sent.
     int fd = open(fifo_path, O_RDONLY | O_NONBLOCK);
     free(fifo_path);
     if(fd == -1) {
@@ -62,6 +66,8 @@ web_page_created_callback(WebKitWebExtension *extension,
         exit(1);
     }
     GIOChannel *c = g_io_channel_unix_new(fd);
+    // As we communicate by json, we can null seperate each message.
+    // (Just in case several come in at the same time)
     g_io_channel_set_line_term(c, "\0", -1);
     g_io_add_watch(c, G_IO_IN, read_fifo, web_page);
 }
