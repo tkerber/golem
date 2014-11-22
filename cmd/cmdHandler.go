@@ -5,6 +5,7 @@ import "strings"
 import "log"
 import "github.com/tkerber/golem/webkit"
 import "github.com/tkerber/golem/ui"
+import "github.com/tkerber/golem/ipc"
 
 // A Handler is a collection of cannels golem requires to communicate with
 // the Cmd routine.
@@ -44,7 +45,7 @@ const (
 
 var rootMappingTree = compileMappingTree(map[string]string{
 	":":       "_enter_command_mode",
-	"i":       "mode insert_mode",
+	"i":       "mode insert",
 	"o":       "_start_command open ",
 	"r":       "reload",
 	"k":       "scroll down",
@@ -197,40 +198,28 @@ func (c *Handler) RunCmd(cmd string) {
 			log.Printf("Not enough arguments for command: \"%v\"", cmd)
 			return
 		}
-		vDelta := 0.0
-		//hDelta := 0.0
+		vDelta := 0
+		hDelta := 0
 		switch splitCmd[1] {
 		case "up":
-			vDelta = 10
+			vDelta = -40
 		case "down":
-			vDelta = -10
+			vDelta = 40
 		default:
 			log.Printf("Unknown scroll direction: \"%v\"", splitCmd[1])
 			return
 		}
 		if vDelta != 0.0 {
-			// TODO This will take some doing.
-			// See http://stackoverflow.com/questions/21781868/scrolling-a-webkit2-webkit-window-in-gtk3
-			// Problem is getting an instance of the DOM; but we *do* need
-			// this. Create C WebExtension & figure out how to access it
-			// from go (callbacks?)
-
-			//log.Printf("%v", w.GetFocusChild())
-			//var c *gtk.Container = w
-			//var adj gtk.Adjustment
-			//for {
-			//	// This is ugly. fix it TODO
-			//	adj = c.GetFocusVAdjustment()
-			//	if adj == nil {
-			//		c = c.GetFocusChild()
-			//		if c == nil {
-			//			return fmt.Errorf("No scrollable field found.")
-			//		}
-			//	}
-			//}
-			//log.Printf("%v", adj)
-			//adj.Set("value", adj.GetDouble("value")+vDelta)
-			//return nil
+			err := ipc.ScrollDown(vDelta)
+			if err != nil {
+				log.Printf("Failed to initiate IPC for scrolling: \"%v\"", err)
+			}
+		}
+		if hDelta != 0.0 {
+			err := ipc.ScrollRight(hDelta)
+			if err != nil {
+				log.Printf("Failed to initiate IPC for scrolling: \"%v\"", err)
+			}
 		}
 	default:
 		log.Printf("Unknown command: \"%v\"", cmd)

@@ -9,9 +9,17 @@ import "github.com/tkerber/golem/cmd"
 import "github.com/tkerber/golem/ui"
 import "fmt"
 import "os"
+import "io/ioutil"
 
-// command line argument.
 func main() {
+
+	tmpDir, err := ioutil.TempDir(os.TempDir(), "golem")
+	if err != nil {
+		panic(fmt.Sprintf("Failed to allocated temporary directory: %v", err))
+	}
+	os.Setenv("GOLEM_TMP", tmpDir)
+	defer os.RemoveAll(tmpDir)
+
 	if len(os.Args) == 2 && (os.Args[1] == "-h" || os.Args[1] == "--help") {
 		usage()
 		return

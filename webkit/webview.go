@@ -15,10 +15,33 @@ import "github.com/conformal/gotk3/gtk"
 import "github.com/conformal/gotk3/glib"
 import "unsafe"
 import "runtime"
+import "go/build"
+import "path/filepath"
+import "os"
 
 // WebView represents a webkit webview widget.
 type WebView struct {
 	gtk.Container
+}
+
+func init() {
+	context := C.webkit_web_context_get_default()
+	// TODO figure out a better way to reference this. (i.e. without the source)
+	extenPath := ""
+	for src := range build.Default.SrcDirs() {
+		p := filepath.Join(src, "github.com", "tkerber", "golem", "web_extension")
+		if _, err := os.Stat(p); err != nil {
+			extenPath = p
+			break
+		}
+	}
+	if extenPath == "" {
+		panic("Failed to find source files!")
+	}
+
+	cstr := C.CString(extenPath)
+	defer C.free(unsafe.Pointer(cstr))
+	C.webkit_web_context_set_web_extensions_directory(context, (*C.gchar)(cstr))
 }
 
 // NewWebView creates and returns a new webkit webview.
