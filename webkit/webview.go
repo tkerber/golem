@@ -18,6 +18,7 @@ import "runtime"
 import "go/build"
 import "path/filepath"
 import "os"
+import "log"
 
 // WebView represents a webkit webview widget.
 type WebView struct {
@@ -28,9 +29,10 @@ func init() {
 	context := C.webkit_web_context_get_default()
 	// TODO figure out a better way to reference this. (i.e. without the source)
 	extenPath := ""
-	for src := range build.Default.SrcDirs() {
+	for _, src := range build.Default.SrcDirs() {
 		p := filepath.Join(src, "github.com", "tkerber", "golem", "web_extension")
-		if _, err := os.Stat(p); err != nil {
+		log.Printf(p)
+		if _, err := os.Stat(p); err == nil {
 			extenPath = p
 			break
 		}
@@ -38,6 +40,7 @@ func init() {
 	if extenPath == "" {
 		panic("Failed to find source files!")
 	}
+	print(extenPath)
 
 	cstr := C.CString(extenPath)
 	defer C.free(unsafe.Pointer(cstr))
@@ -89,4 +92,11 @@ func (w *WebView) Reload() {
 func (w *WebView) GetEstimatedLoadProgress() float64 {
 	webViewPtr := (*C.WebKitWebView)(unsafe.Pointer(w.Native()))
 	return float64(C.webkit_web_view_get_estimated_load_progress(webViewPtr))
+}
+
+// GetTitle gets the webviews current title.
+func (w *WebView) GetTitle() string {
+	webViewPtr := (*C.WebKitWebView)(unsafe.Pointer(w.Native()))
+	cstr := C.webkit_web_view_get_title(webViewPtr)
+	return C.GoString((*C.char)(cstr))
 }

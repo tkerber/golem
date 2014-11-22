@@ -30,6 +30,9 @@ func NewUI() (*UI, error) {
 	if err != nil {
 		return nil, err
 	}
+	webView.Connect("notify::title", func() {
+		win.SetTitle(webView.GetTitle() + " - Golem")
+	})
 
 	statusBar, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
 	if err != nil {
