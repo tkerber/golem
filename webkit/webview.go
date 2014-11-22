@@ -64,18 +64,20 @@ func wrapWebView(obj *glib.Object) *WebView {
 	return &WebView{gtk.Container{gtk.Widget{glib.InitiallyUnowned{obj}}}}
 }
 
+func (w *WebView) native() *C.WebKitWebView {
+	return (*C.WebKitWebView)(unsafe.Pointer(w.Native()))
+}
+
 // LoadURI requests loading of the speicified URI string.
 func (w *WebView) LoadURI(uri string) {
 	cURI := (*C.gchar)(C.CString(uri))
 	defer C.free(unsafe.Pointer(cURI))
-	webViewPtr := (*C.WebKitWebView)(unsafe.Pointer(w.Native()))
-	C.webkit_web_view_load_uri(webViewPtr, cURI)
+	C.webkit_web_view_load_uri(w.native(), cURI)
 }
 
 // IsLoading checks if a WebView is currently loading.
 func (w *WebView) IsLoading() bool {
-	webViewPtr := (*C.WebKitWebView)(unsafe.Pointer(w.Native()))
-	if C.webkit_web_view_is_loading(webViewPtr) != 0 {
+	if C.webkit_web_view_is_loading(w.native()) != 0 {
 		return true
 	}
 	return false
@@ -83,20 +85,27 @@ func (w *WebView) IsLoading() bool {
 
 // Reload request the WebView to reload.
 func (w *WebView) Reload() {
-	webViewPtr := (*C.WebKitWebView)(unsafe.Pointer(w.Native()))
-	C.webkit_web_view_reload(webViewPtr)
+	C.webkit_web_view_reload(w.native())
 }
 
 // GetEstimatedLoadProgress gets an estimation for the progress of a load
 // operation.
 func (w *WebView) GetEstimatedLoadProgress() float64 {
-	webViewPtr := (*C.WebKitWebView)(unsafe.Pointer(w.Native()))
-	return float64(C.webkit_web_view_get_estimated_load_progress(webViewPtr))
+	return float64(C.webkit_web_view_get_estimated_load_progress(w.native()))
 }
 
 // GetTitle gets the webviews current title.
 func (w *WebView) GetTitle() string {
-	webViewPtr := (*C.WebKitWebView)(unsafe.Pointer(w.Native()))
-	cstr := C.webkit_web_view_get_title(webViewPtr)
+	cstr := C.webkit_web_view_get_title(w.native())
 	return C.GoString((*C.char)(cstr))
+}
+
+// GoBack goes back one step in browser history.
+func (w *WebView) GoBack() {
+	C.webkit_web_view_go_back(w.native())
+}
+
+// GoForward goes forward one step in browser history.
+func (w *WebView) GoForward() {
+	C.webkit_web_view_go_forward(w.native())
 }

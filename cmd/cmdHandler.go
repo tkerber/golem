@@ -3,6 +3,7 @@ package cmd
 import "regexp"
 import "strings"
 import "log"
+import "github.com/conformal/gotk3/gtk"
 import "github.com/tkerber/golem/webkit"
 import "github.com/tkerber/golem/ui"
 import "github.com/tkerber/golem/ipc"
@@ -15,12 +16,6 @@ type Handler struct {
 	// Channel through which the CmdHandler returns whether to swallow the
 	// keypress or not
 	KeyPressSwallowChan chan bool
-	// Channel through which the CmdHandler passes final Instruction objects
-	// to the main thread.
-	//InstructionChan chan Instruction
-	// Channel through which to pass updates to the status bar.
-	//StatusChan chan string
-
 	// The user interface associated with this command handler
 	UI *ui.UI
 	// The currect command string
@@ -44,13 +39,14 @@ const (
 )
 
 var rootMappingTree = compileMappingTree(map[string]string{
-	":":       "_enter_command_mode",
-	"i":       "mode insert",
-	"o":       "_start_command open ",
-	"r":       "reload",
-	"k":       "scroll down",
-	"l":       "scroll up",
-	"command": "_enter_command_mode",
+	":":  "_enter_command_mode",
+	"i":  "mode insert",
+	"o":  "_start_command open ",
+	"r":  "reload",
+	"k":  "scroll down",
+	"l":  "scroll up",
+	",j": "back",
+	",;": "forward",
 })
 
 func NewHandler(ui *ui.UI) *Handler {
@@ -64,11 +60,31 @@ func NewHandler(ui *ui.UI) *Handler {
 	}
 }
 
+func (c *Handler) setState(s cmdState) {
+	c.state = s
+	c.updateStatusBar()
+}
+
+func (c *Handler) updateStatusBar() {
+	var status string
+	switch c.state {
+	case normalMode:
+		status = ""
+	case commandMode:
+		status = ":" + c.cmdStr
+	case partialMappingMode:
+		status = "[" + c.cmdStr + "]"
+	case insertMode:
+		status = "--INSERT--"
+	}
+	c.UI.SetCmdStatus(status)
+}
+
 // Run runs the command handler, which listens for keypresses and converts
 // them into instructions for golem.
 func (c *Handler) Run() {
 	for {
-		c.UI.SetCmdStatus(c.cmdStr)
+		c.updateStatusBar()
 		keycode := <-c.KeyPressHandle
 		//log.Printf("%v [%v]", keycode, KeyvalName(keycode))
 		switch c.state {
@@ -82,7 +98,7 @@ func (c *Handler) Run() {
 						c.RunCmd(cmd)
 					} else {
 						c.mappingTree = subtree
-						c.state = partialMappingMode
+						c.setState(partialMappingMode)
 						c.cmdStr = string(r)
 					}
 					c.KeyPressSwallowChan <- true
@@ -94,19 +110,19 @@ func (c *Handler) Run() {
 			c.KeyPressSwallowChan <- true
 			switch keycode {
 			case returnKey:
-				cmd := c.cmdStr[1:]
+				cmd := c.cmdStr
 				// We don't fallthrough to do that, as the command must be
 				// run *after* the mode set.
 				c.cmdStr = ""
-				c.state = normalMode
+				c.setState(normalMode)
 				c.RunCmd(cmd)
 			case escapeKey:
 				c.cmdStr = ""
-				c.state = normalMode
+				c.setState(normalMode)
 			case backSpaceKey:
 				c.cmdStr = c.cmdStr[:len(c.cmdStr)-1]
 				if len(c.cmdStr) == 0 {
-					c.state = normalMode
+					c.setState(normalMode)
 				}
 			default:
 				r := KeyvalToUnicode(keycode)
@@ -124,7 +140,7 @@ func (c *Handler) Run() {
 					cmd, ok := subtree.command()
 					if ok {
 						c.cmdStr = ""
-						c.state = normalMode
+						c.setState(normalMode)
 						c.RunCmd(cmd)
 					} else {
 						c.mappingTree = subtree
@@ -138,14 +154,14 @@ func (c *Handler) Run() {
 			// character and silently break off partialMappingMode.
 			c.KeyPressSwallowChan <- false
 			c.cmdStr = ""
-			c.state = normalMode
+			c.setState(normalMode)
 			// TODO
 		case insertMode:
 			// Swallow *no* characters. Break off insert mode for *only*
 			// the escape character.
 			c.KeyPressSwallowChan <- false
 			if keycode == escapeKey {
-				c.state = normalMode
+				c.setState(normalMode)
 			}
 		}
 	}
@@ -175,24 +191,24 @@ func (c *Handler) RunCmd(cmd string) {
 		}
 		switch splitCmd[1] {
 		case "normal":
-			c.state = normalMode
+			c.setState(normalMode)
 		case "insert":
-			c.state = insertMode
+			c.setState(insertMode)
 		default:
 			log.Printf("Attempted to access invalid mode: \"%v\"", splitCmd[1])
 			return
 		}
 		c.cmdStr = ""
 	case "_enter_command_mode":
-		c.cmdStr = ":"
-		c.state = commandMode
+		c.cmdStr = ""
+		c.setState(commandMode)
 	case "_start_command":
 		if len(splitCmd) < 2 {
 			log.Printf("Not enough arguments for command: \"%v\"", cmd)
 			return
 		}
-		c.cmdStr = ":" + splitCmd[1]
-		c.state = commandMode
+		c.cmdStr = splitCmd[1]
+		c.setState(commandMode)
 	case "scroll":
 		if len(splitCmd) < 2 {
 			log.Printf("Not enough arguments for command: \"%v\"", cmd)
@@ -221,6 +237,12 @@ func (c *Handler) RunCmd(cmd string) {
 				log.Printf("Failed to initiate IPC for scrolling: \"%v\"", err)
 			}
 		}
+	case "back":
+		c.UI.WebView.GoBack()
+	case "forward":
+		c.UI.WebView.GoForward()
+	case "quit":
+		gtk.MainQuit()
 	default:
 		log.Printf("Unknown command: \"%v\"", cmd)
 	}
