@@ -2,8 +2,17 @@ package ipc
 
 import "os"
 import "path/filepath"
+import "encoding/json"
 
-func ScrollDown(vDelta int) error {
+type scrollInstr struct {
+	Instruction string `json:"instruction"`
+	Direction   string `json:"direction"`
+	Delta       int    `json:"delta"`
+}
+
+type instruction interface{}
+
+func issueInstruction(instr instruction) error {
 	// TODO extract into variable somewhere.
 	tmpDir := os.Getenv("GOLEM_TMP")
 	f, err := os.OpenFile(filepath.Join(tmpDir, "webkitfifo"),
@@ -12,20 +21,22 @@ func ScrollDown(vDelta int) error {
 		return err
 	}
 	defer f.Close()
-	if vDelta > 0 {
-		_, err = f.Write([]byte{1, 0})
-	} else {
-		_, err = f.Write([]byte{2, 0})
-	}
+
+	json, err := json.Marshal(instr)
 	if err != nil {
 		return err
 	}
+
+	f.Write(json)
+	// We will always add a null byte to seperate instructions.
+	f.Write([]byte{0})
 	return nil
-	// open fifo
-	// write shit
+}
+
+func ScrollDown(vDelta int) error {
+	return issueInstruction(scrollInstr{"scroll", "vertical", vDelta})
 }
 
 func ScrollRight(hDelta int) error {
-	// TODO
-	return nil
+	return issueInstruction(scrollInstr{"scroll", "horizontal", hDelta})
 }
