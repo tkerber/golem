@@ -10,6 +10,10 @@ type scrollInstr struct {
 	Delta       int    `json:"delta"`
 }
 
+type singletonInstr struct {
+	Instrucion string `json:"instruction"`
+}
+
 type instruction interface{}
 
 func issueInstruction(instr instruction) error {
@@ -39,4 +43,12 @@ func ScrollDown(vDelta int) error {
 
 func ScrollRight(hDelta int) error {
 	return issueInstruction(scrollInstr{"scroll", "horizontal", hDelta})
+}
+
+func ScrollToTop() error {
+	return issueInstruction(singletonInstr{"scroll_top"})
+}
+
+func ScrollToBottom() error {
+	return issueInstruction(singletonInstr{"scroll_bottom"})
 }

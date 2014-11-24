@@ -43,8 +43,12 @@ var rootMappingTree = compileMappingTree(map[string]string{
 	"i":  "mode insert",
 	"o":  "_start_command open ",
 	"r":  "reload",
+	"gg": "scroll_to top",
+	"G":  "scroll_to bottom",
+	".j": "scroll left",
 	"k":  "scroll down",
 	"l":  "scroll up",
+	".;": "scroll right",
 	",j": "back",
 	",;": "forward",
 })
@@ -221,6 +225,10 @@ func (c *Handler) RunCmd(cmd string) {
 			vDelta = -40
 		case "down":
 			vDelta = 40
+		case "left":
+			hDelta = -40
+		case "right":
+			hDelta = 40
 		default:
 			log.Printf("Unknown scroll direction: \"%v\"", splitCmd[1])
 			return
@@ -236,6 +244,20 @@ func (c *Handler) RunCmd(cmd string) {
 			if err != nil {
 				log.Printf("Failed to initiate IPC for scrolling: \"%v\"", err)
 			}
+		}
+	case "scroll_to":
+		if len(splitCmd) < 2 {
+			log.Printf("Not enough arguments for command: \"%v\"", cmd)
+			return
+		}
+		switch splitCmd[1] {
+		case "top":
+			ipc.ScrollToTop()
+		case "bottom":
+			ipc.ScrollToBottom()
+		default:
+			log.Printf("Unknown scroll direction: \"%v\"", splitCmd[1])
+			return
 		}
 	case "back":
 		c.UI.WebView.GoBack()

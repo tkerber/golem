@@ -8,6 +8,8 @@
 #include <fcntl.h>
 
 static void scroll_by_delta(gpointer, gboolean, gint64);
+static void scroll_to_top(gpointer);
+static void scroll_to_bottom(gpointer);
 
 static gboolean
 read_fifo(GIOChannel *src, GIOCondition cond, gpointer web_page_p)
@@ -93,6 +95,10 @@ read_fifo(GIOChannel *src, GIOCondition cond, gpointer web_page_p)
         delta = json_node_get_int(deltaNode);
         
         scroll_by_delta(web_page_p, vertical, delta);
+    } else if(!strcmp(instr, "scroll_top")) {
+        scroll_to_top(web_page_p);
+    } else if(!strcmp(instr, "scroll_bottom")) {
+        scroll_to_bottom(web_page_p);
     }
     
     // clean up.
@@ -114,6 +120,24 @@ scroll_by_delta(gpointer web_page_p, gboolean vertical, gint64 delta)
     } else {
         webkit_dom_element_set_scroll_left(e, webkit_dom_element_get_scroll_left(e) + delta);
     }
+}
+
+static void
+scroll_to_top(gpointer web_page_p)
+{
+    WebKitWebPage *web_page = web_page_p;
+    WebKitDOMDocument *dom = webkit_web_page_get_dom_document(web_page);
+    WebKitDOMElement *e = webkit_dom_document_get_active_element(dom);
+    webkit_dom_element_set_scroll_top(e, 0);
+}
+
+static void
+scroll_to_bottom(gpointer web_page_p)
+{
+    WebKitWebPage *web_page = web_page_p;
+    WebKitDOMDocument *dom = webkit_web_page_get_dom_document(web_page);
+    WebKitDOMElement *e = webkit_dom_document_get_active_element(dom);
+    webkit_dom_element_set_scroll_top(e, webkit_dom_element_get_scroll_height(e));
 }
 
 static void
