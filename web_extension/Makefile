@@ -6,7 +6,7 @@ LFLAGS += `pkg-config --libs json-glib-1.0`
 %.o: %.c
 	$(CC) -c -fPIC -o $@ $< $(CFLAGS)
 
-libgolem.so: web_extension.o
+libgolem.so: libgolem.o
 	$(CC) -shared -o $@ $^ $(LFLAGS)
 
 .PHONY: clean
