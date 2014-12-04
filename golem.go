@@ -4,6 +4,7 @@ package main
 // #include <glib.h>
 import "C"
 import "github.com/conformal/gotk3/gtk"
+
 import "github.com/conformal/gotk3/gdk"
 import (
 	"github.com/tkerber/golem/cfg"

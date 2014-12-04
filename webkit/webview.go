@@ -105,12 +105,35 @@ func (w *WebView) GetTitle() string {
 	return C.GoString((*C.char)(cstr))
 }
 
+func (w *WebView) GetURI() string {
+	cstr := C.webkit_web_view_get_uri(w.native())
+	return C.GoString((*C.char)(cstr))
+}
+
+func (w *WebView) CanGoBack() bool {
+	return C.webkit_web_view_can_go_back(w.native()) != 0
+}
+
 // GoBack goes back one step in browser history.
 func (w *WebView) GoBack() {
 	C.webkit_web_view_go_back(w.native())
 }
 
+func (w *WebView) CanGoForward() bool {
+	return C.webkit_web_view_can_go_forward(w.native()) != 0
+}
+
 // GoForward goes forward one step in browser history.
 func (w *WebView) GoForward() {
 	C.webkit_web_view_go_forward(w.native())
+}
+
+// GetBackForwardList gets the views list of back/forward steps in history.
+//
+// Note that this call is fairly expensive and takes several conversions.
+// Keep a reference if you use it more often.
+func (w *WebView) GetBackForwardList() *BackForwardList {
+	bfl := C.webkit_web_view_get_back_forward_list(w.native())
+	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(bfl))}
+	return &BackForwardList{obj}
 }

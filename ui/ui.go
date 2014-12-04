@@ -5,7 +5,11 @@
 // considered "ui".
 package ui
 
-import "github.com/conformal/gotk3/gtk"
+import (
+	"fmt"
+
+	"github.com/conformal/gotk3/gtk"
+)
 
 import "github.com/tkerber/golem/webkit"
 
@@ -31,9 +35,6 @@ func NewUI() (*UI, error) {
 	if err != nil {
 		return nil, err
 	}
-	webView.Connect("notify::title", func() {
-		win.SetTitle(webView.GetTitle() + " - Golem")
-	})
 
 	statusBar, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
 	if err != nil {
@@ -46,7 +47,14 @@ func NewUI() (*UI, error) {
 	}
 	cmdStatus.OverrideFont("monospace")
 
+	locationStatus, err := gtk.LabelNew("")
+	if err != nil {
+		return nil, err
+	}
+	locationStatus.OverrideFont("monospace")
+
 	statusBar.PackStart(cmdStatus, false, false, 0)
+	statusBar.PackEnd(locationStatus, false, false, 0)
 
 	box, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 0)
 	if err != nil {
@@ -57,14 +65,49 @@ func NewUI() (*UI, error) {
 	box.PackStart(statusBar, false, false, 0)
 	win.Add(box)
 
+	// TODO sensible default size. (Default to screen size?)
 	win.SetDefaultSize(800, 600)
 
-	return &UI{StatusBar{cmdStatus}, webView, win}, nil
+	ui := &UI{StatusBar{cmdStatus, locationStatus}, webView, win}
+
+	webView.Connect("notify::title", func() {
+		title := webView.GetTitle()
+		if title != "" {
+			win.SetTitle(fmt.Sprintf("%s - Golem", title))
+		} else {
+			win.SetTitle("Golem")
+		}
+	})
+	webView.Connect("notify::uri", func() {
+		ui.UpdateLocation()
+	})
+	bfl := webView.GetBackForwardList()
+	bfl.Connect("changed", func() {
+		ui.UpdateLocation()
+	})
+
+	return ui, nil
+}
+
+func (ui *UI) UpdateLocation() {
+	locStr := ui.WebView.GetURI()
+	backForward := ""
+	if ui.WebView.CanGoBack() {
+		backForward += "-"
+	}
+	if ui.WebView.CanGoForward() {
+		backForward += "+"
+	}
+	if backForward != "" {
+		locStr += " [" + backForward + "]"
+	}
+	ui.StatusBar.LocationStatus.SetLabel(locStr)
 }
 
 // StatusBar contains references to all significant status bar objects.
 type StatusBar struct {
-	CmdStatus *gtk.Label
+	CmdStatus      *gtk.Label
+	LocationStatus *gtk.Label
 }
 
 func (s *StatusBar) SetCmdStatus(label string) {
