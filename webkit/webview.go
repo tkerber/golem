@@ -18,7 +18,6 @@ import "runtime"
 import "go/build"
 import "path/filepath"
 import "os"
-import "log"
 
 // WebView represents a webkit webview widget.
 type WebView struct {
@@ -26,12 +25,10 @@ type WebView struct {
 }
 
 func init() {
-	context := C.webkit_web_context_get_default()
 	// TODO figure out a better way to reference this. (i.e. without the source)
 	extenPath := ""
 	for _, src := range build.Default.SrcDirs() {
 		p := filepath.Join(src, "github.com", "tkerber", "golem", "web_extension")
-		log.Printf(p)
 		if _, err := os.Stat(p); err == nil {
 			extenPath = p
 			break
@@ -40,16 +37,24 @@ func init() {
 	if extenPath == "" {
 		panic("Failed to find source files!")
 	}
-	print(extenPath)
 
-	cstr := C.CString(extenPath)
-	defer C.free(unsafe.Pointer(cstr))
-	C.webkit_web_context_set_web_extensions_directory(context, (*C.gchar)(cstr))
+	DefaultWebContext.SetWebExtensionsDirectory(extenPath)
+	// TODO this is temporary.
+	DefaultWebContext.RegisterURIScheme("golem", &golemSchemeHandler)
+}
+
+var golemSchemeHandler = func(req *URISchemeRequest) {
+	req.Finish([]byte("<html><head><title>Golem</title></head><body><h1>Golem Home Page</h1><p>And stuff.</p></body></html>"), "text/html")
 }
 
 // NewWebView creates and returns a new webkit webview.
 func NewWebView() (*WebView, error) {
-	w := C.webkit_web_view_new()
+	return NewWebViewWithContext(DefaultWebContext)
+}
+
+func NewWebViewWithContext(context *WebContext) (*WebView, error) {
+	w := C.webkit_web_view_new_with_context(
+		(*C.WebKitWebContext)(unsafe.Pointer(context.native)))
 	if w == nil {
 		return nil, errNilPtr
 	}
