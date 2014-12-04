@@ -1,10 +1,13 @@
 package cmd
 
 import "regexp"
-import "strings"
+
 import "log"
 import "github.com/conformal/gotk3/gtk"
-import "github.com/tkerber/golem/webkit"
+import (
+	"github.com/tkerber/golem/cfg"
+	"github.com/tkerber/golem/webkit"
+)
 import "github.com/tkerber/golem/ui"
 import "github.com/tkerber/golem/ipc"
 
@@ -24,6 +27,8 @@ type Handler struct {
 	state cmdState
 	// The current subtree which is being mapped
 	mappingTree *mappingTree
+	// The global settings
+	settings *cfg.Settings
 }
 
 // An Instruction is a function to be called by the main event loop.
@@ -53,7 +58,7 @@ var rootMappingTree = compileMappingTree(map[string]string{
 	",;": "forward",
 })
 
-func NewHandler(ui *ui.UI) *Handler {
+func NewHandler(ui *ui.UI, cfg *cfg.Settings) *Handler {
 	return &Handler{
 		make(chan uint),
 		make(chan bool),
@@ -61,6 +66,7 @@ func NewHandler(ui *ui.UI) *Handler {
 		"",
 		normalMode,
 		rootMappingTree,
+		cfg,
 	}
 }
 
@@ -181,10 +187,29 @@ func (c *Handler) RunCmd(cmd string) {
 			return
 		}
 		uri := splitCmd[1]
-		if !(strings.HasPrefix(uri, "http://") ||
-			strings.HasPrefix(uri, "https://")) {
+		if regexp.MustCompile("\\w+:.*").MatchString(uri) {
+			// We have a (hopefully) sensable protocol already. keep it.
+		} else if regexp.MustCompile("\\S+\\.\\S+").MatchString(uri) {
+			// What we have looks like a uri, but is missing the protocol.
+			// We add http to it.
+
+			// TODO any good way to have this sensibly default to https where
+			// possible?
 			uri = "http://" + uri
+		} else {
+			searchEngine := c.settings.DefaultSearchEngine
+			splitSearch := regexp.MustCompile("\\s+").Split(uri, 2)
+			s, ok := c.settings.SearchEngines[splitSearch[0]]
+			var searchTerm string
+			if len(splitSearch) > 1 && ok {
+				searchEngine = s
+				searchTerm = splitSearch[1]
+			} else {
+				searchTerm = splitSearch[0]
+			}
+			uri = searchEngine.SearchURI(searchTerm)
 		}
+		//log.Printf(uri)
 		c.UI.WebView.LoadURI(uri)
 	case "reload":
 		c.UI.WebView.Reload()

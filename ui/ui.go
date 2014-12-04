@@ -6,6 +6,7 @@
 package ui
 
 import "github.com/conformal/gotk3/gtk"
+
 import "github.com/tkerber/golem/webkit"
 
 // A UI Contains references to all significant UI objects.

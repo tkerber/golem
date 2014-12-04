@@ -5,7 +5,10 @@ package main
 import "C"
 import "github.com/conformal/gotk3/gtk"
 import "github.com/conformal/gotk3/gdk"
-import "github.com/tkerber/golem/cmd"
+import (
+	"github.com/tkerber/golem/cfg"
+	"github.com/tkerber/golem/cmd"
+)
 import "github.com/tkerber/golem/ui"
 import "fmt"
 import "os"
@@ -32,12 +35,16 @@ func main() {
 		panic(fmt.Sprintf("Failed to initialize UI: %v", err))
 	}
 
-	cmdHandler := cmd.NewHandler(ui)
+	settings := cfg.DefaultSettings
+
+	cmdHandler := cmd.NewHandler(ui, settings)
 
 	go cmdHandler.Run()
 
 	if len(os.Args) > 1 {
 		cmdHandler.RunCmd("open " + os.Args[1])
+	} else {
+		cmdHandler.RunCmd("open " + settings.HomePage)
 	}
 
 	ui.Window.Connect("key-press-event", func(w *gtk.Window, e *gdk.Event) bool {
