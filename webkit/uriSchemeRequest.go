@@ -3,8 +3,10 @@ package webkit
 // #cgo pkg-config: webkit2gtk-4.0
 // #include <stdlib.h>
 // #include <webkit2/webkit2.h>
-import "C"
-import "unsafe"
+import (
+	"C"
+	"unsafe"
+)
 
 type URISchemeRequest struct {
 	native uintptr

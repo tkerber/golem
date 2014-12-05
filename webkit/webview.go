@@ -10,14 +10,17 @@ static GtkWidget* toGtkWidget(void* p) {
 	return (GTK_WIDGET(p));
 }
 */
-import "C"
-import "github.com/conformal/gotk3/gtk"
-import "github.com/conformal/gotk3/glib"
-import "unsafe"
-import "runtime"
-import "go/build"
-import "path/filepath"
-import "os"
+import (
+	"C"
+	"go/build"
+	"os"
+	"path/filepath"
+	"runtime"
+	"unsafe"
+
+	"github.com/conformal/gotk3/glib"
+	"github.com/conformal/gotk3/gtk"
+)
 
 // WebView represents a webkit webview widget.
 type WebView struct {
@@ -49,12 +52,20 @@ var golemSchemeHandler = func(req *URISchemeRequest) {
 
 // NewWebView creates and returns a new webkit webview.
 func NewWebView() (*WebView, error) {
-	return NewWebViewWithContext(DefaultWebContext)
+	w := C.webkit_web_view_new()
+	if w == nil {
+		return nil, errNilPtr
+	}
+	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(w))}
+	webView := wrapWebView(obj)
+	obj.RefSink()
+	runtime.SetFinalizer(obj, (*glib.Object).Unref)
+	return webView, nil
 }
 
-func NewWebViewWithContext(context *WebContext) (*WebView, error) {
-	w := C.webkit_web_view_new_with_context(
-		(*C.WebKitWebContext)(unsafe.Pointer(context.native)))
+func NewWebViewWithUserContentManager(ucm *UserContentManager) (*WebView, error) {
+	w := C.webkit_web_view_new_with_user_content_manager(
+		(*C.WebKitUserContentManager)(unsafe.Pointer(ucm.Native())))
 	if w == nil {
 		return nil, errNilPtr
 	}

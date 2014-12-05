@@ -1,15 +1,16 @@
 package cmd
 
-import "regexp"
-
-import "log"
-import "github.com/conformal/gotk3/gtk"
 import (
+	"log"
+	"regexp"
+
+	"github.com/conformal/gotk3/gtk"
+
 	"github.com/tkerber/golem/cfg"
+	"github.com/tkerber/golem/ipc"
+	"github.com/tkerber/golem/ui"
 	"github.com/tkerber/golem/webkit"
 )
-import "github.com/tkerber/golem/ui"
-import "github.com/tkerber/golem/ipc"
 
 // A Handler is a collection of cannels golem requires to communicate with
 // the Cmd routine.

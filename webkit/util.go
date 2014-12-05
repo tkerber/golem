@@ -1,5 +1,7 @@
 package webkit
 
-import "errors"
+import (
+	"errors"
+)
 
 var errNilPtr = errors.New("cgo returned unexpected nil pointer")

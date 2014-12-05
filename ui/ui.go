@@ -9,9 +9,9 @@ import (
 	"fmt"
 
 	"github.com/conformal/gotk3/gtk"
-)
 
-import "github.com/tkerber/golem/webkit"
+	"github.com/tkerber/golem/webkit"
+)
 
 // A UI Contains references to all significant UI objects.
 type UI struct {
@@ -19,6 +19,12 @@ type UI struct {
 	WebView *webkit.WebView
 	Window  *gtk.Window
 }
+
+const scrollbarHideCSS = `
+html::-webkit-scrollbar{
+	height:0px!important;
+	width:0px!important;
+}`
 
 // NewUI Creates a new UI.
 func NewUI() (*UI, error) {
@@ -31,7 +37,21 @@ func NewUI() (*UI, error) {
 		gtk.MainQuit()
 	})
 
-	webView, err := webkit.NewWebView()
+	ucm, err := webkit.NewUserContentManager()
+	if err != nil {
+		return nil, err
+	}
+	css, err := webkit.NewUserStyleSheet(
+		scrollbarHideCSS,
+		webkit.UserContentInjectTopFrame,
+		webkit.UserStyleLevelUser,
+		[]string{},
+		[]string{})
+	if err != nil {
+		return nil, err
+	}
+	ucm.AddStyleSheet(css)
+	webView, err := webkit.NewWebViewWithUserContentManager(ucm)
 	if err != nil {
 		return nil, err
 	}

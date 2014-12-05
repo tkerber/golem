@@ -2,18 +2,19 @@ package main
 
 // #cgo pkg-config: glib-2.0 gobject-2.0
 // #include <glib.h>
-import "C"
-import "github.com/conformal/gotk3/gtk"
-
-import "github.com/conformal/gotk3/gdk"
 import (
+	"C"
+	"fmt"
+	"io/ioutil"
+	"os"
+
+	"github.com/conformal/gotk3/gdk"
+	"github.com/conformal/gotk3/gtk"
+
 	"github.com/tkerber/golem/cfg"
 	"github.com/tkerber/golem/cmd"
+	"github.com/tkerber/golem/ui"
 )
-import "github.com/tkerber/golem/ui"
-import "fmt"
-import "os"
-import "io/ioutil"
 
 func main() {
 

@@ -3,8 +3,10 @@ package cmd
 // #cgo pkg-config: gdk-3.0
 // #include <gdk/gdk.h>
 // #include <stdlib.h>
-import "C"
-import "unsafe"
+import (
+	"C"
+	"unsafe"
+)
 
 var colonKey = KeyvalFromName("colon")
 var escapeKey = KeyvalFromName("Escape")

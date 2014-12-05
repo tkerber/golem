@@ -1,8 +1,10 @@
 package ipc
 
-import "os"
-import "path/filepath"
-import "encoding/json"
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+)
 
 type scrollInstr struct {
 	Instruction string `json:"instruction"`

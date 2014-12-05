@@ -22,8 +22,10 @@ go_webkit_web_context_register_uri_scheme(
 }
 
 */
-import "C"
-import "unsafe"
+import (
+	"C"
+	"unsafe"
+)
 
 var DefaultWebContext = &WebContext{
 	uintptr(unsafe.Pointer(C.webkit_web_context_get_default())),
