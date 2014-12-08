@@ -11,6 +11,7 @@ import (
 	"github.com/conformal/gotk3/gdk"
 	"github.com/conformal/gotk3/gtk"
 
+	"github.com/guelfey/go.dbus"
 	"github.com/tkerber/golem/cfg"
 	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/ui"
@@ -37,9 +38,17 @@ func main() {
 		panic(fmt.Sprintf("Failed to initialize UI: %v", err))
 	}
 
+	sessionBus, err := dbus.SessionBus()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to connect to DBus session bus: %v", err))
+	}
+	dbusObject := sessionBus.Object(
+		"com.github.tkerber.golem.WebExtension",
+		"/com/github/tkerber/golem/WebExtension")
+
 	settings := cfg.DefaultSettings
 
-	cmdHandler := cmd.NewHandler(ui, settings)
+	cmdHandler := cmd.NewHandler(ui, settings, dbusObject)
 
 	go cmdHandler.Run()
 

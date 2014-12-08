@@ -5,9 +5,9 @@ import (
 	"regexp"
 
 	"github.com/conformal/gotk3/gtk"
+	"github.com/guelfey/go.dbus"
 
 	"github.com/tkerber/golem/cfg"
-	"github.com/tkerber/golem/ipc"
 	"github.com/tkerber/golem/ui"
 	"github.com/tkerber/golem/webkit"
 )
@@ -22,6 +22,8 @@ type Handler struct {
 	KeyPressSwallowChan chan bool
 	// The user interface associated with this command handler
 	UI *ui.UI
+	// The DBus object connected to the active webview.
+	dbus *dbus.Object
 	// The currect command string
 	cmdStr string
 	// The currect state
@@ -59,11 +61,12 @@ var rootMappingTree = compileMappingTree(map[string]string{
 	",;": "forward",
 })
 
-func NewHandler(ui *ui.UI, cfg *cfg.Settings) *Handler {
+func NewHandler(ui *ui.UI, cfg *cfg.Settings, dbus *dbus.Object) *Handler {
 	return &Handler{
 		make(chan uint),
 		make(chan bool),
 		ui,
+		dbus,
 		"",
 		normalMode,
 		rootMappingTree,
@@ -259,17 +262,11 @@ func (c *Handler) RunCmd(cmd string) {
 			log.Printf("Unknown scroll direction: \"%v\"", splitCmd[1])
 			return
 		}
-		if vDelta != 0.0 {
-			err := ipc.ScrollDown(vDelta)
-			if err != nil {
-				log.Printf("Failed to initiate IPC for scrolling: \"%v\"", err)
-			}
+		if vDelta != 0 {
+			c.dbus.Go("ScrollDelta", dbus.FlagNoReplyExpected, int64(vDelta), true)
 		}
-		if hDelta != 0.0 {
-			err := ipc.ScrollRight(hDelta)
-			if err != nil {
-				log.Printf("Failed to initiate IPC for scrolling: \"%v\"", err)
-			}
+		if hDelta != 0 {
+			c.dbus.Go("ScrollDelta", dbus.FlagNoReplyExpected, int64(hDelta), false)
 		}
 	case "scroll_to":
 		if len(splitCmd) < 2 {
@@ -278,9 +275,9 @@ func (c *Handler) RunCmd(cmd string) {
 		}
 		switch splitCmd[1] {
 		case "top":
-			ipc.ScrollToTop()
+			c.dbus.Go("ScrollToTop", dbus.FlagNoReplyExpected)
 		case "bottom":
-			ipc.ScrollToBottom()
+			c.dbus.Go("ScrollToBottom", dbus.FlagNoReplyExpected)
 		default:
 			log.Printf("Unknown scroll direction: \"%v\"", splitCmd[1])
 			return
