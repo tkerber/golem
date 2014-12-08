@@ -3,8 +3,8 @@ package cmd
 // #cgo pkg-config: gdk-3.0
 // #include <gdk/gdk.h>
 // #include <stdlib.h>
+import "C"
 import (
-	"C"
 	"unsafe"
 )
 

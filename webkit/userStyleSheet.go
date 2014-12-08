@@ -3,8 +3,8 @@ package webkit
 // #cgo pkg-config: webkit2gtk-4.0
 // #include <webkit2/webkit2.h>
 // #include <stdlib.h>
+import "C"
 import (
-	"C"
 	"runtime"
 	"unsafe"
 )

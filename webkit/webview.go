@@ -10,8 +10,8 @@ static GtkWidget* toGtkWidget(void* p) {
 	return (GTK_WIDGET(p));
 }
 */
+import "C"
 import (
-	"C"
 	"go/build"
 	"os"
 	"path/filepath"

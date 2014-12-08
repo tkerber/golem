@@ -263,10 +263,20 @@ func (c *Handler) RunCmd(cmd string) {
 			return
 		}
 		if vDelta != 0 {
-			c.dbus.Go("ScrollDelta", dbus.FlagNoReplyExpected, int64(vDelta), true)
+			c.dbus.Go(
+				"com.github.tkerber.golem.WebExtension.ScrollDelta",
+				dbus.FlagNoReplyExpected,
+				nil,
+				int64(vDelta),
+				true)
 		}
 		if hDelta != 0 {
-			c.dbus.Go("ScrollDelta", dbus.FlagNoReplyExpected, int64(hDelta), false)
+			c.dbus.Go(
+				"com.github.tkerber.golem.WebExtension.ScrollDelta",
+				dbus.FlagNoReplyExpected,
+				nil,
+				int64(hDelta),
+				false)
 		}
 	case "scroll_to":
 		if len(splitCmd) < 2 {
@@ -275,9 +285,15 @@ func (c *Handler) RunCmd(cmd string) {
 		}
 		switch splitCmd[1] {
 		case "top":
-			c.dbus.Go("ScrollToTop", dbus.FlagNoReplyExpected)
+			c.dbus.Go(
+				"com.github.tkerber.golem.WebExtension.ScrollToTop",
+				dbus.FlagNoReplyExpected,
+				nil)
 		case "bottom":
-			c.dbus.Go("ScrollToBottom", dbus.FlagNoReplyExpected)
+			c.dbus.Go(
+				"com.github.tkerber.golem.WebExtension.ScrollToBottom",
+				dbus.FlagNoReplyExpected,
+				nil)
 		default:
 			log.Printf("Unknown scroll direction: \"%v\"", splitCmd[1])
 			return

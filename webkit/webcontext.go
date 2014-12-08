@@ -22,8 +22,8 @@ go_webkit_web_context_register_uri_scheme(
 }
 
 */
+import "C"
 import (
-	"C"
 	"unsafe"
 )
 

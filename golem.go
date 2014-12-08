@@ -2,8 +2,8 @@ package main
 
 // #cgo pkg-config: glib-2.0 gobject-2.0
 // #include <glib.h>
+import "C"
 import (
-	"C"
 	"fmt"
 	"io/ioutil"
 	"os"
