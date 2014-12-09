@@ -47,7 +47,6 @@ handle_set_property(GDBusConnection *connection,
 static void
 scroll_delta(gpointer web_page_p, gint64 delta, gboolean vertical);
 
-
 static void
 scroll_to_top(gpointer web_page_p);
 
@@ -190,11 +189,9 @@ web_page_created_callback(WebKitWebExtension *extension,
             NULL);
 }
 
-
 G_MODULE_EXPORT void
 webkit_web_extension_initialize(WebKitWebExtension *extension)
 {
     g_signal_connect(extension, "page-created",
         G_CALLBACK(web_page_created_callback), NULL);
 }
-

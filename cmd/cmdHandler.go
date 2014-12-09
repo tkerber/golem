@@ -209,7 +209,7 @@ func (c *Handler) RunCmd(cmd string) {
 				searchEngine = s
 				searchTerm = splitSearch[1]
 			} else {
-				searchTerm = splitSearch[0]
+				searchTerm = uri
 			}
 			uri = searchEngine.SearchURI(searchTerm)
 		}
