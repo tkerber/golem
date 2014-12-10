@@ -7,9 +7,11 @@ package ui
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/conformal/gotk3/gtk"
 
+	"github.com/tkerber/golem/ipc"
 	"github.com/tkerber/golem/webkit"
 )
 
@@ -98,19 +100,20 @@ func NewUI() (*UI, error) {
 			win.SetTitle("Golem")
 		}
 	})
-	webView.Connect("notify::uri", func() {
-		ui.UpdateLocation()
-	})
-	bfl := webView.GetBackForwardList()
-	bfl.Connect("changed", func() {
-		ui.UpdateLocation()
-	})
 
 	return ui, nil
 }
 
-func (ui *UI) UpdateLocation() {
+func (ui *UI) UpdateLocationContinuously(dbus *ipc.WebExtension) {
+	for _ = range time.Tick(100 * time.Millisecond) {
+		ui.UpdateLocation(dbus)
+	}
+}
+
+func (ui *UI) UpdateLocation(dbus *ipc.WebExtension) {
 	locStr := ui.WebView.GetURI()
+	locStr += " "
+
 	backForward := ""
 	if ui.WebView.CanGoBack() {
 		backForward += "-"
@@ -119,8 +122,27 @@ func (ui *UI) UpdateLocation() {
 		backForward += "+"
 	}
 	if backForward != "" {
-		locStr += " [" + backForward + "]"
+		locStr += "[" + backForward + "]"
 	}
+
+	var pos string
+	visible := ui.WebView.GetAllocatedHeight()
+	height, err1 := dbus.GetScrollHeight()
+	ypos, err2 := dbus.GetScrollTop()
+	if err1 != nil || err2 != nil {
+		pos = "ERR"
+	} else if int64(visible) >= height {
+		pos = "ALL"
+	} else if ypos == 0 {
+		pos = "TOP"
+	} else if ypos == height-int64(visible) {
+		pos = "BOT"
+	} else {
+		percent := ypos * 100 / (height - int64(visible))
+		pos = fmt.Sprintf("%02d%%", percent)
+	}
+	locStr += "[" + pos + "]"
+
 	ui.StatusBar.LocationStatus.SetLabel(locStr)
 }
 

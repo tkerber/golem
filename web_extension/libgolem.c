@@ -6,12 +6,10 @@
 static const gchar introspection_xml[] =
     "<node>"
     "    <interface name='com.github.tkerber.golem.WebExtension'>"
-    "        <method name='ScrollDelta'>"
-    "            <arg type='x' name='delta' direction='in' />"
-    "            <arg type='b' name='vertical' direction='in' />"
-    "        </method>"
-    "        <method name='ScrollToTop' />"
-    "        <method name='ScrollToBottom' />"
+    "        <property type='x' name='ScrollTop' access='readwrite' />"
+    "        <property type='x' name='ScrollLeft' access='readwrite' />"
+    "        <property type='x' name='ScrollHeight' access='read' />"
+    "        <property type='x' name='ScrollWidth' access='read' />"
     "    </interface>"
     "</node>";
 
@@ -71,19 +69,7 @@ handle_method_call(GDBusConnection       *connection,
                    GDBusMethodInvocation *invocation,
                    gpointer               user_data)
 {
-    if(g_strcmp0(method_name, "ScrollDelta") == 0){
-        const gint64 delta;
-        const gboolean vertical;
-        g_variant_get(parameters, "(xb)", &delta, &vertical);
-        scroll_delta(user_data, delta, vertical);
-        g_dbus_method_invocation_return_value(invocation, NULL);
-    } else if(g_strcmp0(method_name, "ScrollToTop") == 0) {
-        scroll_to_top(user_data);
-        g_dbus_method_invocation_return_value(invocation, NULL);
-    } else if(g_strcmp0(method_name, "ScrollToBottom") == 0) {
-        scroll_to_bottom(user_data);
-        g_dbus_method_invocation_return_value(invocation, NULL);
-    }
+    // No methods currently.
 }
 
 static GVariant *
@@ -95,8 +81,32 @@ handle_get_property(GDBusConnection *connection,
                     GError         **error,
                     gpointer         user_data)
 {
-    // Currently no properties exist.
-    return NULL;
+    GVariant *ret = NULL;
+    WebKitWebPage *web_page = user_data;
+    WebKitDOMDocument *dom = webkit_web_page_get_dom_document(web_page);
+
+    if(g_strcmp0(property_name, "ScrollTop") == 0) {
+        WebKitDOMElement *e = WEBKIT_DOM_ELEMENT(
+                webkit_dom_document_get_body(dom));
+        ret = g_variant_new_int64(
+                webkit_dom_element_get_scroll_top(e));
+    } else if(g_strcmp0(property_name, "ScrollLeft") == 0) {
+        WebKitDOMElement *e = WEBKIT_DOM_ELEMENT(
+                webkit_dom_document_get_body(dom));
+        ret = g_variant_new_int64(
+                webkit_dom_element_get_scroll_left(e));
+    } else if(g_strcmp0(property_name, "ScrollHeight") == 0) {
+        WebKitDOMElement *e = WEBKIT_DOM_ELEMENT(
+                webkit_dom_document_get_body(dom));
+        ret = g_variant_new_int64(
+                webkit_dom_element_get_scroll_height(e));
+    } else if(g_strcmp0(property_name, "ScrollWidth") == 0) {
+        WebKitDOMElement *e = WEBKIT_DOM_ELEMENT(
+                webkit_dom_document_get_body(dom));
+        ret = g_variant_new_int64(
+                webkit_dom_element_get_scroll_width(e));
+    }
+    return ret;
 }
 
 static gboolean
@@ -109,8 +119,23 @@ handle_set_property(GDBusConnection *connection,
                     GError         **error,
                     gpointer         user_data)
 {
+    GVariant *ret = NULL;
+    WebKitWebPage *web_page = user_data;
+    WebKitDOMDocument *dom = webkit_web_page_get_dom_document(web_page);
+
+    if(g_strcmp0(property_name, "ScrollTop") == 0) {
+        WebKitDOMElement *e = WEBKIT_DOM_ELEMENT(
+                webkit_dom_document_get_body(dom));
+        webkit_dom_element_set_scroll_top(e, g_variant_get_int64(value));
+        return TRUE;
+    } else if(g_strcmp0(property_name, "ScrollLeft") == 0) {
+        WebKitDOMElement *e = WEBKIT_DOM_ELEMENT(
+                webkit_dom_document_get_body(dom));
+        webkit_dom_element_set_scroll_left(e, g_variant_get_int64(value));
+        return TRUE;
+    }
     // Currently no properties exist.
-    return 0;
+    return FALSE;
 }
 
 static void
@@ -136,37 +161,6 @@ on_name_lost(GDBusConnection *connection,
 {
     g_printerr("Lost DBus connection to main proccess.\n");
     exit(1);
-}
-
-static void
-scroll_delta(gpointer web_page_p, gint64 delta, gboolean vertical)
-{
-    WebKitWebPage *web_page = web_page_p;
-    WebKitDOMDocument *dom = webkit_web_page_get_dom_document(web_page);
-    WebKitDOMElement *e = webkit_dom_document_get_active_element(dom);
-    if(vertical) {
-        webkit_dom_element_set_scroll_top(e, webkit_dom_element_get_scroll_top(e) + delta);
-    } else {
-        webkit_dom_element_set_scroll_left(e, webkit_dom_element_get_scroll_left(e) + delta);
-    }
-}
-
-static void
-scroll_to_top(gpointer web_page_p)
-{
-    WebKitWebPage *web_page = web_page_p;
-    WebKitDOMDocument *dom = webkit_web_page_get_dom_document(web_page);
-    WebKitDOMElement *e = webkit_dom_document_get_active_element(dom);
-    webkit_dom_element_set_scroll_top(e, 0);
-}
-
-static void
-scroll_to_bottom(gpointer web_page_p)
-{
-    WebKitWebPage *web_page = web_page_p;
-    WebKitDOMDocument *dom = webkit_web_page_get_dom_document(web_page);
-    WebKitDOMElement *e = webkit_dom_document_get_active_element(dom);
-    webkit_dom_element_set_scroll_top(e, webkit_dom_element_get_scroll_height(e));
 }
 
 static void

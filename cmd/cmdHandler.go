@@ -5,9 +5,9 @@ import (
 	"regexp"
 
 	"github.com/conformal/gotk3/gtk"
-	"github.com/guelfey/go.dbus"
 
 	"github.com/tkerber/golem/cfg"
+	"github.com/tkerber/golem/ipc"
 	"github.com/tkerber/golem/ui"
 	"github.com/tkerber/golem/webkit"
 )
@@ -23,7 +23,7 @@ type Handler struct {
 	// The user interface associated with this command handler
 	UI *ui.UI
 	// The DBus object connected to the active webview.
-	dbus *dbus.Object
+	dbus *ipc.WebExtension
 	// The currect command string
 	cmdStr string
 	// The currect state
@@ -61,7 +61,7 @@ var rootMappingTree = compileMappingTree(map[string]string{
 	",;": "forward",
 })
 
-func NewHandler(ui *ui.UI, cfg *cfg.Settings, dbus *dbus.Object) *Handler {
+func NewHandler(ui *ui.UI, cfg *cfg.Settings, dbus *ipc.WebExtension) *Handler {
 	return &Handler{
 		make(chan uint),
 		make(chan bool),
@@ -181,6 +181,50 @@ func (c *Handler) Run() {
 	}
 }
 
+func (c *Handler) scrollTop() {
+	err := c.dbus.SetScrollTop(0)
+	if err != nil {
+		log.Printf("Error scrolling to top: %v", err)
+	}
+}
+
+func (c *Handler) scrollBottom() {
+	h, err := c.dbus.GetScrollHeight()
+	if err != nil {
+		log.Printf("Error scrolling to bottom: %v", err)
+		return
+	}
+	err = c.dbus.SetScrollTop(h)
+	if err != nil {
+		log.Printf("Error scrolling to bottom: %v", err)
+		return
+	}
+}
+
+func (c *Handler) scrollDelta(delta int, vertical bool) {
+	var curr int64
+	var err error
+	if vertical {
+		curr, err = c.dbus.GetScrollTop()
+	} else {
+		curr, err = c.dbus.GetScrollLeft()
+	}
+	if err != nil {
+		log.Printf("Error scrolling: %v", err)
+		return
+	}
+	curr += int64(delta)
+	if vertical {
+		err = c.dbus.SetScrollTop(curr)
+	} else {
+		err = c.dbus.SetScrollLeft(curr)
+	}
+	if err != nil {
+		log.Printf("Error scrolling: %v", err)
+		return
+	}
+}
+
 // RunCmd runs a command.
 func (c *Handler) RunCmd(cmd string) {
 	splitCmd := regexp.MustCompile("\\s+").Split(cmd, 2)
@@ -263,20 +307,10 @@ func (c *Handler) RunCmd(cmd string) {
 			return
 		}
 		if vDelta != 0 {
-			c.dbus.Go(
-				"com.github.tkerber.golem.WebExtension.ScrollDelta",
-				dbus.FlagNoReplyExpected,
-				nil,
-				int64(vDelta),
-				true)
+			go c.scrollDelta(vDelta, true)
 		}
 		if hDelta != 0 {
-			c.dbus.Go(
-				"com.github.tkerber.golem.WebExtension.ScrollDelta",
-				dbus.FlagNoReplyExpected,
-				nil,
-				int64(hDelta),
-				false)
+			go c.scrollDelta(hDelta, false)
 		}
 	case "scroll_to":
 		if len(splitCmd) < 2 {
@@ -285,15 +319,9 @@ func (c *Handler) RunCmd(cmd string) {
 		}
 		switch splitCmd[1] {
 		case "top":
-			c.dbus.Go(
-				"com.github.tkerber.golem.WebExtension.ScrollToTop",
-				dbus.FlagNoReplyExpected,
-				nil)
+			go c.scrollTop()
 		case "bottom":
-			c.dbus.Go(
-				"com.github.tkerber.golem.WebExtension.ScrollToBottom",
-				dbus.FlagNoReplyExpected,
-				nil)
+			go c.scrollBottom()
 		default:
 			log.Printf("Unknown scroll direction: \"%v\"", splitCmd[1])
 			return

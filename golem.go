@@ -14,6 +14,7 @@ import (
 	"github.com/guelfey/go.dbus"
 	"github.com/tkerber/golem/cfg"
 	"github.com/tkerber/golem/cmd"
+	"github.com/tkerber/golem/ipc"
 	"github.com/tkerber/golem/ui"
 )
 
@@ -42,15 +43,17 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("Failed to connect to DBus session bus: %v", err))
 	}
-	dbusObject := sessionBus.Object(
+	dbusObject := &ipc.WebExtension{sessionBus.Object(
 		"com.github.tkerber.golem.WebExtension",
-		"/com/github/tkerber/golem/WebExtension")
+		"/com/github/tkerber/golem/WebExtension")}
 
 	settings := cfg.DefaultSettings
 
 	cmdHandler := cmd.NewHandler(ui, settings, dbusObject)
 
 	go cmdHandler.Run()
+
+	go ui.UpdateLocationContinuously(dbusObject)
 
 	if len(os.Args) > 1 {
 		cmdHandler.RunCmd("open " + os.Args[1])
