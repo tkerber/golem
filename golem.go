@@ -5,7 +5,6 @@ package main
 import "C"
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/conformal/gotk3/gdk"
@@ -18,14 +17,19 @@ import (
 	"github.com/tkerber/golem/ui"
 )
 
-func main() {
-
-	tmpDir, err := ioutil.TempDir(os.TempDir(), "golem")
-	if err != nil {
-		panic(fmt.Sprintf("Failed to allocated temporary directory: %v", err))
+func watchSignals(ch <-chan *dbus.Signal, ui *ui.UI) {
+	const WE = "com.github.tkerber.golem.WebExtension"
+	for signal := range ch {
+		switch signal.Name {
+		case WE + ".VerticalPositionChanged":
+			ui.Top = signal.Body[0].(int64)
+			ui.Height = signal.Body[1].(int64)
+			ui.UpdateLocation()
+		}
 	}
-	os.Setenv("GOLEM_TMP", tmpDir)
-	defer os.RemoveAll(tmpDir)
+}
+
+func main() {
 
 	if len(os.Args) == 2 && (os.Args[1] == "-h" || os.Args[1] == "--help") {
 		usage()
@@ -47,13 +51,24 @@ func main() {
 		"com.github.tkerber.golem.WebExtension",
 		"/com/github/tkerber/golem/WebExtension")}
 
+	// Watch for signals on the proper interface 'n stuff.
+	sessionBus.BusObject().Call(
+		"org.freedesktop.DBus.AddMatch",
+		0,
+		"type='signal',"+
+			"path='/com/github/tkerber/golem/WebExtension',"+
+			"interface='com.github.tkerber.golem.WebExtension',"+
+			"sender='com.github.tkerber.golem.WebExtension'")
+
+	sigChan := make(chan *dbus.Signal, 100)
+	sessionBus.Signal(sigChan)
+	go watchSignals(sigChan, ui)
+
 	settings := cfg.DefaultSettings
 
 	cmdHandler := cmd.NewHandler(ui, settings, dbusObject)
 
 	go cmdHandler.Run()
-
-	go ui.UpdateLocationContinuously(dbusObject)
 
 	if len(os.Args) > 1 {
 		cmdHandler.RunCmd("open " + os.Args[1])

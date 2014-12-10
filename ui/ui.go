@@ -7,11 +7,9 @@ package ui
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/conformal/gotk3/gtk"
 
-	"github.com/tkerber/golem/ipc"
 	"github.com/tkerber/golem/webkit"
 )
 
@@ -20,6 +18,8 @@ type UI struct {
 	StatusBar
 	WebView *webkit.WebView
 	Window  *gtk.Window
+	Top     int64
+	Height  int64
 }
 
 const scrollbarHideCSS = `
@@ -90,7 +90,7 @@ func NewUI() (*UI, error) {
 	// TODO sensible default size. (Default to screen size?)
 	win.SetDefaultSize(800, 600)
 
-	ui := &UI{StatusBar{cmdStatus, locationStatus}, webView, win}
+	ui := &UI{StatusBar{cmdStatus, locationStatus}, webView, win, 0, 0}
 
 	webView.Connect("notify::title", func() {
 		title := webView.GetTitle()
@@ -100,17 +100,18 @@ func NewUI() (*UI, error) {
 			win.SetTitle("Golem")
 		}
 	})
+	webView.Connect("notify::uri", func() {
+		ui.UpdateLocation()
+	})
+	bfl := webView.GetBackForwardList()
+	bfl.Connect("changed", func() {
+		ui.UpdateLocation()
+	})
 
 	return ui, nil
 }
 
-func (ui *UI) UpdateLocationContinuously(dbus *ipc.WebExtension) {
-	for _ = range time.Tick(100 * time.Millisecond) {
-		ui.UpdateLocation(dbus)
-	}
-}
-
-func (ui *UI) UpdateLocation(dbus *ipc.WebExtension) {
+func (ui *UI) UpdateLocation() {
 	locStr := ui.WebView.GetURI()
 	locStr += " "
 
@@ -127,18 +128,14 @@ func (ui *UI) UpdateLocation(dbus *ipc.WebExtension) {
 
 	var pos string
 	visible := ui.WebView.GetAllocatedHeight()
-	height, err1 := dbus.GetScrollHeight()
-	ypos, err2 := dbus.GetScrollTop()
-	if err1 != nil || err2 != nil {
-		pos = "ERR"
-	} else if int64(visible) >= height {
+	if int64(visible) >= ui.Height {
 		pos = "ALL"
-	} else if ypos == 0 {
+	} else if ui.Top == 0 {
 		pos = "TOP"
-	} else if ypos == height-int64(visible) {
+	} else if ui.Top == ui.Height-int64(visible) {
 		pos = "BOT"
 	} else {
-		percent := ypos * 100 / (height - int64(visible))
+		percent := ui.Top * 100 / (ui.Height - int64(visible))
 		pos = fmt.Sprintf("%02d%%", percent)
 	}
 	locStr += "[" + pos + "]"
