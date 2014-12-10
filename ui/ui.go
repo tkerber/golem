@@ -100,13 +100,9 @@ func NewUI() (*UI, error) {
 			win.SetTitle("Golem")
 		}
 	})
-	webView.Connect("notify::uri", func() {
-		ui.UpdateLocation()
-	})
+	webView.Connect("notify::uri", ui.UpdateLocation)
 	bfl := webView.GetBackForwardList()
-	bfl.Connect("changed", func() {
-		ui.UpdateLocation()
-	})
+	bfl.Connect("changed", ui.UpdateLocation)
 
 	return ui, nil
 }
