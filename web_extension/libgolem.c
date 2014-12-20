@@ -33,6 +33,7 @@ struct Exten {
     GDBusConnection *connection;
     glong last_top;
     glong last_height;
+    gchar *object_path;
 };
 
 static void
@@ -193,7 +194,7 @@ poll_scroll_position(gpointer user_data)
         g_dbus_connection_emit_signal(
                 exten->connection,
                 NULL,
-                "/com/github/tkerber/golem/WebExtension",
+                exten->object_path,
                 "com.github.tkerber.golem.WebExtension",
                 "VerticalPositionChanged",
                 g_variant_new("(xx)", top, height),
@@ -213,10 +214,13 @@ on_bus_acquired(GDBusConnection *connection,
     exten->web_page = user_data;
     exten->last_top = 0;
     exten->last_height = 0;
+    exten->object_path = g_strdup_printf(
+            "/com/github/tkerber/golem/WebExtension/page%d", 
+            webkit_web_page_get_id(exten->web_page));
     // Register DBus methods
     gint registration_id = g_dbus_connection_register_object(
             connection,
-            "/com/github/tkerber/golem/WebExtension",
+            exten->object_path,
             introspection_data->interfaces[0],
             &interface_vtable,
             exten,
@@ -246,14 +250,18 @@ web_page_created_callback(WebKitWebExtension *extension,
 
     introspection_data = g_dbus_node_info_new_for_xml(introspection_xml, NULL);
     g_assert(introspection_data != NULL);
+    gchar *bus_name = g_strdup_printf(
+            "com.github.tkerber.golem.WebExtension.Page%d", 
+            webkit_web_page_get_id(web_page));
     owner_id = g_bus_own_name(G_BUS_TYPE_SESSION,
-            "com.github.tkerber.golem.WebExtension",
+            bus_name,
             G_BUS_NAME_OWNER_FLAGS_NONE,
             on_bus_acquired,
             NULL,
             on_name_lost,
             web_page,
             NULL);
+    free(bus_name);
 }
 
 G_MODULE_EXPORT void

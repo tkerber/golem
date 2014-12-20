@@ -1,5 +1,9 @@
 # golem web browser
 
+## Current State
+
+Go away. Nothing to see here. Yet.
+
 ## Naming
 
 The name `golem` was chosen to remind people of what this browser should not

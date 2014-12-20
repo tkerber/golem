@@ -12,11 +12,12 @@ static GtkWidget* toGtkWidget(void* p) {
 */
 import "C"
 import (
-	"go/build"
 	"os"
 	"path/filepath"
 	"runtime"
 	"unsafe"
+
+	"go/build"
 
 	"github.com/conformal/gotk3/glib"
 	"github.com/conformal/gotk3/gtk"
