@@ -15,7 +15,7 @@ func main() {
 		panic(fmt.Sprintf("Failed to acquire session bus: %v", err))
 	}
 	repl, err := sBus.RequestName(
-		"com.github.tkerber.Golem",
+		golemDBusName,
 		dbus.NameFlagDoNotQueue)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to ascertain status of Golem's bus name."))
@@ -32,11 +32,11 @@ func main() {
 		}
 		sBus.Export(
 			&dbusGolem{g},
-			"/com/github/tkerber/Golem",
-			"com.github.tkerber.Golem")
+			golemDBusPath,
+			golemDBusInterface)
 		sBus.Export(
 			introspect.Introspectable(golemDBusIntrospection),
-			"/com/github/tkerber/Golem",
+			golemDBusPath,
 			"org.freedesktop.DBus.Introspectable")
 		g.newWindow()
 		// This doesn't need to run in a goroutine, but as the gtk main
@@ -44,14 +44,14 @@ func main() {
 		// more sense.
 		go gtk.Main()
 		<-g.quit
-		sBus.ReleaseName("com.github.tkerber.Golem")
+		sBus.ReleaseName(golemDBusName)
 	// If not, we attach to the existing one.
 	default:
 		o := sBus.Object(
-			"com.github.tkerber.Golem",
-			"/com/github/tkerber/Golem")
+			golemDBusName,
+			golemDBusPath)
 		o.Call(
-			"com.github.tkerber.Golem.NewWindow",
+			golemDBusInterface+".NewWindow",
 			0)
 	}
 }
