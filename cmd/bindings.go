@@ -56,19 +56,20 @@ func (t *BindingTree) Append(binding *Binding) error {
 // Currently only ::builtin: type bindings are supported, and a numeric count
 // (e.g. d{n}d is not supported.)
 // TODO
-func ParseBinding(str string, builtins map[string]func()) (*Binding, error) {
-	arr := strings.Split(str, " ")
-	if len(arr) != 2 {
-		return nil, fmt.Errorf("Failed to parse binding: %v", str)
-	}
-	keys, err := ParseKeys(arr[0])
+func ParseBinding(
+	from string,
+	to string,
+	builtins map[string]func(),
+) (*Binding, error) {
+
+	keys, err := ParseKeys(from)
 	if err != nil {
 		return nil, err
 	}
-	if !strings.HasPrefix(arr[1], "::builtin:") {
+	if !strings.HasPrefix(to, "::builtin:") {
 		return nil, fmt.Errorf("Only builtin mappings supported atm :(")
 	}
-	builtinName := arr[1][len("::builtin:"):len(arr[1])]
+	builtinName := to[len("::builtin:"):len(to)]
 	builtin, ok := builtins[builtinName]
 	if !ok {
 		return nil, fmt.Errorf("Unknown builtin function: %v", builtinName)
