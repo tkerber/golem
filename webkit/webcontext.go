@@ -27,6 +27,11 @@ import (
 	"unsafe"
 )
 
+const (
+	ProcessModelSharedSecondaryProcess     = C.WEBKIT_PROCESS_MODEL_SHARED_SECONDARY_PROCESS
+	ProcessModelMultipleSecondaryProcesses = C.WEBKIT_PROCESS_MODEL_MULTIPLE_SECONDARY_PROCESSES
+)
+
 var DefaultWebContext = &WebContext{
 	uintptr(unsafe.Pointer(C.webkit_web_context_get_default())),
 }
@@ -41,6 +46,12 @@ func (c *WebContext) SetWebExtensionsDirectory(to string) {
 	C.webkit_web_context_set_web_extensions_directory(
 		(*C.WebKitWebContext)(unsafe.Pointer(c.native)),
 		(*C.gchar)(cstr))
+}
+
+func (c *WebContext) SetProcessModel(to C.WebKitProcessModel) {
+	C.webkit_web_context_set_process_model(
+		(*C.WebKitWebContext)(unsafe.Pointer(c.native)),
+		to)
 }
 
 func (c *WebContext) RegisterURIScheme(scheme string,

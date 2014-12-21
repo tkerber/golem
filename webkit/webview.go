@@ -45,6 +45,9 @@ func init() {
 	DefaultWebContext.SetWebExtensionsDirectory(extenPath)
 	// TODO this is temporary.
 	DefaultWebContext.RegisterURIScheme("golem", &golemSchemeHandler)
+	// NOTE: removing this will cause bugs in golems web extension.
+	// Tread lightly.
+	DefaultWebContext.SetProcessModel(ProcessModelMultipleSecondaryProcesses)
 }
 
 var golemSchemeHandler = func(req *URISchemeRequest) {

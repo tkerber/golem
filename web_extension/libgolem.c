@@ -241,6 +241,13 @@ on_name_lost(GDBusConnection *connection,
     exit(1);
 }
 
+// NOTE: There appears to be no way to attach to a web page being destroyed.
+// I'm not sure if this means they *aren't* destroyed, or just that it wasn't
+// planned for. Either way, it spews errors on the regular update if used
+// with a destroyed page.
+//
+// As there is only one page per process, this isn't a problem, however it is
+// worthy of note should this ever change for any reason.
 static void
 web_page_created_callback(WebKitWebExtension *extension,
                           WebKitWebPage      *web_page,
