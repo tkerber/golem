@@ -12,12 +12,8 @@ static GtkWidget* toGtkWidget(void* p) {
 */
 import "C"
 import (
-	"os"
-	"path/filepath"
 	"runtime"
 	"unsafe"
-
-	"go/build"
 
 	"github.com/conformal/gotk3/glib"
 	"github.com/conformal/gotk3/gtk"
@@ -26,32 +22,6 @@ import (
 // WebView represents a webkit webview widget.
 type WebView struct {
 	gtk.Container
-}
-
-func init() {
-	// TODO figure out a better way to reference this. (i.e. without the source)
-	extenPath := ""
-	for _, src := range build.Default.SrcDirs() {
-		p := filepath.Join(src, "github.com", "tkerber", "golem", "web_extension")
-		if _, err := os.Stat(p); err == nil {
-			extenPath = p
-			break
-		}
-	}
-	if extenPath == "" {
-		panic("Failed to find source files!")
-	}
-
-	DefaultWebContext.SetWebExtensionsDirectory(extenPath)
-	// TODO this is temporary.
-	DefaultWebContext.RegisterURIScheme("golem", &golemSchemeHandler)
-	// NOTE: removing this will cause bugs in golems web extension.
-	// Tread lightly.
-	DefaultWebContext.SetProcessModel(ProcessModelMultipleSecondaryProcesses)
-}
-
-var golemSchemeHandler = func(req *URISchemeRequest) {
-	req.Finish([]byte("<html><head><title>Golem</title></head><body><h1>Golem Home Page</h1><p>And stuff.</p></body></html>"), "text/html")
 }
 
 // NewWebView creates and returns a new webkit webview.
