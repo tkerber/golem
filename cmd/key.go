@@ -2,10 +2,18 @@ package cmd
 
 // #cgo pkg-config: gdk-3.0
 // #include <gdk/gdk.h>
+// #include <stdlib.h>
+/*
+static guint
+gdk_event_key_is_modifier(GdkEventKey *key) {
+	return key->is_modifier;
+}
+*/
 import "C"
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 	"unsafe"
 
 	"github.com/conformal/gotk3/gdk"
@@ -13,7 +21,7 @@ import (
 
 // nonPrintRunes are runes which shouldn't be printed by themselves,
 // i.e. key names will be printed instead of them.
-const nonPrintRunes = []rune{
+var nonPrintRunes = []rune{
 	' ',
 	'\t',
 	'\n',
@@ -48,9 +56,13 @@ const (
 	modifierCmpMask = ControlMask | Mod1Mask
 )
 
+const (
+	KeyEscape = C.GDK_KEY_Escape
+)
+
 // isNonPrintRune checks in a rune is a member of nonPrintRunes.
 func isNonPrintRune(r rune) bool {
-	for r2 := range nonPrintRunes {
+	for _, r2 := range nonPrintRunes {
 		if r == r2 {
 			return true
 		}
@@ -60,7 +72,7 @@ func isNonPrintRune(r rune) bool {
 
 type keyParseError string
 
-func (e keyParseError) String() string {
+func (e keyParseError) Error() string {
 	return fmt.Sprintf("Failed to parse key for value: %v", e)
 }
 
@@ -70,18 +82,22 @@ type Key struct {
 	IsModifier bool
 }
 
-func (k Key) Match(k2 Key) {
-	return (k.Keyval == k2.Keyval &&
-		k.IsModifier == k2.IsModifier &&
-		(k.Modifiers&modifierCmpMask) == (k2.Modifiers&modifierCmpMask))
+func (k Key) Match(k2 Key) bool {
+	return k.Normalize() == k2.Normalize()
+}
+
+// Normalize normalizes a key by masking out all modifiers except for
+// control and alt.
+func (k Key) Normalize() Key {
+	return Key{k.Keyval, k.Modifiers & modifierCmpMask, k.IsModifier}
 }
 
 func NewKeyFromEventKey(ek gdk.EventKey) Key {
 	cek := (*C.GdkEventKey)(unsafe.Pointer(ek.Native()))
 	return Key{
-		cek.keyval,
-		cek.state,
-		cek.is_modifier != 0,
+		uint(cek.keyval),
+		uint(cek.state),
+		C.gdk_event_key_is_modifier(cek) != 0,
 	}
 }
 
@@ -92,7 +108,7 @@ func NewKeyFromEventKey(ek gdk.EventKey) Key {
 // writing not required.
 func NewKeyFromString(strOrig string) (Key, error) {
 	str := strOrig
-	mod := 0
+	var mod uint = 0
 	for len(str) >= 2 {
 		switch str[0:2] {
 		case "C-":
@@ -105,12 +121,13 @@ func NewKeyFromString(strOrig string) (Key, error) {
 		str = str[2:len(str)]
 	}
 	var keyval uint
-	if len(str) == 1 {
-		keyval = C.gdk_unicode_to_keyval(str[0])
+	if utf8.RuneCountInString(str) == 1 {
+		r, _ := utf8.DecodeRuneInString(str)
+		keyval = uint(C.gdk_unicode_to_keyval(C.guint32(r)))
 	} else {
-		cStr := C.CString(str)
+		cStr := (*C.gchar)(C.CString(str))
 		defer C.free(unsafe.Pointer(cStr))
-		keyval = C.gdk_keyval_from_name(cStr)
+		keyval = uint(C.gdk_keyval_from_name(cStr))
 	}
 	if keyval == voidKey {
 		return Key{0, 0, false}, keyParseError(strOrig)
@@ -129,17 +146,17 @@ func (k Key) String() string {
 		str += "A-"
 	}
 
-	r := rune(C.gdk_keyval_to_unicode(k.Keyval))
+	r := rune(C.gdk_keyval_to_unicode(C.guint(k.Keyval)))
 	if r != 0 && !isNonPrintRune(r) {
 		return str + string(r)
 	}
-	cStr := C.gdk_keyval_name(k.Keyval)
-	return str + C.GoString(cStr)
+	cStr := C.gdk_keyval_name(C.guint(k.Keyval))
+	return str + C.GoString((*C.char)(cStr))
 }
 
 func KeysString(keys []Key) string {
-	str = ""
-	for key := range keys {
+	str := ""
+	for _, key := range keys {
 		keyStr := key.String()
 		if len(keyStr) == 1 {
 			str += keyStr
@@ -147,6 +164,7 @@ func KeysString(keys []Key) string {
 			str += "<" + keyStr + ">"
 		}
 	}
+	return str
 }
 
 func ParseKeys(str string) ([]Key, error) {
@@ -170,13 +188,14 @@ func ParseKeys(str string) ([]Key, error) {
 		}
 		// Note no else here. This is due to the continue and the comment
 		// above.
-		key, err := NewKeyFromString(str[0])
+		r, rLen := utf8.DecodeRuneInString(str)
+		key, err := NewKeyFromString(string(r))
 		// Really no errors should occur. But hey.
 		if err != nil {
 			return nil, err
 		}
 		keys = append(keys, key)
-		str = str[1:len(str)]
+		str = str[rLen:len(str)]
 	}
 	return keys, nil
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/conformal/gotk3/gtk"
+	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/webkit"
 )
 
@@ -61,6 +62,10 @@ func NewWindow(webView *webkit.WebView) (*Window, error) {
 
 func (w *Window) Show() {
 	w.Window.ShowAll()
+}
+
+// TODO
+func (w *Window) UpdateState(state cmd.State) {
 }
 
 func (w *Window) UpdateLocation() {

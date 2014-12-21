@@ -5,15 +5,12 @@ import (
 	"strings"
 )
 
-type bindingConflict struct {
-	b1 Binding
-	b2 Binding
-}
+type bindingConflict Binding
 
-func (e *bindingConflict) String() string {
+func (e *bindingConflict) Error() string {
 	return fmt.Sprintf(
 		"Multiple bindings attempted to register for keysequence '%v'.",
-		KeysString(b1.From))
+		KeysString(e.From))
 }
 
 type Binding struct {
@@ -22,13 +19,13 @@ type Binding struct {
 }
 
 type BindingTree struct {
-	Binding  *func()
+	Binding  func()
 	Subtrees map[Key]*BindingTree
 }
 
 func NewBindingTree(bindings []*Binding) (*BindingTree, error) {
 	t := &BindingTree{nil, make(map[Key]*BindingTree)}
-	for binding := range bindings {
+	for _, binding := range bindings {
 		err := t.Append(binding)
 		if err != nil {
 			return nil, err
@@ -38,19 +35,19 @@ func NewBindingTree(bindings []*Binding) (*BindingTree, error) {
 }
 
 func (t *BindingTree) Append(binding *Binding) error {
-	for key := range binding.From {
-		next, ok := b.Subtrees[key]
+	for _, key := range binding.From {
+		next, ok := t.Subtrees[key]
 		if !ok {
-			next = BindingTree{nil, make(map[Key]*BindingTree)}
+			next = &BindingTree{nil, make(map[Key]*BindingTree)}
 			t.Subtrees[key] = next
 		}
 		t = next
 	}
 	// Binding conflict
 	if t.Binding != nil {
-		return bindingConflict{t.Binding, binding}
+		return (*bindingConflict)(binding)
 	}
-	t.Binding = binding
+	t.Binding = binding.To
 	return nil
 }
 
@@ -60,7 +57,7 @@ func (t *BindingTree) Append(binding *Binding) error {
 // (e.g. d{n}d is not supported.)
 // TODO
 func ParseBinding(str string, builtins map[string]func()) (*Binding, error) {
-	arr = strings.Split(str, " ")
+	arr := strings.Split(str, " ")
 	if len(arr) != 2 {
 		return nil, fmt.Errorf("Failed to parse binding: %v", str)
 	}

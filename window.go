@@ -4,12 +4,18 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/ui"
 	"github.com/tkerber/golem/webkit"
 )
 
 type window struct {
 	*ui.Window
+	cmd.State
+}
+
+func (w *window) setState(state cmd.State) {
+	w.State = state
 }
 
 func (g *golem) newWindow() error {
@@ -24,7 +30,12 @@ func (g *golem) newWindow() error {
 		log.Printf("Error: Failed to open new window: %v\n", err)
 		return err
 	}
-	win := &window{uiWin}
+
+	win := &window{uiWin, nil}
+	win.State = cmd.NewNormalMode(&cmd.StateIndependant{
+		defaultBindings,
+		win.setState,
+	})
 
 	g.openChan <- win
 
