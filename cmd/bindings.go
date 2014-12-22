@@ -13,6 +13,49 @@ func (e *bindingConflict) Error() string {
 		KeysString(e.From))
 }
 
+type Builtins map[string]func()
+
+type RawBinding struct {
+	From string
+	To   string
+}
+
+// ParseBinding parses a single binding string, as given to the bind command.
+// e.g. fg<Return> ::builtin:foobar
+// Currently only ::builtin: type bindings are supported, and a numeric count
+// (e.g. d{n}d is not supported.)
+// TODO
+func (b RawBinding) ParseBinding(builtins Builtins) (*Binding, error) {
+	keys, err := ParseKeys(b.From)
+	if err != nil {
+		return nil, err
+	}
+	if !strings.HasPrefix(b.To, "::builtin:") {
+		return nil, fmt.Errorf("Only builtin mappings supported atm :(")
+	}
+	builtinName := b.To[len("::builtin:"):len(b.To)]
+	builtin, ok := builtins[builtinName]
+	if !ok {
+		return nil, fmt.Errorf("Unknown builtin function: %v", builtinName)
+	}
+	return &Binding{keys, builtin}, nil
+}
+
+func ParseRawBindings(
+	bindings []RawBinding,
+	builtins Builtins) ([]*Binding, error) {
+
+	ret := make([]*Binding, len(bindings))
+	for i, binding := range bindings {
+		b, err := binding.ParseBinding(builtins)
+		if err != nil {
+			return nil, err
+		}
+		ret[i] = b
+	}
+	return ret, nil
+}
+
 type Binding struct {
 	From []Key
 	To   func()
@@ -49,30 +92,4 @@ func (t *BindingTree) Append(binding *Binding) error {
 	}
 	t.Binding = binding.To
 	return nil
-}
-
-// ParseBinding parses a single binding string, as given to the bind command.
-// e.g. fg<Return> ::builtin:foobar
-// Currently only ::builtin: type bindings are supported, and a numeric count
-// (e.g. d{n}d is not supported.)
-// TODO
-func ParseBinding(
-	from string,
-	to string,
-	builtins map[string]func(),
-) (*Binding, error) {
-
-	keys, err := ParseKeys(from)
-	if err != nil {
-		return nil, err
-	}
-	if !strings.HasPrefix(to, "::builtin:") {
-		return nil, fmt.Errorf("Only builtin mappings supported atm :(")
-	}
-	builtinName := to[len("::builtin:"):len(to)]
-	builtin, ok := builtins[builtinName]
-	if !ok {
-		return nil, fmt.Errorf("Unknown builtin function: %v", builtinName)
-	}
-	return &Binding{keys, builtin}, nil
 }

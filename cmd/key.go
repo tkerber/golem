@@ -132,7 +132,7 @@ func NewKeyFromString(strOrig string) (Key, error) {
 	if keyval == voidKey {
 		return Key{0, 0, false}, keyParseError(strOrig)
 	}
-	return Key{mod, keyval, false}, nil
+	return Key{keyval, mod, false}, nil
 }
 
 func (k Key) String() string {
