@@ -22,17 +22,21 @@ import (
 // nonPrintRunes are runes which shouldn't be printed by themselves,
 // i.e. key names will be printed instead of them.
 var nonPrintRunes = []rune{
-	' ',
 	'\t',
 	'\n',
 	'\r',
 	'\v',
 	'\f',
 	'\b',
-	'<',
 }
 
-const voidKey = C.GDK_KEY_VoidSymbol
+// selectiveNonPrintRunes are runes which shouldn't be printed in some contexts
+// (e.g. describing a key sequence), but should be in others (e.g. in a
+// command-line input.
+var selectiveNonPrintRunes = []rune{
+	' ',
+	'<',
+}
 
 const (
 	ShiftMask   = C.GDK_SHIFT_MASK
@@ -57,14 +61,27 @@ const (
 )
 
 const (
-	KeyEscape = C.GDK_KEY_Escape
+	KeyVoid      = C.GDK_KEY_VoidSymbol
+	KeyEscape    = C.GDK_KEY_Escape
+	KeyReturn    = C.GDK_KEY_Return
+	KeyBackSpace = C.GDK_KEY_BackSpace
 )
 
 // isNonPrintRune checks in a rune is a member of nonPrintRunes.
-func isNonPrintRune(r rune) bool {
+//
+// If selective is true, it also returns true if a rune is a member of
+// selectiveNonPrintRunes.
+func isNonPrintRune(r rune, selective bool) bool {
 	for _, r2 := range nonPrintRunes {
 		if r == r2 {
 			return true
+		}
+	}
+	if selective {
+		for _, r2 := range selectiveNonPrintRunes {
+			if r == r2 {
+				return true
+			}
 		}
 	}
 	return false
@@ -129,13 +146,13 @@ func NewKeyFromString(strOrig string) (Key, error) {
 		defer C.free(unsafe.Pointer(cStr))
 		keyval = uint(C.gdk_keyval_from_name(cStr))
 	}
-	if keyval == voidKey {
+	if keyval == KeyVoid {
 		return Key{0, 0, false}, keyParseError(strOrig)
 	}
 	return Key{keyval, mod, false}, nil
 }
 
-func (k Key) String() string {
+func (k Key) StringSelective(selective bool) string {
 	// Produces string like "a", "C-a", "C-A-a", "Escape", "C-Escape"
 	str := ""
 
@@ -147,17 +164,21 @@ func (k Key) String() string {
 	}
 
 	r := rune(C.gdk_keyval_to_unicode(C.guint(k.Keyval)))
-	if r != 0 && !isNonPrintRune(r) {
+	if r != 0 && !isNonPrintRune(r, selective) {
 		return str + string(r)
 	}
 	cStr := C.gdk_keyval_name(C.guint(k.Keyval))
 	return str + C.GoString((*C.char)(cStr))
 }
 
-func KeysString(keys []Key) string {
+func (k Key) String() string {
+	return k.StringSelective(true)
+}
+
+func KeysStringSelective(keys []Key, selective bool) string {
 	str := ""
 	for _, key := range keys {
-		keyStr := key.String()
+		keyStr := key.StringSelective(selective)
 		if len(keyStr) == 1 {
 			str += keyStr
 		} else {
@@ -165,6 +186,10 @@ func KeysString(keys []Key) string {
 		}
 	}
 	return str
+}
+
+func KeysString(keys []Key) string {
+	return KeysStringSelective(keys, true)
 }
 
 func ParseKeys(str string) ([]Key, error) {

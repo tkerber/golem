@@ -3,11 +3,13 @@ package main
 import (
 	"fmt"
 	"log"
+	"regexp"
 	"time"
 
 	"github.com/conformal/gotk3/gdk"
 	"github.com/conformal/gotk3/gtk"
 	"github.com/tkerber/golem/cmd"
+	"github.com/tkerber/golem/debug"
 	"github.com/tkerber/golem/ui"
 	"github.com/tkerber/golem/webkit"
 )
@@ -15,6 +17,7 @@ import (
 type window struct {
 	*ui.Window
 	cmd.State
+	cfg *cfg
 }
 
 const keyTimeout = time.Millisecond * 10
@@ -24,6 +27,7 @@ func (w *window) nop() {}
 
 func (w *window) setState(state cmd.State) {
 	w.State = state
+	w.UpdateState(w.State)
 }
 
 func (g *golem) newWindow() error {
@@ -39,7 +43,7 @@ func (g *golem) newWindow() error {
 		return err
 	}
 
-	win := &window{uiWin, nil}
+	win := &window{uiWin, nil, g.cfg}
 
 	builtins := builtinsFor(win)
 	bindings, err := cmd.ParseRawBindings(defaultBindings, builtins)
@@ -53,10 +57,10 @@ func (g *golem) newWindow() error {
 		return err
 	}
 
-	win.State = cmd.NewNormalMode(&cmd.StateIndependant{
+	win.setState(cmd.NewNormalMode(&cmd.StateIndependant{
 		bindingTree,
 		win.setState,
-	})
+	}))
 
 	g.openChan <- win
 
@@ -92,7 +96,9 @@ func (g *golem) newWindow() error {
 			// crashes here. TODO
 			ek := gdk.EventKey{e}
 			key := cmd.NewKeyFromEventKey(ek)
-			log.Printf("%v", key)
+			if debug.PrintKeys {
+				log.Printf("%v", key)
+			}
 			// We ignore modifier keys.
 			if key.IsModifier {
 				return false
@@ -103,7 +109,7 @@ func (g *golem) newWindow() error {
 			// If this is not the case, a state change command was issued. This
 			// takes precedence.
 			if oldState == win.State {
-				win.State = newState
+				win.setState(newState)
 			}
 			return ret
 		default:
@@ -116,4 +122,18 @@ func (g *golem) newWindow() error {
 
 	win.Show()
 	return nil
+}
+
+func (w *window) runCmd(cmd string) {
+	regex := regexp.MustCompile(`\s+`)
+	parts := regex.Split(cmd, -1)
+	f, ok := commands[parts[0]]
+	if ok {
+		if debug.PrintCommands {
+			log.Printf("Running command '%v'.", cmd)
+		}
+		f(w, parts)
+	} else {
+		log.Printf("Failed to run command '%v': No such command.", cmd)
+	}
 }

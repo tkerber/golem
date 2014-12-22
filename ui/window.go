@@ -64,8 +64,24 @@ func (w *Window) Show() {
 	w.Window.ShowAll()
 }
 
-// TODO
 func (w *Window) UpdateState(state cmd.State) {
+	var newStatus string
+	switch s := state.(type) {
+	case *cmd.NormalMode:
+		// The status is either empty, or [current_binding] if it exists.
+		if len(s.CurrentKeys) == 0 {
+			newStatus = ""
+		} else {
+			newStatus = fmt.Sprintf("[%v]", cmd.KeysString(s.CurrentKeys))
+		}
+	case *cmd.InsertMode:
+		newStatus = "--INSERT--"
+	case *cmd.CommandLineMode:
+		newStatus = fmt.Sprintf(
+			":%v",
+			cmd.KeysStringSelective(s.CurrentKeys, false))
+	}
+	w.SetCmdLabel(newStatus)
 }
 
 func (w *Window) UpdateLocation() {

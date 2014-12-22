@@ -170,6 +170,60 @@ func (s *InsertMode) GetStateIndependant() *StateIndependant {
 // to act on the text after the user presses enter.
 type CommandLineMode struct {
 	*StateIndependant
-	CurrentLineCommand string
-	Finalizer          func(string)
+	CurrentKeys []Key
+	Finalizer   func(string)
+}
+
+func NewCommandLineMode(s State, f func(string)) *CommandLineMode {
+	return &CommandLineMode{
+		s.GetStateIndependant(),
+		make([]Key, 0),
+		f,
+	}
+}
+
+func NewPartialCommandLineMode(
+	s State, part string, f func(string)) *CommandLineMode {
+
+	keys, err := ParseKeys(part)
+	if err != nil {
+		log.Printf(
+			"Failed to open partial command: %v\nFalling back to empty.",
+			part)
+		keys = make([]Key, 0)
+	}
+	return &CommandLineMode{
+		s.GetStateIndependant(),
+		keys,
+		f}
+}
+
+func (s *CommandLineMode) ProcessKeyPress(key Key) (State, bool) {
+	switch key.Keyval {
+	case KeyReturn:
+		s.Finalizer(KeysStringSelective(s.CurrentKeys, false))
+		fallthrough
+	case KeyEscape:
+		return NewNormalMode(s.StateIndependant), true
+	case KeyBackSpace:
+		// Remove the last key from the list.
+		if len(s.CurrentKeys) > 0 {
+			return &CommandLineMode{
+				s.StateIndependant,
+				s.CurrentKeys[0 : len(s.CurrentKeys)-1],
+				s.Finalizer,
+			}, true
+		}
+		return NewNormalMode(s.StateIndependant), false
+	default:
+		return &CommandLineMode{
+			s.StateIndependant,
+			append(s.CurrentKeys, key),
+			s.Finalizer,
+		}, true
+	}
+}
+
+func (s *CommandLineMode) GetStateIndependant() *StateIndependant {
+	return s.StateIndependant
 }

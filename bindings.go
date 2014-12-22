@@ -31,17 +31,23 @@ var defaultBindings = []cmd.RawBinding{
 	cmd.RawBinding{"k", "::builtin:nop"},
 	cmd.RawBinding{"h", "::builtin:nop"},
 	cmd.RawBinding{"l", "::builtin:nop"},
-	cmd.RawBinding{":", "::builtin:nop"},
+	cmd.RawBinding{":", "::builtin:commandMode"},
 	cmd.RawBinding{"i", "::builtin:insertMode"},
 	cmd.RawBinding{",h", "::builtin:nop"},
 	cmd.RawBinding{",l", "::builtin:nop"},
-	cmd.RawBinding{"o", "::builtin:nop"},
+	cmd.RawBinding{"o", "::builtin:open"},
 }
 
 func builtinsFor(w *window) cmd.Builtins {
 	return cmd.Builtins{
 		"nop":        w.nop,
-		"insertMode": func() { w.State = cmd.NewInsertMode(w.State) },
+		"insertMode": func() { w.setState(cmd.NewInsertMode(w.State)) },
+		"commandMode": func() {
+			w.setState(cmd.NewCommandLineMode(w.State, w.runCmd))
+		},
+		"open": func() {
+			w.setState(cmd.NewPartialCommandLineMode(w.State, "open ", w.runCmd))
+		},
 		//		"reload":      window.reload,
 		//		"home":        window.home,
 		//		"goToTop":     window.goToTop,

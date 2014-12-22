@@ -48,7 +48,8 @@ func newGolem() (*golem, error) {
 		ucm,
 		closeChan,
 		openChan,
-		quitChan}
+		quitChan,
+	}
 
 	// This goroutine manages any writes to the golem struct itself,
 	// protecting against concurrent access.

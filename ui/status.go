@@ -1,8 +1,6 @@
 package ui
 
-import (
-	"github.com/conformal/gotk3/gtk"
-)
+import "github.com/conformal/gotk3/gtk"
 
 type StatusBar struct {
 	CmdStatus      *gtk.Label
@@ -10,9 +8,9 @@ type StatusBar struct {
 }
 
 func (s *StatusBar) SetLocationLabel(label string) {
-	s.LocationStatus.SetLabel(label)
+	GlibMainContextInvoke(s.LocationStatus.SetLabel, label)
 }
 
 func (s *StatusBar) SetCmdLabel(label string) {
-	s.CmdStatus.SetLabel(label)
+	GlibMainContextInvoke(s.CmdStatus.SetLabel, label)
 }

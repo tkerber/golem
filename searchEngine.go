@@ -3,25 +3,27 @@ package main
 import (
 	"fmt"
 	"net/url"
-	"strings"
 )
 
 type searchEngine struct {
 	fullName      string
 	formatString  string
-	replaceSpaces string
+	searchTermSep string
 }
 
-func (s *searchEngine) searchURI(searchTerm string) string {
+func (s *searchEngine) searchURI(searchTerms []string) string {
 	// the reason the replace is done after the escape is that e.g.
 	// + is also escaped. This is counter productive.
+	searchTermStr := ""
+	for i, searchTerm := range searchTerms {
+		if i != 0 {
+			searchTermStr += s.searchTermSep
+		}
+		searchTermStr += url.QueryEscape(searchTerm)
+	}
 	return fmt.Sprintf(
 		s.formatString,
-		strings.Replace(
-			url.QueryEscape(searchTerm),
-			"%20",
-			s.replaceSpaces,
-			-1))
+		searchTermStr)
 }
 
 var defaultSearchEngines = map[string]*searchEngine{
