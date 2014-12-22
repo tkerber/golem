@@ -12,23 +12,6 @@ type binding struct {
 	to   string
 }
 
-var defaultBindings = []cmd.RawBinding{
-	cmd.RawBinding{"r", "::builtin:reload"},
-	cmd.RawBinding{"gh", "::builtin:goHome"},
-	cmd.RawBinding{"gg", "::builtin:scrollToTop"},
-	cmd.RawBinding{"G", "::builtin:scrollToBottom"},
-	cmd.RawBinding{"j", "::builtin:scrollDown"},
-	cmd.RawBinding{"k", "::builtin:scrollUp"},
-	cmd.RawBinding{"h", "::builtin:scrollLeft"},
-	cmd.RawBinding{"l", "::builtin:scrollRight"},
-	cmd.RawBinding{":", "::builtin:commandMode"},
-	cmd.RawBinding{"i", "::builtin:insertMode"},
-	cmd.RawBinding{",h", "::builtin:goBack"},
-	cmd.RawBinding{",l", "::builtin:goForward"},
-	cmd.RawBinding{"o", "::builtin:open"},
-	cmd.RawBinding{"go", "::builtin:editURI"},
-}
-
 func builtinsFor(w *window) cmd.Builtins {
 	return cmd.Builtins{
 		"nop":        w.nop,

@@ -18,6 +18,8 @@ type window struct {
 	cmd.State
 	webViews []*webView
 	parent   *golem
+	builtins cmd.Builtins
+	bindings *cmd.BindingTree
 }
 
 const keyTimeout = time.Millisecond * 10
@@ -50,24 +52,18 @@ func (g *golem) newWindow() error {
 			wv,
 		},
 		g,
+		nil,
+		new(cmd.BindingTree),
 	}
 
-	builtins := builtinsFor(win)
-	bindings, err := cmd.ParseRawBindings(defaultBindings, builtins)
-	if err != nil {
-		log.Printf("Error: Failed to parse key bindings: %v\n", err)
-		return err
-	}
-	bindingTree, err := cmd.NewBindingTree(bindings)
-	if err != nil {
-		log.Printf("Error: Failed to parse key bindings: %v\n", err)
-		return err
-	}
+	win.builtins = builtinsFor(win)
 
 	win.setState(cmd.NewNormalMode(&cmd.StateIndependant{
-		bindingTree,
+		win.bindings,
 		win.setState,
 	}))
+
+	win.rebuildBindings()
 
 	g.wMutex.Lock()
 	g.windows = append(g.windows, win)
@@ -133,10 +129,22 @@ func (g *golem) newWindow() error {
 	})
 
 	// Load the start page
-	builtins["goHome"]()
+	win.builtins["goHome"]()
 
 	win.Show()
 	return nil
+}
+
+func (w *window) rebuildBindings() {
+	bindings, err := cmd.ParseRawBindings(w.parent.rawBindings, w.builtins)
+	if err != nil {
+		log.Printf("Error: Failed to parse key bindings: %v\n", err)
+	}
+	bindingTree, err := cmd.NewBindingTree(bindings)
+	if err != nil {
+		log.Printf("Error: Failed to parse key bindings: %v\n", err)
+	}
+	*(w.bindings) = *bindingTree
 }
 
 func (w *window) getWebView() *webView {
@@ -144,14 +152,27 @@ func (w *window) getWebView() *webView {
 }
 
 func (w *window) runCmd(cmd string) {
-	regex := regexp.MustCompile(`\s+`)
-	parts := regex.Split(cmd, -1)
+	runCmd(w, w.parent, cmd)
+}
+
+func runCmd(w *window, g *golem, cmd string) {
+	// Space followed optionally by a line comment (starting with ")
+	blankRegex := regexp.MustCompile(`^\s*(".*|)$`)
+	if blankRegex.MatchString(cmd) {
+		return
+	}
+
+	splitRegex := regexp.MustCompile(`\s+`)
+	parts := splitRegex.Split(cmd, -1)
+	if len(parts[0]) == 0 {
+		parts = parts[1:len(parts)]
+	}
 	f, ok := commands[parts[0]]
 	if ok {
 		if debug.PrintCommands {
 			log.Printf("Running command '%v'.", cmd)
 		}
-		f(w, parts)
+		f(w, g, parts)
 	} else {
 		log.Printf("Failed to run command '%v': No such command.", cmd)
 	}

@@ -5,15 +5,24 @@ import (
 	"regexp"
 )
 
-var commands = map[string]func(*window, []string){
+var commands = map[string]func(*window, *golem, []string){
 	"open": cmdOpen,
+	"bind": cmdBind,
 }
 
 func logInvalidArgs(args []string) {
 	log.Printf("Invalid arguments recieved for command %v.", args[0])
 }
 
-func cmdOpen(w *window, args []string) {
+func logNonGlobalCommand() {
+	log.Printf("Non global command executed in a global contex.")
+}
+
+func cmdOpen(w *window, g *golem, args []string) {
+	if w == nil {
+		logNonGlobalCommand()
+	}
+
 	if len(args) < 2 {
 		logInvalidArgs(args)
 		return
@@ -29,8 +38,8 @@ func cmdOpen(w *window, args []string) {
 		// possible?
 		uri = "http://" + uri
 	} else {
-		searchEngine := w.parent.defaultSearchEngine
-		s, ok := w.parent.searchEngines[args[1]]
+		searchEngine := g.defaultSearchEngine
+		s, ok := g.searchEngines[args[1]]
 		var searchTerms []string
 		if len(args) > 2 && ok {
 			searchEngine = s
@@ -42,4 +51,13 @@ func cmdOpen(w *window, args []string) {
 	}
 	//log.Printf(uri)
 	w.WebView.LoadURI(uri)
+}
+
+// cmdBind adds a binding, globally to golem.
+func cmdBind(w *window, g *golem, args []string) {
+	if len(args) != 3 {
+		logInvalidArgs(args)
+		return
+	}
+	g.bind(args[1], args[2])
 }

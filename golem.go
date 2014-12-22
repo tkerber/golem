@@ -8,6 +8,7 @@ import (
 
 	"github.com/conformal/gotk3/gtk"
 	"github.com/guelfey/go.dbus"
+	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/webkit"
 )
 
@@ -26,6 +27,7 @@ type golem struct {
 	quit               chan bool
 	sBus               *dbus.Conn
 	wMutex             *sync.Mutex
+	rawBindings        []cmd.RawBinding
 }
 
 func newGolem(sBus *dbus.Conn) (*golem, error) {
@@ -56,13 +58,28 @@ func newGolem(sBus *dbus.Conn) (*golem, error) {
 		quitChan,
 		sBus,
 		new(sync.Mutex),
+		make([]cmd.RawBinding, 0, 100),
 	}
 
 	sigChan := make(chan *dbus.Signal, 100)
 	sBus.Signal(sigChan)
 	go g.watchSignals(sigChan)
 
+	for _, rcLine := range strings.Split(defaultRc, "\n") {
+		runCmd(nil, g, rcLine)
+	}
+
 	return g, nil
+}
+
+func (g *golem) bind(from string, to string) {
+	g.wMutex.Lock()
+	g.rawBindings = append(g.rawBindings, cmd.RawBinding{from, to})
+	g.wMutex.Unlock()
+
+	for _, w := range g.windows {
+		w.rebuildBindings()
+	}
 }
 
 func (g *golem) watchSignals(c <-chan *dbus.Signal) {
