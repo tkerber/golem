@@ -29,8 +29,8 @@ func cmdOpen(w *window, args []string) {
 		// possible?
 		uri = "http://" + uri
 	} else {
-		searchEngine := w.cfg.defaultSearchEngine
-		s, ok := w.cfg.searchEngines[args[1]]
+		searchEngine := w.parent.defaultSearchEngine
+		s, ok := w.parent.searchEngines[args[1]]
 		var searchTerms []string
 		if len(args) > 2 && ok {
 			searchEngine = s

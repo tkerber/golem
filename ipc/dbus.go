@@ -5,9 +5,7 @@ import (
 	"github.com/tkerber/golem/webkit"
 )
 
-type WebExtension struct {
-	*dbus.Object
-}
+type WebExtension dbus.Object
 
 func WebExtensionForWebView(wv *webkit.WebView) *WebExtension {
 	// TODO

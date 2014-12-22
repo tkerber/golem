@@ -58,6 +58,11 @@ func (w *WebView) native() *C.WebKitWebView {
 	return (*C.WebKitWebView)(unsafe.Pointer(w.Native()))
 }
 
+// GetPageID gets the ID of the web page corresponding to the web view.
+func (w *WebView) GetPageID() uint64 {
+	return uint64(C.webkit_web_view_get_page_id(w.native()))
+}
+
 // LoadURI requests loading of the speicified URI string.
 func (w *WebView) LoadURI(uri string) {
 	cURI := (*C.gchar)(C.CString(uri))

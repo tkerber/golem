@@ -3,6 +3,8 @@ package cmd
 import (
 	"log"
 	"time"
+
+	"github.com/tkerber/golem/debug"
 )
 
 // timeout is the time waited in normal mode before an ambiguous binding is
@@ -113,7 +115,9 @@ func (s *NormalMode) ProcessKeyPress(key Key) (State, bool) {
 		if soleBinding {
 			// We have a difinite match for a binding. Execute it and reset the
 			// state.
-			log.Printf("Executing binding for %v...", KeysString(append(s.CurrentKeys, key)))
+			if debug.PrintBindings {
+				log.Printf("Executing binding for %v...", KeysString(append(s.CurrentKeys, key)))
+			}
 			go subtree.Binding()
 			return NewNormalMode(s.StateIndependant), true
 		}

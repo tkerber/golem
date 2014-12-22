@@ -2,8 +2,12 @@ package main
 
 import (
 	"log"
+	"strconv"
+	"strings"
+	"sync"
 
 	"github.com/conformal/gotk3/gtk"
+	"github.com/guelfey/go.dbus"
 	"github.com/tkerber/golem/webkit"
 )
 
@@ -16,13 +20,15 @@ html::-webkit-scrollbar{
 type golem struct {
 	*cfg
 	windows            []*window
+	webViews           map[uint64]*webView
 	userContentManager *webkit.UserContentManager
 	closeChan          chan<- *window
-	openChan           chan<- *window
 	quit               chan bool
+	sBus               *dbus.Conn
+	wMutex             *sync.Mutex
 }
 
-func newGolem() (*golem, error) {
+func newGolem(sBus *dbus.Conn) (*golem, error) {
 	ucm, err := webkit.NewUserContentManager()
 	if err != nil {
 		return nil, err
@@ -39,35 +45,50 @@ func newGolem() (*golem, error) {
 	ucm.AddStyleSheet(css)
 
 	closeChan := make(chan *window)
-	openChan := make(chan *window)
 	quitChan := make(chan bool)
 
 	g := &golem{
 		defaultCfg,
-		make([]*window, 0),
+		make([]*window, 0, 10),
+		make(map[uint64]*webView, 500),
 		ucm,
 		closeChan,
-		openChan,
 		quitChan,
+		sBus,
+		new(sync.Mutex),
 	}
 
-	// This goroutine manages any writes to the golem struct itself,
-	// protecting against concurrent access.
-	go func() {
-		for {
-			select {
-			case w := <-closeChan:
-				g.closeWindow(w)
-			case w := <-openChan:
-				g.windows = append(g.windows, w)
-			}
-		}
-	}()
+	sigChan := make(chan *dbus.Signal, 100)
+	sBus.Signal(sigChan)
+	go g.watchSignals(sigChan)
 
 	return g, nil
 }
 
+func (g *golem) watchSignals(c <-chan *dbus.Signal) {
+	for sig := range c {
+		switch sig.Name {
+		case webExtenDBusInterface + ".VerticalPositionChanged":
+			if !strings.HasPrefix(string(sig.Path), webExtenDBusPathPrefix) {
+				continue
+			}
+			originId, err := strconv.ParseUint(
+				string(sig.Path[len(webExtenDBusPathPrefix):len(sig.Path)]),
+				0,
+				64)
+			if err == nil {
+				g.updatePosition(
+					originId,
+					sig.Body[0].(int64),
+					sig.Body[1].(int64))
+			}
+		}
+	}
+}
+
 func (g *golem) closeWindow(w *window) {
+	g.wMutex.Lock()
+	defer g.wMutex.Unlock()
 	// w points to the window which was closed. It will be removed
 	// from golems window list, and in doing so will be deferenced.
 	var i int
@@ -92,5 +113,24 @@ func (g *golem) closeWindow(w *window) {
 	if len(g.windows) == 0 {
 		gtk.MainQuit()
 		g.quit <- true
+	}
+}
+
+func (g *golem) updatePosition(pageId uint64, top, height int64) {
+	wv, ok := g.webViews[pageId]
+	if !ok {
+		log.Printf(
+			"Attempted to update position of non-existent webpage %d!",
+			pageId)
+		return
+	}
+	wv.top = top
+	wv.height = height
+	for _, w := range g.windows {
+		if wv.WebView == w.WebView {
+			w.Top = top
+			w.Height = height
+			w.UpdateLocation()
+		}
 	}
 }

@@ -12,8 +12,8 @@ type Window struct {
 	StatusBar
 	*webkit.WebView
 	*gtk.Window
-	top    int64
-	height int64
+	Top    int64
+	Height int64
 }
 
 func NewWindow(webView *webkit.WebView) (*Window, error) {
@@ -101,14 +101,14 @@ func (w *Window) UpdateLocation() {
 
 	var pos string
 	visible := int64(w.WebView.GetAllocatedHeight())
-	if int64(visible) >= w.height {
+	if int64(visible) >= w.Height {
 		pos = "ALL"
-	} else if w.top == 0 {
+	} else if w.Top == 0 {
 		pos = "TOP"
-	} else if w.top == w.height-visible {
+	} else if w.Top == w.Height-visible {
 		pos = "BOT"
 	} else {
-		percent := w.top * 100 / (w.height - visible)
+		percent := w.Top * 100 / (w.Height - visible)
 		pos = fmt.Sprintf("%02d%%", percent)
 	}
 	locStr += "[" + pos + "]"

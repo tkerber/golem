@@ -1,41 +1,32 @@
 package main
 
-import "github.com/tkerber/golem/cmd"
+import (
+	"fmt"
+	"log"
+
+	"github.com/tkerber/golem/cmd"
+)
 
 type binding struct {
 	from string
 	to   string
 }
 
-type unboundBuiltins map[string]func(*window)
-
 var defaultBindings = []cmd.RawBinding{
-	//	cmd.RawBinding{"r", "::builtin:reload"},
-	//	cmd.RawBinding{"gh", "::builtin:home"},
-	//	cmd.RawBinding{"gg", "::builtin:goToTop"},
-	//	cmd.RawBinding{"G", "::builtin:goToBottom"},
-	//	cmd.RawBinding{"j", "::builtin:scrollDown"},
-	//	cmd.RawBinding{"k", "::builtin:scrollUp"},
-	//	cmd.RawBinding{"h", "::builtin:scrollLeft"},
-	//	cmd.RawBinding{"l", "::builtin:scrollRight"},
-	//	cmd.RawBinding{":", "::builtin:commandMode"},
-	//	cmd.RawBinding{"i", "::builtin:insertMode"},
-	//	cmd.RawBinding{",h", "::builtin:back"},
-	//	cmd.RawBinding{",l", "::builtin:forward"},
-	//	cmd.RawBinding{"o", "::builtin:open"},
-	cmd.RawBinding{"r", "::builtin:nop"},
-	cmd.RawBinding{"gh", "::builtin:nop"},
-	cmd.RawBinding{"gg", "::builtin:nop"},
-	cmd.RawBinding{"G", "::builtin:nop"},
-	cmd.RawBinding{"j", "::builtin:nop"},
-	cmd.RawBinding{"k", "::builtin:nop"},
-	cmd.RawBinding{"h", "::builtin:nop"},
-	cmd.RawBinding{"l", "::builtin:nop"},
+	cmd.RawBinding{"r", "::builtin:reload"},
+	cmd.RawBinding{"gh", "::builtin:goHome"},
+	cmd.RawBinding{"gg", "::builtin:scrollToTop"},
+	cmd.RawBinding{"G", "::builtin:scrollToBottom"},
+	cmd.RawBinding{"j", "::builtin:scrollDown"},
+	cmd.RawBinding{"k", "::builtin:scrollUp"},
+	cmd.RawBinding{"h", "::builtin:scrollLeft"},
+	cmd.RawBinding{"l", "::builtin:scrollRight"},
 	cmd.RawBinding{":", "::builtin:commandMode"},
 	cmd.RawBinding{"i", "::builtin:insertMode"},
-	cmd.RawBinding{",h", "::builtin:nop"},
-	cmd.RawBinding{",l", "::builtin:nop"},
+	cmd.RawBinding{",h", "::builtin:goBack"},
+	cmd.RawBinding{",l", "::builtin:goForward"},
 	cmd.RawBinding{"o", "::builtin:open"},
+	cmd.RawBinding{"go", "::builtin:editURI"},
 }
 
 func builtinsFor(w *window) cmd.Builtins {
@@ -48,17 +39,71 @@ func builtinsFor(w *window) cmd.Builtins {
 		"open": func() {
 			w.setState(cmd.NewPartialCommandLineMode(w.State, "open ", w.runCmd))
 		},
-		//		"reload":      window.reload,
-		//		"home":        window.home,
-		//		"goToTop":     window.goToTop,
-		//		"goToBottom":  window.goToBottom,
-		//		"scrollUp":    window.scrollUp,
-		//		"scrollDown":  window.scrollDown,
-		//		"scrollLeft":  window.scrollLeft,
-		//		"scrollRight": window.scrollRight,
-		//		"commandMode": window.commandMode,
-		//		"back":        window.back,
-		//		"forward":     window.forward,
-		//		"open":        window.open,
+		"goHome": func() {
+			w.runCmd(fmt.Sprintf("open %v", w.parent.homePage))
+		},
+		"scrollToBottom": w.scrollToBottom,
+		"scrollToTop":    w.scrollToTop,
+		"scrollUp":       func() { w.scrollDelta(-w.parent.scrollDelta, true) },
+		"scrollDown":     func() { w.scrollDelta(w.parent.scrollDelta, true) },
+		"scrollLeft":     func() { w.scrollDelta(-w.parent.scrollDelta, false) },
+		"scrollRight":    func() { w.scrollDelta(w.parent.scrollDelta, false) },
+		"goBack": func() {
+			w.WebView.GoBack()
+		},
+		"goForward": func() {
+			w.WebView.GoForward()
+		},
+		"reload": func() { w.WebView.Reload() },
+		"editURI": func() {
+			w.setState(cmd.NewPartialCommandLineMode(
+				w.State,
+				fmt.Sprintf("open %v", w.WebView.GetURI()),
+				w.runCmd))
+		},
+	}
+}
+
+func (w *window) scrollToBottom() {
+	ext := w.getWebView()
+	height, err := ext.getScrollHeight()
+	if err != nil {
+		log.Printf("Error scrolling: %v", err)
+	}
+	err = ext.setScrollTop(height)
+	if err != nil {
+		log.Printf("Error scrolling: %v", err)
+	}
+}
+
+func (w *window) scrollToTop() {
+	err := w.getWebView().setScrollTop(0)
+	if err != nil {
+		log.Printf("Error scrolling: %v", err)
+	}
+}
+
+func (w *window) scrollDelta(delta int, vertical bool) {
+	var curr int64
+	var err error
+	wv := w.getWebView()
+	if vertical {
+		curr, err = wv.getScrollTop()
+	} else {
+		curr, err = wv.getScrollLeft()
+	}
+	if err != nil {
+		log.Printf("Error scrolling: %v", err)
+		return
+	}
+	curr += int64(delta)
+	if vertical {
+		err = wv.setScrollTop(curr)
+	} else {
+		err = wv.setScrollLeft(curr)
+	}
+	if err != nil {
+		log.Printf("Error scrolling: %v", err)
+		return
 	}
 }

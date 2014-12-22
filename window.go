@@ -11,13 +11,13 @@ import (
 	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/debug"
 	"github.com/tkerber/golem/ui"
-	"github.com/tkerber/golem/webkit"
 )
 
 type window struct {
 	*ui.Window
 	cmd.State
-	cfg *cfg
+	webViews []*webView
+	parent   *golem
 }
 
 const keyTimeout = time.Millisecond * 10
@@ -31,19 +31,26 @@ func (w *window) setState(state cmd.State) {
 }
 
 func (g *golem) newWindow() error {
-	webView, err := webkit.NewWebViewWithUserContentManager(g.userContentManager)
+	wv, err := g.newWebView()
 	if err != nil {
 		log.Printf("Error: Failed to open new window: %v\n", err)
 		return err
 	}
 
-	uiWin, err := ui.NewWindow(webView)
+	uiWin, err := ui.NewWindow(wv.WebView)
 	if err != nil {
 		log.Printf("Error: Failed to open new window: %v\n", err)
 		return err
 	}
 
-	win := &window{uiWin, nil, g.cfg}
+	win := &window{
+		uiWin,
+		nil,
+		[]*webView{
+			wv,
+		},
+		g,
+	}
 
 	builtins := builtinsFor(win)
 	bindings, err := cmd.ParseRawBindings(defaultBindings, builtins)
@@ -62,7 +69,9 @@ func (g *golem) newWindow() error {
 		win.setState,
 	}))
 
-	g.openChan <- win
+	g.wMutex.Lock()
+	g.windows = append(g.windows, win)
+	g.wMutex.Unlock()
 
 	uiWin.WebView.Connect("notify::title", func() {
 		title := win.GetTitle()
@@ -73,7 +82,7 @@ func (g *golem) newWindow() error {
 		}
 	})
 	uiWin.WebView.Connect("notify::uri", win.UpdateLocation)
-	bfl := webView.GetBackForwardList()
+	bfl := wv.GetBackForwardList()
 	bfl.Connect("changed", win.UpdateLocation)
 
 	// Due to a bug with keypresses registering multiple times, we ignore
@@ -117,11 +126,21 @@ func (g *golem) newWindow() error {
 		}
 	})
 	uiWin.Window.Connect("destroy", func() {
-		g.closeChan <- win
+		for _, wv := range win.webViews {
+			wv.close()
+		}
+		g.closeWindow(win)
 	})
+
+	// Load the start page
+	builtins["goHome"]()
 
 	win.Show()
 	return nil
+}
+
+func (w *window) getWebView() *webView {
+	return w.parent.webViews[w.WebView.GetPageID()]
 }
 
 func (w *window) runCmd(cmd string) {
