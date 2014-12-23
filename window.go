@@ -7,19 +7,30 @@ import (
 	"time"
 
 	"github.com/conformal/gotk3/gdk"
+	"github.com/conformal/gotk3/glib"
 	"github.com/conformal/gotk3/gtk"
 	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/debug"
 	"github.com/tkerber/golem/ui"
 )
 
+type signalHandle struct {
+	obj    *glib.Object
+	handle glib.SignalHandle
+}
+
+func (h signalHandle) disconnect() {
+	h.obj.HandlerDisconnect(h.handle)
+}
+
 type window struct {
 	*ui.Window
 	cmd.State
-	webViews []*webView
-	parent   *golem
-	builtins cmd.Builtins
-	bindings *cmd.BindingTree
+	webViews            []*webView
+	parent              *golem
+	builtins            cmd.Builtins
+	bindings            *cmd.BindingTree
+	activeSignalHandles []signalHandle
 }
 
 const keyTimeout = time.Millisecond * 10
@@ -54,6 +65,7 @@ func (g *golem) newWindow() error {
 		g,
 		nil,
 		new(cmd.BindingTree),
+		make([]signalHandle, 0),
 	}
 
 	win.builtins = builtinsFor(win)
@@ -69,17 +81,7 @@ func (g *golem) newWindow() error {
 	g.windows = append(g.windows, win)
 	g.wMutex.Unlock()
 
-	uiWin.WebView.Connect("notify::title", func() {
-		title := win.GetTitle()
-		if title != "" {
-			win.SetTitle(fmt.Sprintf("%s - Golem", title))
-		} else {
-			win.SetTitle("Golem")
-		}
-	})
-	uiWin.WebView.Connect("notify::uri", win.UpdateLocation)
-	bfl := wv.GetBackForwardList()
-	bfl.Connect("changed", win.UpdateLocation)
+	win.reconnectWebViewSignals()
 
 	// Due to a bug with keypresses registering multiple times, we ignore
 	// keypresses within 10ms of each other.
@@ -149,6 +151,33 @@ func (w *window) rebuildBindings() {
 
 func (w *window) getWebView() *webView {
 	return w.parent.webViews[w.WebView.GetPageID()]
+}
+
+func (w *window) reconnectWebViewSignals() {
+	for _, handle := range w.activeSignalHandles {
+		handle.disconnect()
+	}
+	w.activeSignalHandles = make([]signalHandle, 3)
+	handle, err := w.WebView.Connect("notify::title", func() {
+		title := w.GetTitle()
+		if title != "" {
+			w.SetTitle(fmt.Sprintf("%s - Golem", title))
+		} else {
+			w.SetTitle("Golem")
+		}
+	})
+	if err != nil {
+		panic("Failed to connect to window event.")
+	}
+	w.activeSignalHandles[0] = signalHandle{w.WebView.Object, handle}
+	handle, err = w.WebView.Connect("notify::uri", w.UpdateLocation)
+	if err != nil {
+		panic("Failed to connect to window event.")
+	}
+	w.activeSignalHandles[1] = signalHandle{w.WebView.Object, handle}
+	bfl := w.WebView.GetBackForwardList()
+	handle, err = bfl.Connect("changed", w.UpdateLocation)
+	w.activeSignalHandles[2] = signalHandle{bfl.Object, handle}
 }
 
 func (w *window) runCmd(cmd string) {
