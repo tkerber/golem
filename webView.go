@@ -15,11 +15,17 @@ type webView struct {
 	parent *golem
 }
 
-func (g *golem) newWebView() (*webView, error) {
+func (g *golem) newWebView(settings *webkit.Settings) (*webView, error) {
 	wv, err := webkit.NewWebViewWithUserContentManager(g.userContentManager)
 	if err != nil {
 		return nil, err
 	}
+
+	// Each WebView gets it's own settings, to allow toggling settings on a
+	// per tab and/or per window basis.
+	newSettings := settings.Clone()
+
+	wv.SetSettings(newSettings)
 
 	webExten := webExtensionForWebView(g.sBus, wv)
 

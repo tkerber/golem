@@ -12,6 +12,7 @@ import (
 	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/debug"
 	"github.com/tkerber/golem/ui"
+	"github.com/tkerber/golem/webkit"
 )
 
 type signalHandle struct {
@@ -43,8 +44,8 @@ func (w *window) setState(state cmd.State) {
 	w.UpdateState(w.State)
 }
 
-func (g *golem) newWindow() error {
-	wv, err := g.newWebView()
+func (g *golem) newWindow(settings *webkit.Settings) error {
+	wv, err := g.newWebView(settings)
 	if err != nil {
 		log.Printf("Error: Failed to open new window: %v\n", err)
 		return err
@@ -157,7 +158,8 @@ func (w *window) reconnectWebViewSignals() {
 	for _, handle := range w.activeSignalHandles {
 		handle.disconnect()
 	}
-	w.activeSignalHandles = make([]signalHandle, 3)
+	w.activeSignalHandles = make([]signalHandle, 5)
+
 	handle, err := w.WebView.Connect("notify::title", func() {
 		title := w.GetTitle()
 		if title != "" {
@@ -170,14 +172,22 @@ func (w *window) reconnectWebViewSignals() {
 		panic("Failed to connect to window event.")
 	}
 	w.activeSignalHandles[0] = signalHandle{w.WebView.Object, handle}
+
 	handle, err = w.WebView.Connect("notify::uri", w.UpdateLocation)
 	if err != nil {
 		panic("Failed to connect to window event.")
 	}
 	w.activeSignalHandles[1] = signalHandle{w.WebView.Object, handle}
+
 	bfl := w.WebView.GetBackForwardList()
 	handle, err = bfl.Connect("changed", w.UpdateLocation)
 	w.activeSignalHandles[2] = signalHandle{bfl.Object, handle}
+
+	handle, err = w.WebView.Connect("enter-fullscreen", w.Window.HideUI)
+	w.activeSignalHandles[3] = signalHandle{w.WebView.Object, handle}
+
+	handle, err = w.WebView.Connect("leave-fullscreen", w.Window.ShowUI)
+	w.activeSignalHandles[4] = signalHandle{w.WebView.Object, handle}
 }
 
 func (w *window) runCmd(cmd string) {

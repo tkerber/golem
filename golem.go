@@ -28,6 +28,7 @@ type golem struct {
 	sBus               *dbus.Conn
 	wMutex             *sync.Mutex
 	rawBindings        []cmd.RawBinding
+	defaultSettings    *webkit.Settings
 }
 
 func newGolem(sBus *dbus.Conn) (*golem, error) {
@@ -59,6 +60,7 @@ func newGolem(sBus *dbus.Conn) (*golem, error) {
 		sBus,
 		new(sync.Mutex),
 		make([]cmd.RawBinding, 0, 100),
+		webkit.NewSettings(),
 	}
 
 	sigChan := make(chan *dbus.Signal, 100)

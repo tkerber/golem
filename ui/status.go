@@ -5,6 +5,7 @@ import "github.com/conformal/gotk3/gtk"
 type StatusBar struct {
 	CmdStatus      *gtk.Label
 	LocationStatus *gtk.Label
+	container      gtk.Container
 }
 
 func (s *StatusBar) SetLocationLabel(label string) {

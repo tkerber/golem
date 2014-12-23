@@ -42,7 +42,7 @@ func (g *dbusGolem) NewWindow() *dbus.Error {
 	// Aww, [defer go gtk.Main()] doesn't work :(
 	defer func() { go gtk.Main() }()
 
-	err := g.newWindow()
+	err := g.newWindow(g.defaultSettings)
 	if err != nil {
 		return &dbus.Error{golemDBusName + ".Error", []interface{}{err}}
 	}

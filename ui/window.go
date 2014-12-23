@@ -55,13 +55,27 @@ func NewWindow(webView *webkit.WebView) (*Window, error) {
 	// TODO sensible default size. (Default to screen size?)
 	win.SetDefaultSize(800, 600)
 
-	w := &Window{StatusBar{cmdStatus, locationStatus}, webView, win, 0, 0}
+	w := &Window{
+		StatusBar{cmdStatus, locationStatus, statusBar.Container},
+		webView,
+		win,
+		0,
+		0,
+	}
 
 	return w, nil
 }
 
 func (w *Window) Show() {
 	w.Window.ShowAll()
+}
+
+func (w *Window) HideUI() {
+	w.StatusBar.container.Hide()
+}
+
+func (w *Window) ShowUI() {
+	w.StatusBar.container.Show()
 }
 
 func (w *Window) UpdateState(state cmd.State) {

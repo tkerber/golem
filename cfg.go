@@ -30,4 +30,7 @@ bind ,h ::builtin:goBack
 bind ,l ::builtin:goForward
 bind o  ::builtin:open
 bind go ::builtin:editURI
+
+" TODO: implement this.
+set webkit:enable-mediasource=true
 `

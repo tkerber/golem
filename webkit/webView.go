@@ -22,6 +22,9 @@ import (
 // WebView represents a webkit webview widget.
 type WebView struct {
 	gtk.Container
+	// The settings of the WebView, may be nil if they were never set or
+	// retrieved.
+	settings *Settings
 }
 
 // NewWebView creates and returns a new webkit webview.
@@ -51,7 +54,7 @@ func NewWebViewWithUserContentManager(ucm *UserContentManager) (*WebView, error)
 }
 
 func wrapWebView(obj *glib.Object) *WebView {
-	return &WebView{gtk.Container{gtk.Widget{glib.InitiallyUnowned{obj}}}}
+	return &WebView{gtk.Container{gtk.Widget{glib.InitiallyUnowned{obj}}}, nil}
 }
 
 func (w *WebView) native() *C.WebKitWebView {
@@ -126,4 +129,18 @@ func (w *WebView) GetBackForwardList() *BackForwardList {
 	bfl := C.webkit_web_view_get_back_forward_list(w.native())
 	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(bfl))}
 	return &BackForwardList{obj}
+}
+
+func (w *WebView) SetSettings(s *Settings) {
+	w.settings = s
+	C.webkit_web_view_set_settings(
+		w.native(),
+		(*C.WebKitSettings)(unsafe.Pointer(s.Native())))
+}
+
+func (w *WebView) GetSettings() *Settings {
+	if w.settings == nil {
+		w.settings = wrapSettings(C.webkit_web_view_get_settings(w.native()))
+	}
+	return w.settings
 }
