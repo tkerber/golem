@@ -86,20 +86,49 @@ func (g *golem) bind(from string, to string) {
 
 func (g *golem) watchSignals(c <-chan *dbus.Signal) {
 	for sig := range c {
+		if !strings.HasPrefix(string(sig.Path), webExtenDBusPathPrefix) {
+			continue
+		}
+		originId, err := strconv.ParseUint(
+			string(sig.Path[len(webExtenDBusPathPrefix):len(sig.Path)]),
+			0,
+			64)
+		if err != nil {
+			continue
+		}
+		wv, ok := g.webViews[originId]
+		if !ok {
+			continue
+		}
 		switch sig.Name {
 		case webExtenDBusInterface + ".VerticalPositionChanged":
-			if !strings.HasPrefix(string(sig.Path), webExtenDBusPathPrefix) {
-				continue
+			// Update for bookkeeping when tabs are switched
+			wv.top = sig.Body[0].(int64)
+			wv.height = sig.Body[1].(int64)
+			// Update any windows with this webview displayed.
+			for _, w := range g.windows {
+				if wv.WebView == w.WebView {
+					w.Top = wv.top
+					w.Height = wv.height
+					w.UpdateLocation()
+				}
 			}
-			originId, err := strconv.ParseUint(
-				string(sig.Path[len(webExtenDBusPathPrefix):len(sig.Path)]),
-				0,
-				64)
-			if err == nil {
-				g.updatePosition(
-					originId,
-					sig.Body[0].(int64),
-					sig.Body[1].(int64))
+		case webExtenDBusInterface + ".InputFocusChanged":
+			focused := sig.Body[0].(bool)
+			// If it's newly focused, set any windows with this webview
+			// displayed to insert mode.
+			//
+			// Otherwise, if the window is currently in insert mode and it's
+			// newly unfocused, set this webview to normal mode.
+			for _, w := range g.windows {
+				if wv.WebView == w.WebView {
+					if focused {
+						w.setState(cmd.NewInsertMode(w.State))
+					} else if _, ok := w.State.(*cmd.InsertMode); ok {
+						w.setState(
+							cmd.NewNormalMode(w.State.GetStateIndependant()))
+					}
+				}
 			}
 		}
 	}

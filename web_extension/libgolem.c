@@ -25,15 +25,19 @@ static const gchar introspection_xml[] =
     "            <arg type='x' name='ScrollTop' />"
     "            <arg type='x' name='ScrollHeight' />"
     "        </signal>"
+    "        <signal name='InputFocusChanged'>"
+    "            <arg type='b' name='InputFocused' />"
+    "        </signal>"
     "    </interface>"
     "</node>";
 
 struct Exten {
-    WebKitWebPage *web_page;
+    WebKitWebPage   *web_page;
     GDBusConnection *connection;
-    glong last_top;
-    glong last_height;
-    gchar *object_path;
+    glong            last_top;
+    glong            last_height;
+    gboolean         last_input_focus;
+    gchar           *object_path;
 };
 
 static void
@@ -174,7 +178,7 @@ handle_set_property(GDBusConnection *connection,
 }
 
 static gboolean
-poll_scroll_position(gpointer user_data)
+poll_status(gpointer user_data)
 {
     struct Exten *exten = user_data;
 
@@ -183,22 +187,55 @@ poll_scroll_position(gpointer user_data)
     if(dom != NULL) {
         e = WEBKIT_DOM_ELEMENT(webkit_dom_document_get_body(dom));
     }
-    if(e == NULL) {
-        return G_SOURCE_CONTINUE;
+
+    // Check for current scroll position. If it has changed, signal DBus.
+    if(e != NULL) {
+        glong top = webkit_dom_element_get_scroll_top(e);
+        glong height = webkit_dom_element_get_scroll_height(e);
+        if(top != exten->last_top || height != exten->last_height) {
+            exten->last_top = top;
+            exten->last_height = height;
+            g_dbus_connection_emit_signal(
+                    exten->connection,
+                    NULL,
+                    exten->object_path,
+                    "com.github.tkerber.golem.WebExtension",
+                    "VerticalPositionChanged",
+                    g_variant_new("(xx)", top, height),
+                    NULL);
+        }
     }
-    glong top = webkit_dom_element_get_scroll_top(e);
-    glong height = webkit_dom_element_get_scroll_height(e);
-    if(top != exten->last_top || height != exten->last_height) {
-        exten->last_top = top;
-        exten->last_height = height;
-        g_dbus_connection_emit_signal(
-                exten->connection,
-                NULL,
-                exten->object_path,
-                "com.github.tkerber.golem.WebExtension",
-                "VerticalPositionChanged",
-                g_variant_new("(xx)", top, height),
-                NULL);
+
+    if(dom != NULL) {
+        e = webkit_dom_document_get_active_element(dom);
+    }
+
+    // Check whether the currently active element is an input element.
+    // If this has changed, signal DBus.
+    //
+    // Input elements: 
+    //
+    // WebKitDOMHTMLAppletElement
+    // WebKitDOMHTMLEmbedElement
+    // WebKitDOMHTMLInputElement
+    // WebKitDOMHTMLTextAreaElement
+    if(e != NULL) {
+        gboolean input_focus = (
+                WEBKIT_DOM_IS_HTML_APPLET_ELEMENT(e) ||
+                WEBKIT_DOM_IS_HTML_EMBED_ELEMENT(e) ||
+                WEBKIT_DOM_IS_HTML_INPUT_ELEMENT(e) ||
+                WEBKIT_DOM_IS_HTML_TEXT_AREA_ELEMENT(e));
+        if(input_focus != exten->last_input_focus) {
+            exten->last_input_focus = input_focus;
+            g_dbus_connection_emit_signal(
+                    exten->connection,
+                    NULL,
+                    exten->object_path,
+                    "com.github.tkerber.golem.WebExtension",
+                    "InputFocusChanged",
+                    g_variant_new("(b)", input_focus),
+                    NULL);
+        }
     }
 
     return G_SOURCE_CONTINUE;
@@ -214,6 +251,7 @@ on_bus_acquired(GDBusConnection *connection,
     exten->web_page = user_data;
     exten->last_top = 0;
     exten->last_height = 0;
+    exten->last_input_focus = FALSE;
     exten->object_path = g_strdup_printf(
             "/com/github/tkerber/golem/WebExtension/page%d", 
             webkit_web_page_get_id(exten->web_page));
@@ -227,9 +265,9 @@ on_bus_acquired(GDBusConnection *connection,
             NULL,
             NULL);
     g_assert(registration_id > 0);
-    // Register 100ms loop polling scroll positions and sending updates
-    // as required.
-    g_timeout_add(100, poll_scroll_position, exten);
+    // Register 100ms loop polling the current status and sending updates as
+    // required.
+    g_timeout_add(100, poll_status, exten);
 }
 
 static void
