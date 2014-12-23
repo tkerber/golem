@@ -9,6 +9,7 @@ import (
 	"github.com/conformal/gotk3/gdk"
 	"github.com/conformal/gotk3/glib"
 	"github.com/conformal/gotk3/gtk"
+	"github.com/mattn/go-shellwords"
 	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/debug"
 	"github.com/tkerber/golem/ui"
@@ -37,7 +38,7 @@ type window struct {
 const keyTimeout = time.Millisecond * 10
 
 // nop does nothing. It is occasionally useful as a binding.
-func (w *window) nop() {}
+func (w *window) nop(_ ...interface{}) {}
 
 func (w *window) setState(state cmd.State) {
 	w.State = state
@@ -142,10 +143,12 @@ func (w *window) rebuildBindings() {
 	bindings, err := cmd.ParseRawBindings(w.parent.rawBindings, w.builtins)
 	if err != nil {
 		log.Printf("Error: Failed to parse key bindings: %v\n", err)
+		return
 	}
 	bindingTree, err := cmd.NewBindingTree(bindings)
 	if err != nil {
 		log.Printf("Error: Failed to parse key bindings: %v\n", err)
+		return
 	}
 	*(w.bindings) = *bindingTree
 }
@@ -201,8 +204,10 @@ func runCmd(w *window, g *golem, cmd string) {
 		return
 	}
 
-	splitRegex := regexp.MustCompile(`\s+`)
-	parts := splitRegex.Split(cmd, -1)
+	parts, err := shellwords.Parse(cmd)
+	if err != nil {
+		log.Printf("Failed to parse command '%v': %v", cmd, err)
+	}
 	if len(parts[0]) == 0 {
 		parts = parts[1:len(parts)]
 	}

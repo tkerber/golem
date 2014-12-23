@@ -1,3 +1,4 @@
+// Package cmd implements vim-like stateful operation.
 package cmd
 
 import (
@@ -93,10 +94,11 @@ func (s *NormalMode) ProcessKeyPress(key Key) (State, bool) {
 	subtree, ok := s.CurrentTree.Subtrees[key.Normalize()]
 	// No match found
 	if !ok {
+		// If any bindings are waiting to run, run them now.
 		if s.CurrentTree.Binding != nil {
 			s.cancelTimeout <- false
 		}
-		// Don't change empty state.
+		// If we are already in an empty normal mode, stay that way.
 		if len(s.CurrentKeys) == 0 {
 			return s, false
 		}
@@ -105,11 +107,12 @@ func (s *NormalMode) ProcessKeyPress(key Key) (State, bool) {
 		// escape.
 		return NewNormalMode(s.StateIndependant), key.Keyval == KeyEscape
 	}
+	// If any bindings are waiting to run, cancel them now.
 	if s.CurrentTree.Binding != nil {
 		s.cancelTimeout <- true
 	}
-	// We need this in the timeout thingy.
 	timeoutChan := make(chan bool)
+	// We have a binding
 	if subtree.Binding != nil {
 		soleBinding := len(subtree.Subtrees) == 0
 		if soleBinding {
@@ -129,6 +132,7 @@ func (s *NormalMode) ProcessKeyPress(key Key) (State, bool) {
 			append(s.CurrentKeys, key))
 		// The return is the same as if no binding exists. i.e. Fallthrough.
 	}
+	// We add the key to our list and wait for a new keypress.
 	return &NormalMode{
 		s.StateIndependant,
 		append(s.CurrentKeys, key),
@@ -178,6 +182,11 @@ type CommandLineMode struct {
 	Finalizer   func(string)
 }
 
+// NewCommandLineMode initializes a command line mode, starting from some
+// state s and a finalizer function.
+//
+// The finalizer function is run if a command line entry is accepted, with the
+// command line entry as an argument.
 func NewCommandLineMode(s State, f func(string)) *CommandLineMode {
 	return &CommandLineMode{
 		s.GetStateIndependant(),
@@ -186,6 +195,11 @@ func NewCommandLineMode(s State, f func(string)) *CommandLineMode {
 	}
 }
 
+// NewPartialCommandLineMode acts like NewCommandLineMode, except that it
+// defaults to a provided string as the command line instead of an empty one.
+//
+// Note that the string is parsed into it's Key components; if this fails,
+// it defaults back to an empty string.
 func NewPartialCommandLineMode(
 	s State, part string, f func(string)) *CommandLineMode {
 
@@ -202,13 +216,28 @@ func NewPartialCommandLineMode(
 		f}
 }
 
+// ProcessKeyPress processes the press of a single Key in CommandLineMode.
+//
+// Typically the Key is added to the current command line, with a few
+// exceptions.
+//
+// BackSpace deletes the last read key, or if none are left, returns to
+// NormalMode.
+//
+// Enter accepts the CommandLine and runs the finalizer, returning to
+// NormalMode afterwards.
+//
+// Escape returns to NormalMode.
 func (s *CommandLineMode) ProcessKeyPress(key Key) (State, bool) {
 	switch key.Keyval {
+	// Execute command line
 	case KeyReturn:
 		s.Finalizer(KeysStringSelective(s.CurrentKeys, false))
 		fallthrough
+	// Cancel command line
 	case KeyEscape:
 		return NewNormalMode(s.StateIndependant), true
+	// Delete last key.
 	case KeyBackSpace:
 		// Remove the last key from the list.
 		if len(s.CurrentKeys) > 0 {
@@ -218,7 +247,8 @@ func (s *CommandLineMode) ProcessKeyPress(key Key) (State, bool) {
 				s.Finalizer,
 			}, true
 		}
-		return NewNormalMode(s.StateIndependant), false
+		return NewNormalMode(s.StateIndependant), true
+	// Add new key
 	default:
 		return &CommandLineMode{
 			s.StateIndependant,
@@ -228,6 +258,7 @@ func (s *CommandLineMode) ProcessKeyPress(key Key) (State, bool) {
 	}
 }
 
+// GetStateIndependant gets the state independant associated with this state.
 func (s *CommandLineMode) GetStateIndependant() *StateIndependant {
 	return s.StateIndependant
 }

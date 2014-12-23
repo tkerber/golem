@@ -75,8 +75,22 @@ func newGolem(sBus *dbus.Conn) (*golem, error) {
 }
 
 func (g *golem) bind(from string, to string) {
+	// We check if the key has been bound before. If so, we replace the
+	// binding.
+	index := -1
+	for i, b := range g.rawBindings {
+		if from == b.From {
+			index = i
+			break
+		}
+	}
+
 	g.wMutex.Lock()
-	g.rawBindings = append(g.rawBindings, cmd.RawBinding{from, to})
+	if index != -1 {
+		g.rawBindings[index] = cmd.RawBinding{from, to}
+	} else {
+		g.rawBindings = append(g.rawBindings, cmd.RawBinding{from, to})
+	}
 	g.wMutex.Unlock()
 
 	for _, w := range g.windows {
