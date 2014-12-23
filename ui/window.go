@@ -1,3 +1,4 @@
+// Package ui contains golem's user-interface implementation.
 package ui
 
 import (
@@ -8,14 +9,18 @@ import (
 	"github.com/tkerber/golem/webkit"
 )
 
+// A Window is one of golem's windows.
 type Window struct {
 	StatusBar
 	*webkit.WebView
 	*gtk.Window
-	Top    int64
+	// How far from the top the active web view is scrolled.
+	Top int64
+	// The height of the active web view.
 	Height int64
 }
 
+// NewWindow creates a new window containing the given WebView.
 func NewWindow(webView *webkit.WebView) (*Window, error) {
 	win, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
 	if err != nil {
@@ -40,6 +45,7 @@ func NewWindow(webView *webkit.WebView) (*Window, error) {
 	}
 	locationStatus.OverrideFont("monospace")
 
+	// TODO: long urls/commands cause these to overlap. fix.
 	statusBar.PackStart(cmdStatus, false, false, 0)
 	statusBar.PackEnd(locationStatus, false, false, 0)
 
@@ -66,18 +72,22 @@ func NewWindow(webView *webkit.WebView) (*Window, error) {
 	return w, nil
 }
 
+// Show shows the window.
 func (w *Window) Show() {
 	w.Window.ShowAll()
 }
 
+// HideUI hides all UI (non-webkit) elements.
 func (w *Window) HideUI() {
 	w.StatusBar.container.Hide()
 }
 
+// ShowUI shows all UI elements.
 func (w *Window) ShowUI() {
 	w.StatusBar.container.Show()
 }
 
+// UpdateState updates the (command) state display of the window.
 func (w *Window) UpdateState(state cmd.State) {
 	var newStatus string
 	switch s := state.(type) {
@@ -89,7 +99,7 @@ func (w *Window) UpdateState(state cmd.State) {
 			newStatus = fmt.Sprintf("[%v]", cmd.KeysString(s.CurrentKeys))
 		}
 	case *cmd.InsertMode:
-		newStatus = "--INSERT--"
+		newStatus = "-- INSERT --"
 	case *cmd.CommandLineMode:
 		newStatus = fmt.Sprintf(
 			":%v",
@@ -98,6 +108,7 @@ func (w *Window) UpdateState(state cmd.State) {
 	w.SetCmdLabel(newStatus)
 }
 
+// UpdateLocation updates the location display of the window.
 func (w *Window) UpdateLocation() {
 	locStr := w.GetURI()
 	locStr += " "

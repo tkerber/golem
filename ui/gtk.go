@@ -26,14 +26,18 @@ import (
 // C and a pointer. When it is converted back, it is deleted from this map.
 var activeInvokations = make(map[*invokation]*invokation, 10)
 
+// An invokation encompasses a function and it's arguments, and is used to
+// pass around a function "call".
 type invokation struct {
 	f    interface{}
 	args []interface{}
 }
 
+// invoke invokes the invokation.
+//
+// No type checks are made, and if the types do not match a runtime panic will
+// be caused.
 func (i *invokation) invoke() {
-	// invoke does not check for type correctness. reflect itself panics if
-	// types aren't correct, and this behaviour is desired.
 	fRef := reflect.ValueOf(i.f)
 	args := make([]reflect.Value, len(i.args))
 	for i, arg := range i.args {
@@ -50,6 +54,11 @@ func cgoInvoke(ptr C.gpointer) C.gboolean {
 	return 0
 }
 
+// GlibMainContextInvoke invokes a function with the given arguments within
+// glib's main context.
+//
+// No type checks are made, and if the types do not match a runtime panic will
+// be caused.
 func GlibMainContextInvoke(f interface{}, args ...interface{}) {
 	inv := &invokation{f, args}
 	activeInvokations[inv] = inv
