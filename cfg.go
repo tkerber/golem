@@ -31,6 +31,6 @@ bind ,l ::builtin:goForward
 bind o  ::builtin:open
 bind go ::builtin:editURI
 
-" TODO: implement this.
+" Mediasource isn't supported enough for YouTube yet :(
 set webkit:enable-mediasource=true
 `

@@ -184,7 +184,7 @@ func (s *Settings) GetUint(setting string) uint {
 	return uint(*cuintPtr)
 }
 
-func (s *Settings) GetType(setting string) (reflect.Type, error) {
+func GetSettingsType(setting string) (reflect.Type, error) {
 	if boolSetting[setting] {
 		return typeBool, nil
 	} else if stringSetting[setting] {
@@ -192,5 +192,5 @@ func (s *Settings) GetType(setting string) (reflect.Type, error) {
 	} else if uintSetting[setting] {
 		return typeUint, nil
 	}
-	return nil, fmt.Errorf("Unknown settings: %v", setting)
+	return nil, fmt.Errorf("Unknown setting: %v", setting)
 }
