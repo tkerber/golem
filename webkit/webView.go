@@ -19,7 +19,7 @@ import (
 	"github.com/conformal/gotk3/gtk"
 )
 
-// WebView represents a webkit webview widget.
+// WebView represents a WebKitWebView widget.
 type WebView struct {
 	gtk.Container
 	// The settings of the WebView, may be nil if they were never set or
@@ -40,6 +40,8 @@ func NewWebView() (*WebView, error) {
 	return webView, nil
 }
 
+// NewWebViewWithUserContentManager creates a new WebView, using a specific
+// UserContentManager.
 func NewWebViewWithUserContentManager(ucm *UserContentManager) (*WebView, error) {
 	w := C.webkit_web_view_new_with_user_content_manager(
 		(*C.WebKitUserContentManager)(unsafe.Pointer(ucm.Native())))
@@ -53,10 +55,12 @@ func NewWebViewWithUserContentManager(ucm *UserContentManager) (*WebView, error)
 	return webView, nil
 }
 
+// wrapWebView wraps a creates web view object in the appropriate classes.
 func wrapWebView(obj *glib.Object) *WebView {
 	return &WebView{gtk.Container{gtk.Widget{glib.InitiallyUnowned{obj}}}, nil}
 }
 
+// native retrieves (a properly casted) pointer the native C WebKitWebView.
 func (w *WebView) native() *C.WebKitWebView {
 	return (*C.WebKitWebView)(unsafe.Pointer(w.Native()))
 }
@@ -75,10 +79,7 @@ func (w *WebView) LoadURI(uri string) {
 
 // IsLoading checks if a WebView is currently loading.
 func (w *WebView) IsLoading() bool {
-	if C.webkit_web_view_is_loading(w.native()) != 0 {
-		return true
-	}
-	return false
+	return gobool(C.webkit_web_view_is_loading(w.native()))
 }
 
 // Reload request the WebView to reload.
@@ -98,13 +99,15 @@ func (w *WebView) GetTitle() string {
 	return C.GoString((*C.char)(cstr))
 }
 
+// GetURI gets the currently displayed URI.
 func (w *WebView) GetURI() string {
 	cstr := C.webkit_web_view_get_uri(w.native())
 	return C.GoString((*C.char)(cstr))
 }
 
+// CanGoBack checks whether it is possible to currently go back.
 func (w *WebView) CanGoBack() bool {
-	return C.webkit_web_view_can_go_back(w.native()) != 0
+	return gobool(C.webkit_web_view_can_go_back(w.native()))
 }
 
 // GoBack goes back one step in browser history.
@@ -112,8 +115,9 @@ func (w *WebView) GoBack() {
 	C.webkit_web_view_go_back(w.native())
 }
 
+// CanGoForward checks whether it is possible to currently go forward.
 func (w *WebView) CanGoForward() bool {
-	return C.webkit_web_view_can_go_forward(w.native()) != 0
+	return gobool(C.webkit_web_view_can_go_forward(w.native()))
 }
 
 // GoForward goes forward one step in browser history.
@@ -131,6 +135,7 @@ func (w *WebView) GetBackForwardList() *BackForwardList {
 	return &BackForwardList{obj}
 }
 
+// SetSettings sets the settings used for this WebView.
 func (w *WebView) SetSettings(s *Settings) {
 	w.settings = s
 	C.webkit_web_view_set_settings(
@@ -138,6 +143,7 @@ func (w *WebView) SetSettings(s *Settings) {
 		(*C.WebKitSettings)(unsafe.Pointer(s.Native())))
 }
 
+// GetSettings retrieves the settings used for this WebView.
 func (w *WebView) GetSettings() *Settings {
 	if w.settings == nil {
 		w.settings = wrapSettings(C.webkit_web_view_get_settings(w.native()))

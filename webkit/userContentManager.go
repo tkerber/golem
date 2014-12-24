@@ -10,10 +10,15 @@ import (
 	"github.com/conformal/gotk3/glib"
 )
 
+// A UserContentManager is a wrapper around WebKitUserContentManager.
+//
+// It manages user content (i.e. scripts and style sheets), for WebViews which
+// link to it.
 type UserContentManager struct {
 	*glib.Object
 }
 
+// NewUserContentManager creates a new (blank) UserContentManager.
 func NewUserContentManager() (*UserContentManager, error) {
 	ucm := C.webkit_user_content_manager_new()
 	if ucm == nil {
@@ -25,6 +30,7 @@ func NewUserContentManager() (*UserContentManager, error) {
 	return &UserContentManager{obj}, nil
 }
 
+// AddStyleSheet attaches a UserStyleSheet to this UserContentManager.
 func (ucm *UserContentManager) AddStyleSheet(s *UserStyleSheet) {
 	C.webkit_user_content_manager_add_style_sheet(
 		(*C.WebKitUserContentManager)(unsafe.Pointer(ucm.Native())),

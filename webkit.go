@@ -22,14 +22,15 @@ func webkitInit() {
 		panic("Failed to find source files!")
 	}
 
-	webkit.DefaultWebContext.SetWebExtensionsDirectory(extenPath)
+	c := webkit.GetDefaultWebContext()
+	c.SetWebExtensionsDirectory(extenPath)
 	// TODO this is temporary.
-	webkit.DefaultWebContext.RegisterURIScheme("golem", &golemSchemeHandler)
+	c.RegisterURIScheme("golem", golemSchemeHandler)
 	// NOTE: removing this will cause bugs in golems web extension.
 	// Tread lightly.
-	webkit.DefaultWebContext.SetProcessModel(webkit.ProcessModelMultipleSecondaryProcesses)
+	c.SetProcessModel(webkit.ProcessModelMultipleSecondaryProcesses)
 }
 
-var golemSchemeHandler = func(req *webkit.URISchemeRequest) {
+func golemSchemeHandler(req *webkit.URISchemeRequest) {
 	req.Finish([]byte("<html><head><title>Golem</title></head><body><h1>Golem Home Page</h1><p>And stuff.</p></body></html>"), "text/html")
 }
