@@ -5,6 +5,23 @@ import (
 	"net/url"
 )
 
+type searchEngines struct {
+	searchEngines       map[string]*searchEngine
+	defaultSearchEngine *searchEngine
+}
+
+func (s *searchEngines) searchURI(searchTerms []string) string {
+	searchEngine := s.defaultSearchEngine
+	e, ok := s.searchEngines[searchTerms[0]]
+	if len(searchTerms) > 1 && ok {
+		searchEngine = e
+		searchTerms = searchTerms[1:]
+	} else {
+		searchTerms = searchTerms[0:]
+	}
+	return searchEngine.searchURI(searchTerms)
+}
+
 type searchEngine struct {
 	fullName      string
 	formatString  string
@@ -26,15 +43,29 @@ func (s *searchEngine) searchURI(searchTerms []string) string {
 		searchTermStr)
 }
 
-var defaultSearchEngines = map[string]*searchEngine{
-	"d": &searchEngine{"DuckDuckGo", "https://duckduckgo.com/?q=%v", "+"},
-	"g": &searchEngine{"Google", "https://google.com/search?q=%v", "+"},
+var searchEnginesMap = map[string]*searchEngine{
+	"d": &searchEngine{
+		"DuckDuckGo",
+		"https://duckduckgo.com/?q=%v",
+		"+",
+	},
+	"g": &searchEngine{"Google",
+		"https://google.com/search?q=%v",
+		"+",
+	},
 	"w": &searchEngine{
 		"Wikipedia",
 		"http://en.wikipedia.org/wiki/Special:Serach?search=%v&go=Go",
-		"+"},
+		"+",
+	},
 	"wt": &searchEngine{
 		"Wiktionary",
 		"http://en.wiktionary.org/wiki/Special:Serach?search=%v&go=Go",
-		"+"},
+		"+",
+	},
+}
+
+var defaultSearchEngines = &searchEngines{
+	searchEnginesMap,
+	searchEnginesMap["d"],
 }

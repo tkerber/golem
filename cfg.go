@@ -1,14 +1,12 @@
 package main
 
 type cfg struct {
-	defaultSearchEngine *searchEngine
-	searchEngines       map[string]*searchEngine
-	homePage            string
-	scrollDelta         int
+	searchEngines *searchEngines
+	homePage      string
+	scrollDelta   int
 }
 
 var defaultCfg = &cfg{
-	defaultSearchEngines["d"],
 	defaultSearchEngines,
 	"http://github.com/tkerber/golem",
 	40,
@@ -16,6 +14,8 @@ var defaultCfg = &cfg{
 
 const defaultRc = `
 " This is a comment.
+set webkit:user-agent+=" golem/0 (voidAnvil)"
+
 bind r  builtin:reload
 bind gh builtin:goHome
 bind gg builtin:scrollToTop

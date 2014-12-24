@@ -37,9 +37,6 @@ type window struct {
 
 const keyTimeout = time.Millisecond * 10
 
-// nop does nothing. It is occasionally useful as a binding.
-func (w *window) nop(_ ...interface{}) {}
-
 func (w *window) setState(state cmd.State) {
 	w.State = state
 	w.UpdateState(w.State)
@@ -207,6 +204,7 @@ func runCmd(w *window, g *golem, cmd string) {
 	parts, err := shellwords.Parse(cmd)
 	if err != nil {
 		log.Printf("Failed to parse command '%v': %v", cmd, err)
+		return
 	}
 	if len(parts[0]) == 0 {
 		parts = parts[1:len(parts)]
