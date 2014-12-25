@@ -16,6 +16,8 @@ var commands = map[string]func(*window, *golem, []string){
 	"open": cmdOpen,
 	"bind": cmdBind,
 	"set":  cmdSet,
+	"q":    cmdQuit,
+	"quit": cmdQuit,
 }
 
 // logInvalidArgs prints a log message indicating that the arguments given
@@ -30,6 +32,15 @@ func logNonGlobalCommand() {
 	log.Printf("Non global command executed in a global contex.")
 }
 
+// cmdQuit quit closes the active window.
+func cmdQuit(w *window, g *golem, _ []string) {
+	if w == nil {
+		logNonGlobalCommand()
+		return
+	}
+	w.Close()
+}
+
 // cmdOpen opens a uri in the current tab.
 //
 // cmdOpen is "smart" and guesses the uri's protocol, as well as interprets
@@ -40,6 +51,7 @@ func logNonGlobalCommand() {
 func cmdOpen(w *window, g *golem, args []string) {
 	if w == nil {
 		logNonGlobalCommand()
+		return
 	}
 
 	if len(args) < 2 {
