@@ -108,12 +108,15 @@ func cmdSet(w *window, g *golem, args []string) {
 		}
 		namespace := keyParts[0]
 
-		var setFunc func(interface{})
+		var setFunc func(obj interface{}, val interface{})
+		var getFunc func(obj interface{}) interface{}
+		var iterChan <-chan interface{}
 		var valueType reflect.Type
 
 		switch namespace {
 		case "webkit", "w":
-			setFunc, valueType, err = cmdSetWebkit(w, g, op, keyParts)
+			setFunc, getFunc, iterChan, valueType, err =
+				cmdSetWebkit(w, g, op, keyParts)
 			if err != nil {
 				log.Printf("%v: '%v'", err, arg)
 				continue
@@ -126,13 +129,76 @@ func cmdSet(w *window, g *golem, args []string) {
 			continue
 		}
 
+		operatorFunc, err := cmdSetOperatorFunc(op, setFunc, getFunc, valueType)
+		if err != nil {
+			log.Printf("%v: '%v'", err, arg)
+			continue
+		}
+
 		// Parse value according to the type and apply.
 		value, err := cmdSetParseValueString(valueStr, valueType)
 		if err != nil {
 			log.Printf(err.Error())
 			continue
 		}
-		setFunc(value)
+		for obj := range iterChan {
+			operatorFunc(obj, value)
+		}
+	}
+}
+
+func cmdSetOperatorFunc(
+	op uint,
+	setFunc func(obj interface{}, val interface{}),
+	getFunc func(obj interface{}) interface{},
+	valueType reflect.Type) (func(obj interface{}, val interface{}), error) {
+
+	switch op {
+	case setOpSet:
+		return setFunc, nil
+	case setOpAdd:
+		switch valueType.Kind() {
+		case reflect.Bool:
+			return nil, fmt.Errorf("Cannot add to bool value")
+		case reflect.String:
+			return func(obj interface{}, val interface{}) {
+				setFunc(obj, getFunc(obj).(string)+val.(string))
+			}, nil
+		case reflect.Uint:
+			return func(obj interface{}, val interface{}) {
+				setFunc(obj, getFunc(obj).(uint)+val.(uint))
+			}, nil
+		default:
+			return nil, fmt.Errorf("Don't know how to add type %v", valueType)
+		}
+	case setOpSub:
+		switch valueType.Kind() {
+		case reflect.Bool:
+			return nil, fmt.Errorf("Cannot subtract from bool value")
+		case reflect.String:
+			return nil, fmt.Errorf("Cannot subtract from string value")
+		case reflect.Uint:
+			return func(obj interface{}, val interface{}) {
+				setFunc(obj, getFunc(obj).(uint)-val.(uint))
+			}, nil
+		default:
+			return nil, fmt.Errorf("Don't know how to subtract type %v", valueType)
+		}
+	case setOpInvert:
+		switch valueType.Kind() {
+		case reflect.Bool:
+			return func(obj interface{}, val interface{}) {
+				setFunc(obj, !getFunc(obj).(bool))
+			}, nil
+		case reflect.String:
+			return nil, fmt.Errorf("Cannot invert string value")
+		case reflect.Uint:
+			return nil, fmt.Errorf("Cannot invert uint value")
+		default:
+			return nil, fmt.Errorf("Don't know how to invert type %v", valueType)
+		}
+	default:
+		panic("unreachable")
 	}
 }
 
@@ -186,132 +252,75 @@ func cmdSetWebkit(
 	w *window,
 	g *golem,
 	op uint,
-	keyParts []string) (func(interface{}), reflect.Type, error) {
+	keyParts []string) (
+
+	func(obj interface{}, val interface{}),
+	func(obj interface{}) interface{},
+	<-chan interface{},
+	reflect.Type,
+	error) {
 
 	qualifier, key, err := cmdSetWebkitGetKeys(keyParts)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	valueType, err := webkit.GetSettingsType(key)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
-	var setLocal func(*webkit.Settings, interface{})
-	switch valueType.Kind() {
-	case reflect.Bool:
-		setLocal, err = cmdSetWebkitLocalBool(op, key)
-	case reflect.String:
-		setLocal, err = cmdSetWebkitLocalString(op, key)
-	case reflect.Uint:
-		setLocal, err = cmdSetWebkitLocalUint(op, key)
-	}
-	if err != nil {
-		return nil, nil, err
+	// setFunc delegates to the appropriate webkit.Settings setter.
+	setFunc := func(obj interface{}, val interface{}) {
+		switch valueType.Kind() {
+		case reflect.Bool:
+			obj.(*webkit.Settings).SetBool(key, val.(bool))
+		case reflect.String:
+			obj.(*webkit.Settings).SetString(key, val.(string))
+		case reflect.Uint:
+			obj.(*webkit.Settings).SetUint(key, val.(uint))
+		}
 	}
 
-	var setFunc func(interface{})
-	switch qualifier {
-	case qualifierGlobal:
-		setFunc = func(val interface{}) {
+	getFunc := func(obj interface{}) interface{} {
+		switch valueType.Kind() {
+		case reflect.Bool:
+			return obj.(*webkit.Settings).GetBool(key)
+		case reflect.String:
+			return obj.(*webkit.Settings).GetString(key)
+		case reflect.Uint:
+			return obj.(*webkit.Settings).GetUint(key)
+		default:
+			panic("Unreachable state reached!")
+		}
+	}
+
+	if qualifier != qualifierGlobal && w == nil {
+		return nil,
+			nil,
+			nil,
+			nil,
+			fmt.Errorf(
+				"Attempted to set non-global setting in global context.")
+	}
+	iterChan := make(chan interface{})
+	go func() {
+		switch qualifier {
+		case qualifierGlobal:
+			iterChan <- g.defaultSettings
 			for _, wv := range g.webViews {
-				setLocal(wv.GetSettings(), val)
+				iterChan <- wv.GetSettings()
 			}
-			setLocal(g.defaultSettings, val)
-		}
-	case qualifierWindow:
-		if w == nil {
-			return nil,
-				nil,
-				fmt.Errorf(
-					"Attempted to set non-global setting in global context.")
-		}
-		setFunc = func(val interface{}) {
+		case qualifierWindow:
 			for _, wv := range w.webViews {
-				setLocal(wv.GetSettings(), val)
+				iterChan <- wv.GetSettings()
 			}
+		case qualifierTab:
+			iterChan <- w.getWebView().GetSettings()
 		}
-	case qualifierTab:
-		if w == nil {
-			return nil,
-				nil,
-				fmt.Errorf(
-					"Attempted to set non-global setting in global context.")
-		}
-		setFunc = func(val interface{}) {
-			setLocal(w.getWebView().GetSettings(), val)
-		}
-	}
-	return setFunc, valueType, nil
-}
-
-func cmdSetWebkitLocalUint(
-	op uint,
-	key string) (func(*webkit.Settings, interface{}), error) {
-
-	switch op {
-	case setOpSet:
-		return func(s *webkit.Settings, val interface{}) {
-			s.SetUint(key, val.(uint))
-		}, nil
-	case setOpAdd:
-		return func(s *webkit.Settings, val interface{}) {
-			s.SetUint(key, s.GetUint(key)+val.(uint))
-		}, nil
-	case setOpSub:
-		return func(s *webkit.Settings, val interface{}) {
-			s.SetUint(key, s.GetUint(key)-val.(uint))
-		}, nil
-	case setOpInvert:
-		return nil, fmt.Errorf("Cannot invert uint value")
-	default:
-		panic("unreachable")
-	}
-}
-
-func cmdSetWebkitLocalString(
-	op uint,
-	key string) (func(*webkit.Settings, interface{}), error) {
-
-	switch op {
-	case setOpSet:
-		return func(s *webkit.Settings, val interface{}) {
-			s.SetString(key, val.(string))
-		}, nil
-	case setOpAdd:
-		return func(s *webkit.Settings, val interface{}) {
-			s.SetString(key, s.GetString(key)+val.(string))
-		}, nil
-	case setOpSub:
-		return nil, fmt.Errorf("Cannot subtract from string value")
-	case setOpInvert:
-		return nil, fmt.Errorf("Cannot invert string value")
-	default:
-		panic("unreachable")
-	}
-}
-
-func cmdSetWebkitLocalBool(
-	op uint,
-	key string) (func(*webkit.Settings, interface{}), error) {
-
-	switch op {
-	case setOpSet:
-		return func(s *webkit.Settings, val interface{}) {
-			s.SetBool(key, val.(bool))
-		}, nil
-	case setOpAdd:
-		return nil, fmt.Errorf("Cannot add to boolean value")
-	case setOpSub:
-		return nil, fmt.Errorf("Cannot subtract from boolean value")
-	case setOpInvert:
-		return func(s *webkit.Settings, val interface{}) {
-			s.SetBool(key, !s.GetBool(key))
-		}, nil
-	default:
-		panic("unreachable")
-	}
+		close(iterChan)
+	}()
+	return setFunc, getFunc, iterChan, valueType, nil
 }
 
 func cmdSetWebkitGetKeys(keyParts []string) (uint, string, error) {

@@ -14,7 +14,7 @@ var defaultCfg = &cfg{
 
 const defaultRc = `
 " This is a comment.
-set webkit:user-agent+=" golem/0 (voidAnvil)"
+set webkit:user-agent+=" golem/0 (Anvil of the Void)"
 
 bind r  builtin:reload
 bind gh builtin:goHome
