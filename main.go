@@ -8,6 +8,7 @@ import (
 	"github.com/guelfey/go.dbus/introspect"
 )
 
+// main runs golem (yay!)
 func main() {
 	// Try to acquire the golem bus
 	sBus, err := dbus.SessionBus()

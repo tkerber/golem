@@ -5,11 +5,14 @@ import (
 	"net/url"
 )
 
+// searchEngines is a collection of all search engines registered, with name,
+// and a default search engine.
 type searchEngines struct {
 	searchEngines       map[string]*searchEngine
 	defaultSearchEngine *searchEngine
 }
 
+// searchURI converts a list of terms into a URI for the search.
 func (s *searchEngines) searchURI(searchTerms []string) string {
 	searchEngine := s.defaultSearchEngine
 	e, ok := s.searchEngines[searchTerms[0]]
@@ -22,12 +25,14 @@ func (s *searchEngines) searchURI(searchTerms []string) string {
 	return searchEngine.searchURI(searchTerms)
 }
 
+// A searchEngine is a struct describing - well, a search engine.
 type searchEngine struct {
 	fullName      string
 	formatString  string
 	searchTermSep string
 }
 
+// searchURI converts a list of terms into a URI for the search.
 func (s *searchEngine) searchURI(searchTerms []string) string {
 	// the reason the replace is done after the escape is that e.g.
 	// + is also escaped. This is counter productive.
@@ -43,6 +48,8 @@ func (s *searchEngine) searchURI(searchTerms []string) string {
 		searchTermStr)
 }
 
+// searchEnginesMap is the map mapping search engines registered by short name
+// to the actual search engine.
 var searchEnginesMap = map[string]*searchEngine{
 	"d": &searchEngine{
 		"DuckDuckGo",
@@ -65,6 +72,7 @@ var searchEnginesMap = map[string]*searchEngine{
 	},
 }
 
+// defaultSearchEngines is the default searchEngines construction.
 var defaultSearchEngines = &searchEngines{
 	searchEnginesMap,
 	searchEnginesMap["d"],

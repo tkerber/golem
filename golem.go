@@ -12,12 +12,14 @@ import (
 	"github.com/tkerber/golem/webkit"
 )
 
+// scrollbarHideCSS is the CSS to hide the scroll bars for webkit.
 const scrollbarHideCSS = `
 html::-webkit-scrollbar{
 	height:0px!important;
 	width:0px!important;
 }`
 
+// golem is golem's main instance.
 type golem struct {
 	*cfg
 	windows            []*window
@@ -31,6 +33,7 @@ type golem struct {
 	defaultSettings    *webkit.Settings
 }
 
+// newGolem creates a new instance of golem.
 func newGolem(sBus *dbus.Conn) (*golem, error) {
 	ucm, err := webkit.NewUserContentManager()
 	if err != nil {
@@ -40,8 +43,8 @@ func newGolem(sBus *dbus.Conn) (*golem, error) {
 		scrollbarHideCSS,
 		webkit.UserContentInjectTopFrame,
 		webkit.UserStyleLevelUser,
-		[]string{},
-		[]string{})
+		nil,
+		nil)
 	if err != nil {
 		return nil, err
 	}
@@ -74,6 +77,7 @@ func newGolem(sBus *dbus.Conn) (*golem, error) {
 	return g, nil
 }
 
+// bind creates a new key binding.
 func (g *golem) bind(from string, to string) {
 	// We check if the key has been bound before. If so, we replace the
 	// binding.
@@ -98,6 +102,8 @@ func (g *golem) bind(from string, to string) {
 	}
 }
 
+// watchSignals watches all DBus signals coming in through a channel, and
+// handles them appropriately.
 func (g *golem) watchSignals(c <-chan *dbus.Signal) {
 	for sig := range c {
 		if !strings.HasPrefix(string(sig.Path), webExtenDBusPathPrefix) {
@@ -148,6 +154,7 @@ func (g *golem) watchSignals(c <-chan *dbus.Signal) {
 	}
 }
 
+// closeWindow updates bookkeeping after a window was closed.
 func (g *golem) closeWindow(w *window) {
 	g.wMutex.Lock()
 	defer g.wMutex.Unlock()
@@ -175,24 +182,5 @@ func (g *golem) closeWindow(w *window) {
 	if len(g.windows) == 0 {
 		gtk.MainQuit()
 		g.quit <- true
-	}
-}
-
-func (g *golem) updatePosition(pageId uint64, top, height int64) {
-	wv, ok := g.webViews[pageId]
-	if !ok {
-		log.Printf(
-			"Attempted to update position of non-existent webpage %d!",
-			pageId)
-		return
-	}
-	wv.top = top
-	wv.height = height
-	for _, w := range g.windows {
-		if wv.WebView == w.WebView {
-			w.Top = top
-			w.Height = height
-			w.UpdateLocation()
-		}
 	}
 }

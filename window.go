@@ -16,15 +16,19 @@ import (
 	"github.com/tkerber/golem/webkit"
 )
 
+// signalHandle is struct containing both a signal handle and the glib Object
+// it applies to.
 type signalHandle struct {
 	obj    *glib.Object
 	handle glib.SignalHandle
 }
 
+// disconnect disconnects the signal handle.
 func (h signalHandle) disconnect() {
 	h.obj.HandlerDisconnect(h.handle)
 }
 
+// A window is one of golem's window.
 type window struct {
 	*ui.Window
 	cmd.State
@@ -33,15 +37,24 @@ type window struct {
 	builtins            cmd.Builtins
 	bindings            *cmd.BindingTree
 	activeSignalHandles []signalHandle
+	timeoutChan         chan bool
 }
 
+// keyTimeout is the timeout between two key presses where no key press is
+// handled.
+//
+// This is due to webkit re-raising key events, leading to them being recieved
+// twice in close succession.
 const keyTimeout = time.Millisecond * 10
 
+// setState sets the windows state.
 func (w *window) setState(state cmd.State) {
 	w.State = state
 	w.UpdateState(w.State)
 }
 
+// newWindow creates a new window, using particular webkit settings as a
+// template.
 func (g *golem) newWindow(settings *webkit.Settings) error {
 	wv, err := g.newWebView(settings)
 	if err != nil {
@@ -65,11 +78,12 @@ func (g *golem) newWindow(settings *webkit.Settings) error {
 		nil,
 		new(cmd.BindingTree),
 		make([]signalHandle, 0),
+		make(chan bool, 1),
 	}
 
 	win.builtins = builtinsFor(win)
 
-	win.setState(cmd.NewNormalMode(&cmd.StateIndependant{
+	win.setState(cmd.NewState(&cmd.StateIndependant{
 		win.bindings,
 		win.setState,
 	}))
@@ -85,43 +99,9 @@ func (g *golem) newWindow(settings *webkit.Settings) error {
 	// Due to a bug with keypresses registering multiple times, we ignore
 	// keypresses within 10ms of each other.
 	// After each keypress, true gets sent to this channel 10ms after.
-	timeoutChan := make(chan bool, 1)
 	timeoutChan <- true
 
-	uiWin.Window.Connect("key-press-event", func(w *gtk.Window, e *gdk.Event) bool {
-		select {
-		case <-timeoutChan:
-			// Make sure that the timeout is properly applied.
-			defer func() {
-				go func() {
-					<-time.After(keyTimeout)
-					timeoutChan <- true
-				}()
-			}()
-			// This conversion *shouldn't* be unsafe, BUT we really don't want
-			// crashes here. TODO
-			ek := gdk.EventKey{e}
-			key := cmd.NewKeyFromEventKey(ek)
-			if debug.PrintKeys {
-				log.Printf("%v", key)
-			}
-			// We ignore modifier keys.
-			if key.IsModifier {
-				return false
-			}
-
-			oldState := win.State
-			newState, ret := win.State.ProcessKeyPress(key)
-			// If this is not the case, a state change command was issued. This
-			// takes precedence.
-			if oldState == win.State {
-				win.setState(newState)
-			}
-			return ret
-		default:
-			return false
-		}
-	})
+	uiWin.Window.Connect("key-press-event", win.handleKeyPress)
 	uiWin.Window.Connect("destroy", func() {
 		for _, wv := range win.webViews {
 			wv.close()
@@ -136,6 +116,43 @@ func (g *golem) newWindow(settings *webkit.Settings) error {
 	return nil
 }
 
+// handleKeyPress handles a gdk key press event.
+func (w *window) handleKeyPress(uiWin *gtk.Window, e *gdk.Event) bool {
+	select {
+	case <-w.timeoutChan:
+		// Make sure that the timeout is properly applied.
+		defer func() {
+			go func() {
+				<-time.After(keyTimeout)
+				w.timeoutChan <- true
+			}()
+		}()
+		// This conversion *shouldn't* be unsafe, BUT we really don't want
+		// crashes here. TODO
+		ek := gdk.EventKey{e}
+		key := cmd.NewKeyFromEventKey(ek)
+		if debug.PrintKeys {
+			log.Printf("%v", key)
+		}
+		// We ignore modifier keys.
+		if key.IsModifier {
+			return false
+		}
+
+		oldState := w.State
+		newState, ret := w.State.ProcessKeyPress(key)
+		// If this is not the case, a state change command was issued. This
+		// takes precedence.
+		if oldState == w.State {
+			w.setState(newState)
+		}
+		return ret
+	default:
+		return false
+	}
+}
+
+// rebuildBindings rebuilds the bindings for this window.
 func (w *window) rebuildBindings() {
 	bindings, err := cmd.ParseRawBindings(w.parent.rawBindings, w.builtins)
 	if err != nil {
@@ -150,10 +167,13 @@ func (w *window) rebuildBindings() {
 	*(w.bindings) = *bindingTree
 }
 
+// getWebView retrieves the currently active webView.
 func (w *window) getWebView() *webView {
 	return w.parent.webViews[w.WebView.GetPageID()]
 }
 
+// reconnectWebViewSignals switches the connected signals from the old web
+// view (if any) to the currently connected one.
 func (w *window) reconnectWebViewSignals() {
 	for _, handle := range w.activeSignalHandles {
 		handle.disconnect()
@@ -190,10 +210,12 @@ func (w *window) reconnectWebViewSignals() {
 	w.activeSignalHandles[4] = signalHandle{w.WebView.Object, handle}
 }
 
+// runCmd runs a command.
 func (w *window) runCmd(cmd string) {
 	runCmd(w, w.parent, cmd)
 }
 
+// runCmd runs a command.
 func runCmd(w *window, g *golem, cmd string) {
 	// Space followed optionally by a line comment (starting with ")
 	blankRegex := regexp.MustCompile(`^\s*(".*|)$`)

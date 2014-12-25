@@ -7,6 +7,7 @@ import (
 	"github.com/tkerber/golem/cmd"
 )
 
+// builtinsfor retrieves the builtin functions bound to a specific window.
 func builtinsFor(w *window) cmd.Builtins {
 	return cmd.Builtins{
 		"commandMode":    w.builtinCommandMode,
@@ -28,10 +29,13 @@ func builtinsFor(w *window) cmd.Builtins {
 	}
 }
 
+// builtinCommandMode initiates command mode.
 func (w *window) builtinCommandMode(_ ...interface{}) {
 	w.setState(cmd.NewCommandLineMode(w.State, w.runCmd))
 }
 
+// builtinEditURI initiates command mode with the open command primed for
+// the current URI.
 func (w *window) builtinEditURI(_ ...interface{}) {
 	w.setState(cmd.NewPartialCommandLineMode(
 		w.State,
@@ -39,18 +43,22 @@ func (w *window) builtinEditURI(_ ...interface{}) {
 		w.runCmd))
 }
 
+// builtinGoBack goes one step back in browser history.
 func (w *window) builtinGoBack(_ ...interface{}) {
 	w.WebView.GoBack()
 }
 
+// builtinGoForward goes one step forward in browser history.
 func (w *window) builtinGoForward(_ ...interface{}) {
 	w.WebView.GoForward()
 }
 
+// builtinGoHome goes to the user's home page.
 func (w *window) builtinGoHome(_ ...interface{}) {
 	w.runCmd(fmt.Sprintf("open %v", w.parent.homePage))
 }
 
+// builtinInsertMode initiates insert mode.
 func (w *window) builtinInsertMode(_ ...interface{}) {
 	w.setState(cmd.NewInsertMode(w.State))
 }
@@ -58,14 +66,17 @@ func (w *window) builtinInsertMode(_ ...interface{}) {
 // builtinNop does nothing. It is occasionally useful as a binding.
 func (w *window) builtinNop(_ ...interface{}) {}
 
+// builtinOpen initiates command mode, primed with an open command.
 func (w *window) builtinOpen(_ ...interface{}) {
 	w.setState(cmd.NewPartialCommandLineMode(w.State, "open ", w.runCmd))
 }
 
+// builtinReload reloads the current page.
 func (w *window) builtinReload(_ ...interface{}) {
 	w.WebView.Reload()
 }
 
+// builtinRunCmd runs a command with its first argument as a string.
 func (w *window) builtinRunCmd(args ...interface{}) {
 	if len(args) < 1 {
 		log.Printf("Failed to execute builtin 'runCmd': Not enough arguments")
@@ -80,18 +91,22 @@ func (w *window) builtinRunCmd(args ...interface{}) {
 	w.runCmd(cmd)
 }
 
+// builtinScrollDown scrolls down.
 func (w *window) builtinScrollDown(_ ...interface{}) {
 	w.scrollDelta(w.parent.scrollDelta, true)
 }
 
+// builtinScrollLeft scrolls left.
 func (w *window) builtinScrollLeft(_ ...interface{}) {
 	w.scrollDelta(-w.parent.scrollDelta, false)
 }
 
+// builtinScrollRight scrolls right.
 func (w *window) builtinScrollRight(_ ...interface{}) {
 	w.scrollDelta(w.parent.scrollDelta, false)
 }
 
+// builtinScrollToBottom scrolls to the bottom of the page.
 func (w *window) builtinScrollToBottom(_ ...interface{}) {
 	ext := w.getWebView()
 	height, err := ext.getScrollHeight()
@@ -104,6 +119,7 @@ func (w *window) builtinScrollToBottom(_ ...interface{}) {
 	}
 }
 
+// builtinScrollTotop scrolls to the top of the page.
 func (w *window) builtinScrollToTop(_ ...interface{}) {
 	err := w.getWebView().setScrollTop(0)
 	if err != nil {
@@ -111,10 +127,13 @@ func (w *window) builtinScrollToTop(_ ...interface{}) {
 	}
 }
 
+// builtinScrollUp scrolls up.
 func (w *window) builtinScrollUp(_ ...interface{}) {
 	w.scrollDelta(-w.parent.scrollDelta, true)
 }
 
+// scrollDelta scrolls a given amount of pixes either vertically or
+// horizontally.
 func (w *window) scrollDelta(delta int, vertical bool) {
 	var curr int64
 	var err error

@@ -6,6 +6,7 @@ import (
 	"github.com/tkerber/golem/webkit"
 )
 
+// webView wraps a webkit WebView to do additional bookkeeping.
 type webView struct {
 	*webkit.WebView
 	*webExtension
@@ -15,6 +16,7 @@ type webView struct {
 	parent *golem
 }
 
+// newWebView creates a new webView using given settings as a template.
 func (g *golem) newWebView(settings *webkit.Settings) (*webView, error) {
 	wv, err := webkit.NewWebViewWithUserContentManager(g.userContentManager)
 	if err != nil {
@@ -57,6 +59,7 @@ func (g *golem) newWebView(settings *webkit.Settings) (*webView, error) {
 	return ret, nil
 }
 
+// close updates bookkeeping after the web view is closed.
 func (wv *webView) close() {
 	wv.parent.wMutex.Lock()
 	defer wv.parent.wMutex.Unlock()

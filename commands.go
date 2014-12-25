@@ -11,20 +11,32 @@ import (
 	"github.com/tkerber/golem/webkit"
 )
 
+// commands maps a command name to the command's function.
 var commands = map[string]func(*window, *golem, []string){
 	"open": cmdOpen,
 	"bind": cmdBind,
 	"set":  cmdSet,
 }
 
+// logInvalidArgs prints a log message indicating that the arguments given
+// where invalid.
 func logInvalidArgs(args []string) {
 	log.Printf("Invalid arguments recieved for command %v.", args[0])
 }
 
+// logNonGlobalCommand prints a log message indicating that a command should
+// not have been executed in a global context (i.e. in golem's rc)
 func logNonGlobalCommand() {
 	log.Printf("Non global command executed in a global contex.")
 }
 
+// cmdOpen opens a uri in the current tab.
+//
+// cmdOpen is "smart" and guesses the uri's protocol, as well as interprets
+// searches entered.
+//
+// Searches prefixed with the name of the search engine will be run through
+// that search engine.
 func cmdOpen(w *window, g *golem, args []string) {
 	if w == nil {
 		logNonGlobalCommand()
@@ -60,12 +72,17 @@ func cmdBind(w *window, g *golem, args []string) {
 	g.bind(args[1], args[2])
 }
 
+// These constants describe whether a setting should be set for all of golem,
+// the current window only or the current tab only respectively.
 const (
 	qualifierGlobal uint = iota
 	qualifierWindow
 	qualifierTab
 )
 
+// These constants describe the operation used to set a value.
+//
+// Just set it, increment it, decrement it or invert it.
 const (
 	setOpSet uint = iota
 	setOpAdd
@@ -116,7 +133,7 @@ func cmdSet(w *window, g *golem, args []string) {
 		switch namespace {
 		case "webkit", "w":
 			setFunc, getFunc, iterChan, valueType, err =
-				cmdSetWebkit(w, g, op, keyParts)
+				cmdSetWebkit(w, g, keyParts)
 			if err != nil {
 				log.Printf("%v: '%v'", err, arg)
 				continue
@@ -147,6 +164,8 @@ func cmdSet(w *window, g *golem, args []string) {
 	}
 }
 
+// cmdSetOperatorFunc combines setter and getter functions for a specifies
+// type with the operation to create a final "operator" function.
 func cmdSetOperatorFunc(
 	op uint,
 	setFunc func(obj interface{}, val interface{}),
@@ -202,6 +221,8 @@ func cmdSetOperatorFunc(
 	}
 }
 
+// cmdSetParseValueString parses a string representation of a value into a
+// concrete value of specified type.
 func cmdSetParseValueString(
 	valueStr string,
 	valueType reflect.Type) (interface{}, error) {
@@ -219,6 +240,8 @@ func cmdSetParseValueString(
 	}
 }
 
+// cmdSetSplitOperator splits a set instruction into an operator, it's key
+// parts, and a string representation of the value.
 func cmdSetSplitOperator(arg string) (uint, []string, string, error) {
 	op := setOpSet
 	split := strings.SplitN(arg, "=", 2)
@@ -248,10 +271,11 @@ func cmdSetSplitOperator(arg string) (uint, []string, string, error) {
 	return op, keyParts, valueStr, nil
 }
 
+// cmdSetWebkit retrieves getter and setter functions as well as an iterator
+// and the type of the value for specified key parts to access webkit settings.
 func cmdSetWebkit(
 	w *window,
 	g *golem,
-	op uint,
 	keyParts []string) (
 
 	func(obj interface{}, val interface{}),
@@ -323,6 +347,8 @@ func cmdSetWebkit(
 	return setFunc, getFunc, iterChan, valueType, nil
 }
 
+// cmdSetWebkitGetKeys converts key parts for a webkit set operation into
+// the context level of the operation and the key to set.
 func cmdSetWebkitGetKeys(keyParts []string) (uint, string, error) {
 	var qualifier uint
 	var key string

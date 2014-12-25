@@ -8,6 +8,7 @@ import (
 	"github.com/tkerber/golem/webkit"
 )
 
+// webkitInit initializes webkit for golem's use.
 func webkitInit() {
 	// TODO figure out a better way to reference this. (i.e. without the source)
 	extenPath := ""
@@ -31,6 +32,7 @@ func webkitInit() {
 	c.SetProcessModel(webkit.ProcessModelMultipleSecondaryProcesses)
 }
 
+// golemSchemeHandler handles request to the 'golem:' scheme.
 func golemSchemeHandler(req *webkit.URISchemeRequest) {
 	req.Finish([]byte("<html><head><title>Golem</title></head><body><h1>Golem Home Page</h1><p>And stuff.</p></body></html>"), "text/html")
 }
