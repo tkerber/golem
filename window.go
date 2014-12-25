@@ -83,10 +83,7 @@ func (g *golem) newWindow(settings *webkit.Settings) error {
 
 	win.builtins = builtinsFor(win)
 
-	win.setState(cmd.NewState(&cmd.StateIndependant{
-		win.bindings,
-		win.setState,
-	}))
+	win.setState(cmd.NewState(win.bindings, win.setState))
 
 	win.rebuildBindings()
 
@@ -99,7 +96,7 @@ func (g *golem) newWindow(settings *webkit.Settings) error {
 	// Due to a bug with keypresses registering multiple times, we ignore
 	// keypresses within 10ms of each other.
 	// After each keypress, true gets sent to this channel 10ms after.
-	timeoutChan <- true
+	win.timeoutChan <- true
 
 	uiWin.Window.Connect("key-press-event", win.handleKeyPress)
 	uiWin.Window.Connect("destroy", func() {

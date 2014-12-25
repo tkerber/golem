@@ -146,7 +146,7 @@ func (g *golem) watchSignals(c <-chan *dbus.Signal) {
 						w.setState(cmd.NewInsertMode(w.State))
 					} else if _, ok := w.State.(*cmd.InsertMode); ok {
 						w.setState(
-							cmd.NewNormalMode(w.State.GetStateIndependant()))
+							cmd.NewNormalMode(w.State))
 					}
 				}
 			}

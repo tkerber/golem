@@ -22,6 +22,16 @@ type State interface {
 	GetStateIndependant() *StateIndependant
 }
 
+// NewState creates a new state, in its original setting.
+func NewState(bindings *BindingTree, setState func(State)) State {
+	return &NormalMode{
+		&StateIndependant{bindings, setState},
+		make([]Key, 0),
+		bindings,
+		make(chan bool),
+	}
+}
+
 // A StateIndependant encompasses all data indepentant of the state, avoiding
 // copying it around every time the state is changed.
 type StateIndependant struct {
@@ -48,13 +58,13 @@ type NormalMode struct {
 	cancelTimeout chan bool
 }
 
-// NewNormalMode creates a baseline NormalMode state from a StateIndependant
-// and returns it.
-func NewNormalMode(s *StateIndependant) *NormalMode {
+// NewNormalMode creates a baseline NormalMode state from a base state.
+func NewNormalMode(s State) *NormalMode {
+	si := s.GetStateIndependant()
 	return &NormalMode{
-		s,
+		si,
 		make([]Key, 0),
-		s.Bindings,
+		si.Bindings,
 		make(chan bool),
 	}
 }
@@ -67,7 +77,7 @@ func NewNormalMode(s *StateIndependant) *NormalMode {
 func executeAfterTimeout(
 	timeoutChan <-chan bool,
 	binding func(),
-	s *StateIndependant,
+	s State,
 	keys []Key) {
 
 	select {
@@ -84,7 +94,7 @@ func executeAfterTimeout(
 	log.Printf(
 		"Executing binding for %v after delay...",
 		KeysString(keys))
-	s.SetState(NewNormalMode(s))
+	s.GetStateIndependant().SetState(NewNormalMode(s))
 }
 
 // ProcessKeyPress processes exactly one key press in normal mode.
@@ -105,7 +115,7 @@ func (s *NormalMode) ProcessKeyPress(key Key) (State, bool) {
 
 		// Otherwise reset normal mode, and don't swallow the key, UNLESS it is
 		// escape.
-		return NewNormalMode(s.StateIndependant), key.Keyval == KeyEscape
+		return NewNormalMode(s), key.Keyval == KeyEscape
 	}
 	// If any bindings are waiting to run, cancel them now.
 	if s.CurrentTree.Binding != nil {
@@ -122,13 +132,13 @@ func (s *NormalMode) ProcessKeyPress(key Key) (State, bool) {
 				log.Printf("Executing binding for %v...", KeysString(append(s.CurrentKeys, key)))
 			}
 			go subtree.Binding()
-			return NewNormalMode(s.StateIndependant), true
+			return NewNormalMode(s), true
 		}
 		// Otherwise, we wait for another keypress.
 		go executeAfterTimeout(
 			timeoutChan,
 			subtree.Binding,
-			s.StateIndependant,
+			s,
 			append(s.CurrentKeys, key))
 		// The return is the same as if no binding exists. i.e. Fallthrough.
 	}
@@ -162,7 +172,7 @@ func NewInsertMode(s State) *InsertMode {
 // swallows and switches to normal mode.
 func (s *InsertMode) ProcessKeyPress(key Key) (State, bool) {
 	if key.Keyval == KeyEscape {
-		return NewNormalMode(s.StateIndependant), true
+		return NewNormalMode(s), true
 	}
 	return s, false
 }
@@ -236,7 +246,7 @@ func (s *CommandLineMode) ProcessKeyPress(key Key) (State, bool) {
 		fallthrough
 	// Cancel command line
 	case KeyEscape:
-		return NewNormalMode(s.StateIndependant), true
+		return NewNormalMode(s), true
 	// Delete last key.
 	case KeyBackSpace:
 		// Remove the last key from the list.
@@ -247,7 +257,7 @@ func (s *CommandLineMode) ProcessKeyPress(key Key) (State, bool) {
 				s.Finalizer,
 			}, true
 		}
-		return NewNormalMode(s.StateIndependant), true
+		return NewNormalMode(s), true
 	// Add new key
 	default:
 		return &CommandLineMode{
