@@ -20,8 +20,8 @@ func (w *window) newTab(uri string) (*webView, error) {
 	// At the new tab directly after the current one.
 	newWebViews := append(w.webViews, nil)
 	copy(
-		newWebViews[w.currentWebView+1:len(newWebViews)-1],
-		newWebViews[w.currentWebView+2:])
+		newWebViews[w.currentWebView+2:],
+		newWebViews[w.currentWebView+1:len(newWebViews)-1])
 	newWebViews[w.currentWebView+1] = wv
 	w.webViews = newWebViews
 	w.Window.TabCount = len(w.webViews)
@@ -59,8 +59,8 @@ func (w *window) tabClose() {
 	defer w.wMutex.Unlock()
 	wv := w.getWebView()
 	copy(
-		w.webViews[w.currentWebView+1:],
-		w.webViews[w.currentWebView:len(w.webViews)-1])
+		w.webViews[w.currentWebView:len(w.webViews)-1],
+		w.webViews[w.currentWebView+1:])
 	w.webViews = w.webViews[:len(w.webViews)-1]
 	i := w.currentWebView - 1
 	if i < 0 {
