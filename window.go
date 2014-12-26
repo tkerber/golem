@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"sync"
 	"time"
 
 	"github.com/conformal/gotk3/gdk"
@@ -33,11 +34,13 @@ type window struct {
 	*ui.Window
 	cmd.State
 	webViews            []*webView
+	currentWebView      int
 	parent              *golem
 	builtins            cmd.Builtins
 	bindings            *cmd.BindingTree
 	activeSignalHandles []signalHandle
 	timeoutChan         chan bool
+	wMutex              *sync.Mutex
 }
 
 // keyTimeout is the timeout between two key presses where no key press is
@@ -56,29 +59,31 @@ func (w *window) setState(state cmd.State) {
 // newWindow creates a new window, using particular webkit settings as a
 // template.
 func (g *golem) newWindow(settings *webkit.Settings) error {
-	wv, err := g.newWebView(settings)
-	if err != nil {
-		log.Printf("Error: Failed to open new window: %v\n", err)
-		return err
-	}
-
-	uiWin, err := ui.NewWindow(wv.WebView)
-	if err != nil {
-		log.Printf("Error: Failed to open new window: %v\n", err)
-		return err
-	}
-
 	win := &window{
-		uiWin,
 		nil,
-		[]*webView{
-			wv,
-		},
+		nil,
+		make([]*webView, 1, 50),
+		0,
 		g,
 		nil,
 		new(cmd.BindingTree),
 		make([]signalHandle, 0),
 		make(chan bool, 1),
+		new(sync.Mutex),
+	}
+
+	var err error
+
+	win.webViews[0], err = win.newWebView(settings)
+	if err != nil {
+		log.Printf("Error: Failed to open new window: %v\n", err)
+		return err
+	}
+
+	win.Window, err = ui.NewWindow(win.webViews[0].WebView)
+	if err != nil {
+		log.Printf("Error: Failed to open new window: %v\n", err)
+		return err
 	}
 
 	win.builtins = builtinsFor(win)
@@ -98,8 +103,8 @@ func (g *golem) newWindow(settings *webkit.Settings) error {
 	// After each keypress, true gets sent to this channel 10ms after.
 	win.timeoutChan <- true
 
-	uiWin.Window.Connect("key-press-event", win.handleKeyPress)
-	uiWin.Window.Connect("destroy", func() {
+	win.Window.Window.Connect("key-press-event", win.handleKeyPress)
+	win.Window.Window.Connect("destroy", func() {
 		for _, wv := range win.webViews {
 			wv.close()
 		}
@@ -166,7 +171,7 @@ func (w *window) rebuildBindings() {
 
 // getWebView retrieves the currently active webView.
 func (w *window) getWebView() *webView {
-	return w.parent.webViews[w.WebView.GetPageID()]
+	return w.webViews[w.currentWebView]
 }
 
 // reconnectWebViewSignals switches the connected signals from the old web

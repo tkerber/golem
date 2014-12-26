@@ -26,7 +26,6 @@ func main() {
 	case dbus.RequestNameReplyPrimaryOwner:
 		// TODO do we want GTK argument parsing?
 		gtk.Init(nil)
-		webkitInit()
 		g, err := newGolem(sBus)
 		if err != nil {
 			panic(fmt.Sprintf("Error during golem initialization: %v", err))

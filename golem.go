@@ -31,6 +31,7 @@ type golem struct {
 	wMutex             *sync.Mutex
 	rawBindings        []cmd.RawBinding
 	defaultSettings    *webkit.Settings
+	files              *files
 }
 
 // newGolem creates a new instance of golem.
@@ -64,13 +65,25 @@ func newGolem(sBus *dbus.Conn) (*golem, error) {
 		new(sync.Mutex),
 		make([]cmd.RawBinding, 0, 100),
 		webkit.NewSettings(),
+		nil,
 	}
+
+	g.files, err = g.newFiles()
+	if err != nil {
+		return nil, err
+	}
+
+	g.webkitInit()
 
 	sigChan := make(chan *dbus.Signal, 100)
 	sBus.Signal(sigChan)
 	go g.watchSignals(sigChan)
 
-	for _, rcLine := range strings.Split(defaultRc, "\n") {
+	rc, err := g.files.readRC()
+	if err != nil {
+		return nil, err
+	}
+	for _, rcLine := range strings.Split(rc, "\n") {
 		runCmd(nil, g, rcLine)
 	}
 

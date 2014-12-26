@@ -1,8 +1,14 @@
 package main
 
+// #cgo pkg-config: webkit2gtk-4.0
+// #include <webkit2/webkit2.h>
+import "C"
 import (
 	"fmt"
+	"log"
+	"unsafe"
 
+	"github.com/conformal/gotk3/glib"
 	"github.com/tkerber/golem/webkit"
 )
 
@@ -10,15 +16,18 @@ import (
 type webView struct {
 	*webkit.WebView
 	*webExtension
-	id     uint64
-	top    int64
-	height int64
-	parent *golem
+	id       uint64
+	top      int64
+	height   int64
+	parent   *golem
+	settings *webkit.Settings
+	window   *window
 }
 
 // newWebView creates a new webView using given settings as a template.
-func (g *golem) newWebView(settings *webkit.Settings) (*webView, error) {
-	wv, err := webkit.NewWebViewWithUserContentManager(g.userContentManager)
+func (w *window) newWebView(settings *webkit.Settings) (*webView, error) {
+	wv, err := webkit.NewWebViewWithUserContentManager(
+		w.parent.userContentManager)
 	if err != nil {
 		return nil, err
 	}
@@ -29,7 +38,7 @@ func (g *golem) newWebView(settings *webkit.Settings) (*webView, error) {
 
 	wv.SetSettings(newSettings)
 
-	webExten := webExtensionForWebView(g.sBus, wv)
+	webExten := webExtensionForWebView(w.parent.sBus, wv)
 
 	ret := &webView{
 		wv,
@@ -37,8 +46,26 @@ func (g *golem) newWebView(settings *webkit.Settings) (*webView, error) {
 		wv.GetPageID(),
 		0,
 		0,
-		g,
+		w.parent,
+		newSettings,
+		w,
 	}
+
+	// Attach to the create signal, which creates new tabs on demand.
+	ret.WebView.Connect("create", func(obj *glib.Object, ptr uintptr) {
+		// TODO clean this up. It should probably be somewhere in the
+		// webkit package.
+		boxed := (*C.WebKitNavigationAction)(unsafe.Pointer(ptr))
+		req := C.webkit_navigation_action_get_request(boxed)
+		cStr := (*C.char)(C.webkit_uri_request_get_uri(req))
+		log.Printf(C.GoString(cStr))
+		if ret.window == nil {
+			log.Printf("A tab currently not associated to a window " +
+				"attempted to open a new tab. The request was dropped.")
+		} else {
+			ret.window.newTab(C.GoString(cStr))
+		}
+	})
 
 	// Attach dbus to watch for signals from this extension.
 	// There is no real need to disconnect this, dbus disconnects it for us
@@ -46,16 +73,16 @@ func (g *golem) newWebView(settings *webkit.Settings) (*webView, error) {
 	//
 	// NOTE: if for any reason we every move away from one process per tab,
 	// this no longer holds.
-	g.sBus.BusObject().Call(
+	w.parent.sBus.BusObject().Call(
 		"org.freedesktop.DBus.AddMatch",
 		0,
 		fmt.Sprintf(webExtenWatchMessage, ret.id, ret.id),
 	)
 
 	// Add webview to golem and return.
-	g.wMutex.Lock()
-	defer g.wMutex.Unlock()
-	g.webViews[ret.id] = ret
+	w.parent.wMutex.Lock()
+	defer w.parent.wMutex.Unlock()
+	w.parent.webViews[ret.id] = ret
 	return ret, nil
 }
 

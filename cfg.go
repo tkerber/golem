@@ -5,7 +5,9 @@ package main
 type cfg struct {
 	searchEngines *searchEngines
 	homePage      string
+	newTabPage    string
 	scrollDelta   int
+	profile       string
 }
 
 // The defaultCfg is used when golem is started, and typically overwritten
@@ -13,7 +15,9 @@ type cfg struct {
 var defaultCfg = &cfg{
 	defaultSearchEngines,
 	"http://github.com/tkerber/golem",
+	"http://github.com/tkerber/golem",
 	40,
+	"default",
 }
 
 // The defaultRc is a (temporary) collection of commands executed when golem
@@ -24,14 +28,15 @@ const defaultRc = `
 " This is a comment.
 set webkit:user-agent+=" golem/0 (Anvil of the Void)"
 
+bind d  builtin:tabClose
 bind r  builtin:reload
 bind gh builtin:goHome
 bind gg builtin:scrollToTop
 bind G  builtin:scrollToBottom
 bind j  builtin:scrollDown
 bind k  builtin:scrollUp
-bind h  builtin:scrollLeft
-bind l  builtin:scrollRight
+bind h  builtin:tabPrev
+bind l  builtin:tabNext
 bind :  builtin:commandMode
 bind i  builtin:insertMode
 bind ,h builtin:goBack

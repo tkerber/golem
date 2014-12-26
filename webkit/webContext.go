@@ -39,6 +39,16 @@ const (
 	ProcessModelMultipleSecondaryProcesses = C.WEBKIT_PROCESS_MODEL_MULTIPLE_SECONDARY_PROCESSES
 )
 
+const (
+	// CacheModelWebBrowser caches a large amount of previously visited
+	// content.
+	CacheModelWebBrowser = C.WEBKIT_CACHE_MODEL_WEB_BROWSER
+	// CacheModelDocumentBrowser caches a moderate amount of content.
+	CacheModelDocumentBrowser = C.WEBKIT_CACHE_MODEL_DOCUMENT_BROWSER
+	// CacheModelDocumentViewer completely disables the cache.
+	CacheModelDocumentViewer = C.WEBKIT_CACHE_MODEL_DOCUMENT_VIEWER
+)
+
 // The defaultWebContext is the WebContext which is used by default for new
 // WebViews.
 //
@@ -50,7 +60,14 @@ var defaultWebContext *WebContext
 // It manages aspects common to all WebViews.
 type WebContext struct {
 	*glib.Object
-	uriSchemes map[*func(*URISchemeRequest)]bool
+	cookieManager *CookieManager
+	uriSchemes    map[*func(*URISchemeRequest)]bool
+}
+
+// native retrieves the pre-cast pointer to the native C representation of the
+// web context.
+func (c *WebContext) native() *C.WebKitWebContext {
+	return (*C.WebKitWebContext)(unsafe.Pointer(c.Native()))
 }
 
 // GetDefaultWebContext gets the default web context (i.e. the WebContext used
@@ -66,6 +83,7 @@ func GetDefaultWebContext() *WebContext {
 		runtime.SetFinalizer(obj, (*glib.Object).Unref)
 		defaultWebContext = &WebContext{
 			obj,
+			nil,
 			make(map[*func(*URISchemeRequest)]bool, 5),
 		}
 	}
@@ -78,7 +96,7 @@ func (c *WebContext) SetWebExtensionsDirectory(to string) {
 	cstr := C.CString(to)
 	defer C.free(unsafe.Pointer(cstr))
 	C.webkit_web_context_set_web_extensions_directory(
-		(*C.WebKitWebContext)(unsafe.Pointer(c.Native())),
+		c.native(),
 		(*C.gchar)(cstr))
 }
 
@@ -88,9 +106,7 @@ func (c *WebContext) SetWebExtensionsDirectory(to string) {
 // Should be one of ProcessModelSharedSecondaryProcess and
 // ProcessModelMultipleSecondaryProcesses.
 func (c *WebContext) SetProcessModel(to C.WebKitProcessModel) {
-	C.webkit_web_context_set_process_model(
-		(*C.WebKitWebContext)(unsafe.Pointer(c.Native())),
-		to)
+	C.webkit_web_context_set_process_model(c.native(), to)
 }
 
 // RegisterURIScheme registers a custom URI scheme.
@@ -103,7 +119,7 @@ func (c *WebContext) RegisterURIScheme(scheme string,
 	cstr := C.CString(scheme)
 	defer C.free(unsafe.Pointer(cstr))
 	C.go_webkit_web_context_register_uri_scheme(
-		(*C.WebKitWebContext)(unsafe.Pointer(c.Native())),
+		c.native(),
 		(*C.gchar)(cstr),
 		C.gpointer(unsafe.Pointer(&callback)))
 }
@@ -116,4 +132,28 @@ func cgoURISchemeRequestCallback(req *C.WebKitURISchemeRequest, f C.gpointer) {
 	runtime.SetFinalizer(obj, (*glib.Object).Unref)
 	goReq := &URISchemeRequest{obj}
 	(*goFunc)(goReq)
+}
+
+// SetCacheModel sets the cache model to be used.
+//
+// Should be one of CacheModelWebBrowser, CacheModelDocumentViewer or
+// CacheModelDocumentBrowser
+func (c *WebContext) SetCacheModel(to C.WebKitCacheModel) {
+	C.webkit_web_context_set_cache_model(c.native(), to)
+}
+
+// SetDiskCacheDirectory sets the directory of the cache on disk.
+func (c *WebContext) SetDiskCacheDirectory(to string) {
+	cStr := C.CString(to)
+	defer C.free(unsafe.Pointer(cStr))
+	C.webkit_web_context_set_disk_cache_directory(c.native(), (*C.gchar)(cStr))
+}
+
+// GetCookieManager retrieves the web context's cookie manager.
+func (c *WebContext) GetCookieManager() *CookieManager {
+	if c.cookieManager == nil {
+		cptr := C.webkit_web_context_get_cookie_manager(c.native())
+		c.cookieManager = wrapCookieManager(cptr)
+	}
+	return c.cookieManager
 }

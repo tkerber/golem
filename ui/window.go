@@ -14,10 +14,15 @@ type Window struct {
 	StatusBar
 	*webkit.WebView
 	*gtk.Window
+	webViewBox *gtk.Box
 	// How far from the top the active web view is scrolled.
 	Top int64
 	// The height of the active web view.
 	Height int64
+	// The number of the active tab.
+	TabNumber int
+	// The number of total tabs in this window.
+	TabCount int
 }
 
 // NewWindow creates a new window containing the given WebView.
@@ -54,7 +59,12 @@ func NewWindow(webView *webkit.WebView) (*Window, error) {
 		return nil, err
 	}
 
-	box.PackStart(webView, true, true, 0)
+	webViewBox, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 0)
+	if err != nil {
+		return nil, err
+	}
+	webViewBox.PackStart(webView, true, true, 0)
+	box.PackStart(webViewBox, true, true, 0)
 	box.PackStart(statusBar, false, false, 0)
 	win.Add(box)
 
@@ -65,8 +75,11 @@ func NewWindow(webView *webkit.WebView) (*Window, error) {
 		StatusBar{cmdStatus, locationStatus, statusBar.Container},
 		webView,
 		win,
+		webViewBox,
 		0,
 		0,
+		1,
+		1,
 	}
 
 	return w, nil
@@ -108,6 +121,24 @@ func (w *Window) UpdateState(state cmd.State) {
 	w.SetCmdLabel(newStatus)
 }
 
+// ReplaceWebView replaces the web view being shown by the UI.
+//
+// This replacing occurs in the glib main context.
+func (w *Window) ReplaceWebView(wv *webkit.WebView) {
+	GlibMainContextInvoke(w.replaceWebView, wv)
+}
+
+// replaceWebView replaces the web view being shown by the UI.
+//
+// MUST ONLY BE INVOKED THROUGH GlibMainContextInvoke!
+func (w *Window) replaceWebView(wv *webkit.WebView) {
+	w.WebView.Hide()
+	w.webViewBox.Remove(w.WebView)
+	w.webViewBox.PackStart(wv, true, true, 0)
+	wv.Show()
+	w.WebView = wv
+}
+
 // UpdateLocation updates the location display of the window.
 func (w *Window) UpdateLocation() {
 	locStr := w.GetURI()
@@ -123,6 +154,8 @@ func (w *Window) UpdateLocation() {
 	if backForward != "" {
 		locStr += "[" + backForward + "]"
 	}
+
+	locStr += fmt.Sprintf("[%d/%d]", w.TabNumber, w.TabCount)
 
 	var pos string
 	visible := int64(w.WebView.GetAllocatedHeight())

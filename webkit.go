@@ -9,7 +9,7 @@ import (
 )
 
 // webkitInit initializes webkit for golem's use.
-func webkitInit() {
+func (g *golem) webkitInit() {
 	// TODO figure out a better way to reference this. (i.e. without the source)
 	extenPath := ""
 	for _, src := range build.Default.SrcDirs() {
@@ -25,11 +25,20 @@ func webkitInit() {
 
 	c := webkit.GetDefaultWebContext()
 	c.SetWebExtensionsDirectory(extenPath)
-	// TODO this is temporary.
-	c.RegisterURIScheme("golem", golemSchemeHandler)
+
 	// NOTE: removing this will cause bugs in golems web extension.
 	// Tread lightly.
 	c.SetProcessModel(webkit.ProcessModelMultipleSecondaryProcesses)
+
+	c.SetCacheModel(webkit.CacheModelWebBrowser)
+	c.SetDiskCacheDirectory(g.files.cacheDir)
+
+	c.GetCookieManager().SetPersistentStorage(
+		g.files.cookies,
+		webkit.CookiePersistentStorageText)
+
+	// TODO this is temporary.
+	c.RegisterURIScheme("golem", golemSchemeHandler)
 }
 
 // golemSchemeHandler handles request to the 'golem:' scheme.

@@ -26,6 +26,9 @@ func builtinsFor(w *window) cmd.Builtins {
 		"scrollToBottom": w.builtinScrollToBottom,
 		"scrollToTop":    w.builtinScrollToTop,
 		"scrollUp":       w.builtinScrollUp,
+		"tabClose":       w.builtinTabClose,
+		"tabNext":        w.builtinTabNext,
+		"tabPrev":        w.builtinTabPrev,
 	}
 }
 
@@ -130,6 +133,21 @@ func (w *window) builtinScrollToTop(_ ...interface{}) {
 // builtinScrollUp scrolls up.
 func (w *window) builtinScrollUp(_ ...interface{}) {
 	w.scrollDelta(-w.parent.scrollDelta, true)
+}
+
+// builtinTabClose closes the current tab.
+func (w *window) builtinTabClose(_ ...interface{}) {
+	w.tabClose()
+}
+
+// builtinTabNext goes to the next tab.
+func (w *window) builtinTabNext(_ ...interface{}) {
+	w.tabNext()
+}
+
+// builtinTabPrev goes to the previous tab.
+func (w *window) builtinTabPrev(_ ...interface{}) {
+	w.tabPrev()
 }
 
 // scrollDelta scrolls a given amount of pixes either vertically or
