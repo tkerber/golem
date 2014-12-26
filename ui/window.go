@@ -132,10 +132,10 @@ func (w *Window) ReplaceWebView(wv *webkit.WebView) {
 //
 // MUST ONLY BE INVOKED THROUGH GlibMainContextInvoke!
 func (w *Window) replaceWebView(wv *webkit.WebView) {
-	w.WebView.Hide()
-	w.webViewBox.Remove(w.WebView)
 	w.webViewBox.PackStart(wv, true, true, 0)
+	w.WebView.Hide()
 	wv.Show()
+	w.webViewBox.Remove(w.WebView)
 	w.WebView = wv
 }
 

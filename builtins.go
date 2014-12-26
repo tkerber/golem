@@ -27,7 +27,9 @@ func builtinsFor(w *window) cmd.Builtins {
 		"scrollToTop":    w.builtinScrollToTop,
 		"scrollUp":       w.builtinScrollUp,
 		"tabClose":       w.builtinTabClose,
+		"tabEditURI":     w.builtinTabEditURI,
 		"tabNext":        w.builtinTabNext,
+		"tabOpen":        w.builtinTabOpen,
 		"tabPrev":        w.builtinTabPrev,
 	}
 }
@@ -140,9 +142,23 @@ func (w *window) builtinTabClose(_ ...interface{}) {
 	w.tabClose()
 }
 
+// builtinTabEditURI initiates command mode with a tabopen command primed for
+// the current URI.
+func (w *window) builtinTabEditURI(_ ...interface{}) {
+	w.setState(cmd.NewPartialCommandLineMode(
+		w.State,
+		fmt.Sprintf("tabopen %v", w.GetURI()),
+		w.runCmd))
+}
+
 // builtinTabNext goes to the next tab.
 func (w *window) builtinTabNext(_ ...interface{}) {
 	w.tabNext()
+}
+
+// builtinTabOpen initiates command mode primed with a tabopen command.
+func (w *window) builtinTabOpen(_ ...interface{}) {
+	w.setState(cmd.NewPartialCommandLineMode(w.State, "tabopen ", w.runCmd))
 }
 
 // builtinTabPrev goes to the previous tab.

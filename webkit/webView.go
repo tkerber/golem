@@ -77,6 +77,13 @@ func (w *WebView) LoadURI(uri string) {
 	C.webkit_web_view_load_uri(w.native(), cURI)
 }
 
+// LoadRequest loads a specified URI request.
+func (w *WebView) LoadRequest(req *UriRequest) {
+	C.webkit_web_view_load_request(
+		w.native(),
+		(*C.WebKitURIRequest)(unsafe.Pointer(req.Native())))
+}
+
 // IsLoading checks if a WebView is currently loading.
 func (w *WebView) IsLoading() bool {
 	return gobool(C.webkit_web_view_is_loading(w.native()))

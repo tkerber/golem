@@ -13,11 +13,15 @@ import (
 
 // commands maps a command name to the command's function.
 var commands = map[string]func(*window, *golem, []string){
-	"open": cmdOpen,
-	"bind": cmdBind,
-	"set":  cmdSet,
-	"q":    cmdQuit,
-	"quit": cmdQuit,
+	"o":       cmdOpen,
+	"open":    cmdOpen,
+	"t":       cmdTabOpen,
+	"tabopen": cmdTabOpen,
+	"newtab":  cmdTabOpen,
+	"bind":    cmdBind,
+	"set":     cmdSet,
+	"q":       cmdQuit,
+	"quit":    cmdQuit,
 }
 
 // logInvalidArgs prints a log message indicating that the arguments given
@@ -53,26 +57,44 @@ func cmdOpen(w *window, g *golem, args []string) {
 		logNonGlobalCommand()
 		return
 	}
-
-	if len(args) < 2 {
+	uri := g.openURI(args[1:])
+	if uri == "" {
 		logInvalidArgs(args)
 		return
 	}
-	uri := args[1]
-	if regexp.MustCompile(`\w+:.*`).MatchString(uri) && len(args) == 2 {
+	w.WebView.LoadURI(uri)
+}
+
+// cmdTabOpen behaves like cmdOpen, but opens the uri in a new tab. If no
+// uri is given, it opens the new tab page instead.
+func cmdTabOpen(w *window, g *golem, args []string) {
+	if w == nil {
+		logNonGlobalCommand()
+		return
+	}
+	uri := g.openURI(args[1:])
+	w.newTab(uri)
+}
+
+// openURI gets the uri to go to for a command of the "open" class.
+func (g *golem) openURI(args []string) string {
+	if len(args) < 1 {
+		return ""
+	}
+	uri := args[0]
+	if regexp.MustCompile(`\w+:.*`).MatchString(uri) && len(args) == 1 {
 		// We have a (hopefully) sensable protocol already. keep it.
-	} else if regexp.MustCompile(`\S+\.\S+`).MatchString(uri) && len(args) == 2 {
+		return uri
+	} else if regexp.MustCompile(`\S+\.\S+`).MatchString(uri) && len(args) == 1 {
 		// What we have looks like a uri, but is missing the protocol.
 		// We add http to it.
 
 		// TODO any good way to have this sensibly default to https where
 		// possible?
-		uri = "http://" + uri
+		return "http://" + uri
 	} else {
-		uri = g.searchEngines.searchURI(args[1:])
+		return g.searchEngines.searchURI(args)
 	}
-	//log.Printf(uri)
-	w.WebView.LoadURI(uri)
 }
 
 // cmdBind adds a binding, globally to golem.

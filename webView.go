@@ -6,9 +6,11 @@ import "C"
 import (
 	"fmt"
 	"log"
+	"runtime"
 	"unsafe"
 
 	"github.com/conformal/gotk3/glib"
+	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/webkit"
 )
 
@@ -66,6 +68,48 @@ func (w *window) newWebView(settings *webkit.Settings) (*webView, error) {
 			ret.window.newTab(C.GoString(cStr))
 		}
 	})
+
+	// Attach to decision policies.
+	ret.WebView.Connect("decide-policy",
+		func(
+			obj *glib.Object,
+			decision *glib.Object,
+			t C.WebKitPolicyDecisionType) bool {
+
+			switch t {
+			case C.WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION:
+				nav := (*C.WebKitNavigationPolicyDecision)(unsafe.Pointer(decision.Native()))
+				action :=
+					C.webkit_navigation_policy_decision_get_navigation_action(
+						nav)
+				button := C.webkit_navigation_action_get_mouse_button(action)
+				modifiers := C.webkit_navigation_action_get_modifiers(action)
+				if button == 2 || (modifiers&cmd.ControlMask) != 0 {
+					// We don't actually want to open this window directly.
+					// we want it in a new tab.
+					C.webkit_policy_decision_ignore(
+						(*C.WebKitPolicyDecision)(unsafe.Pointer(nav)))
+					if ret.window == nil {
+						log.Printf("A tab currently not associated to a " +
+							"window attempted to open a new tab. The " +
+							"request was dropped.")
+						return true
+					}
+					cReq := C.webkit_navigation_action_get_request(action)
+					req := &webkit.UriRequest{
+						&glib.Object{glib.ToGObject(unsafe.Pointer(cReq))},
+					}
+					req.Object.RefSink()
+					runtime.SetFinalizer(req.Object, (*glib.Object).Unref)
+
+					ret.window.newTabWithRequest(req)
+					return true
+				}
+			case C.WEBKIT_POLICY_DECISION_TYPE_NEW_WINDOW_ACTION:
+			case C.WEBKIT_POLICY_DECISION_TYPE_RESPONSE:
+			}
+			return false
+		})
 
 	// Attach dbus to watch for signals from this extension.
 	// There is no real need to disconnect this, dbus disconnects it for us

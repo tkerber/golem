@@ -42,7 +42,9 @@ bind i  builtin:insertMode
 bind ,h builtin:goBack
 bind ,l builtin:goForward
 bind o  builtin:open
+bind O  builtin:tabOpen
 bind go builtin:editURI
+bind gO builtin:tabditURI
 bind by "cmd:open youtube.com"
 
 " Mediasource isn't supported enough for YouTube yet :(
