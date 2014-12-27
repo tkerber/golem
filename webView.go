@@ -65,7 +65,13 @@ func (w *window) newWebView(settings *webkit.Settings) (*webView, error) {
 			log.Printf("A tab currently not associated to a window " +
 				"attempted to open a new tab. The request was dropped.")
 		} else {
-			ret.window.newTab(C.GoString(cStr))
+			wv, err := ret.window.newTab(C.GoString(cStr))
+			if err != nil {
+				log.Printf("Failed creation of new tab...")
+			} else {
+				// Focus our new tab.
+				ret.window.tabGo(ret.window.tabIndex(wv))
+			}
 		}
 	})
 
@@ -102,7 +108,10 @@ func (w *window) newWebView(settings *webkit.Settings) (*webView, error) {
 					req.Object.RefSink()
 					runtime.SetFinalizer(req.Object, (*glib.Object).Unref)
 
-					ret.window.newTabWithRequest(req)
+					wv, err := ret.window.newTabWithRequest(req)
+					if err != nil {
+						log.Printf("Failed creation of new tab...")
+					}
 					return true
 				}
 			case C.WEBKIT_POLICY_DECISION_TYPE_NEW_WINDOW_ACTION:

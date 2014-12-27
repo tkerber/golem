@@ -106,3 +106,16 @@ func (w *window) tabClose() {
 		go w.UpdateLocation()
 	}
 }
+
+// tabIndex retrieves the index of a particular webView.
+//
+// A return value of -1 indicates the tab is not contained in the current
+// window.
+func (w *window) tabIndex(wv *webView) int {
+	for i, wv2 := range w.webViews {
+		if wv == wv2 {
+			return i
+		}
+	}
+	return -1
+}
