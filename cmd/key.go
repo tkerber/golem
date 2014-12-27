@@ -265,6 +265,7 @@ func (k VirtualKey) StringSelective(selective bool) string {
 func NewKeyFromString(strOrig string) Key {
 	str := strOrig
 	var mod Modifiers
+loop:
 	for len(str) >= 2 {
 		switch str[0:2] {
 		case "C-":
@@ -273,7 +274,7 @@ func NewKeyFromString(strOrig string) Key {
 			mod |= Mod1Mask
 		default:
 			// We've probably got a key name.
-			break
+			break loop
 		}
 		str = str[2:len(str)]
 	}

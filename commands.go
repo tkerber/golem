@@ -11,6 +11,13 @@ import (
 	"github.com/tkerber/golem/webkit"
 )
 
+// hasProtocolRegex matches if a "uri" has what looks like a protocol.
+var hasProtocolRegex = regexp.MustCompile(`\w+:.*`)
+
+// looksLikeURIRegex matches if (despite no protocol existing), a "uri" looks
+// like a uri.
+var looksLikeURIRegex = regexp.MustCompile(`\S+\.\S+`)
+
 // commands maps a command name to the command's function.
 var commands map[string]func(*window, *golem, []string)
 
@@ -104,10 +111,10 @@ func (g *golem) openURI(args []string) string {
 		return ""
 	}
 	uri := args[0]
-	if regexp.MustCompile(`\w+:.*`).MatchString(uri) && len(args) == 1 {
+	if hasProtocolRegex.MatchString(uri) && len(args) == 1 {
 		// We have a (hopefully) sensable protocol already. keep it.
 		return uri
-	} else if regexp.MustCompile(`\S+\.\S+`).MatchString(uri) && len(args) == 1 {
+	} else if looksLikeURIRegex.MatchString(uri) && len(args) == 1 {
 		// What we have looks like a uri, but is missing the protocol.
 		// We add http to it.
 

@@ -17,6 +17,9 @@ import (
 	"github.com/tkerber/golem/webkit"
 )
 
+// blankLineRegex matches a blank or comment line for commands.
+var blankLineRegex = regexp.MustCompile(`^\s*(".*|)$`)
+
 // signalHandle is struct containing both a signal handle and the glib Object
 // it applies to.
 type signalHandle struct {
@@ -230,8 +233,7 @@ func (w *window) runCmd(cmd string) {
 // runCmd runs a command.
 func runCmd(w *window, g *golem, cmd string) {
 	// Space followed optionally by a line comment (starting with ")
-	blankRegex := regexp.MustCompile(`^\s*(".*|)$`)
-	if blankRegex.MatchString(cmd) {
+	if blankLineRegex.MatchString(cmd) {
 		return
 	}
 

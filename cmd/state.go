@@ -91,9 +91,11 @@ func executeAfterTimeout(
 	}
 	go binding()
 	// Somewhat ugly. We have to tell the owner of the state to reset it.
-	log.Printf(
-		"Executing binding for %v after delay...",
-		KeysString(keys))
+	if debug.PrintBindings {
+		log.Printf(
+			"Executing binding for %v after delay...",
+			KeysString(keys))
+	}
 	s.GetStateIndependant().SetState(NewNormalMode(s))
 }
 

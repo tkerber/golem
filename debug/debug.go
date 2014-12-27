@@ -8,7 +8,7 @@ import "log"
 const PrintKeys = false
 
 // Whether or not to print each command when it is executed.
-const PrintCommands = true
+const PrintCommands = false
 
 // Whether or not to print each binding when it is executed.
 const PrintBindings = false
