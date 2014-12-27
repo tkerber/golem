@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/conformal/gotk3/gtk"
+	"github.com/conformal/gotk3/pango"
 	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/webkit"
 )
@@ -33,7 +34,7 @@ func NewWindow(webView *webkit.WebView) (*Window, error) {
 	}
 	win.SetTitle("Golem")
 
-	statusBar, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
+	statusBar, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 10)
 	if err != nil {
 		return nil, err
 	}
@@ -43,14 +44,15 @@ func NewWindow(webView *webkit.WebView) (*Window, error) {
 		return nil, err
 	}
 	cmdStatus.OverrideFont("monospace")
+	cmdStatus.SetEllipsize(pango.ELLIPSIZE_START)
 
 	locationStatus, err := gtk.LabelNew("")
 	if err != nil {
 		return nil, err
 	}
 	locationStatus.OverrideFont("monospace")
+	locationStatus.SetEllipsize(pango.ELLIPSIZE_START)
 
-	// TODO: long urls/commands cause these to overlap. fix.
 	statusBar.PackStart(cmdStatus, false, false, 0)
 	statusBar.PackEnd(locationStatus, false, false, 0)
 
