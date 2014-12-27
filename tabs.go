@@ -96,6 +96,7 @@ func (w *window) tabClose() {
 		i = 0
 	}
 	w.currentWebView = i
+	w.Window.TabNumber = i + 1
 	wv.close()
 	if len(w.webViews) == 0 {
 		w.Window.Close()

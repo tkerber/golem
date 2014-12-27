@@ -60,7 +60,6 @@ func (w *window) newWebView(settings *webkit.Settings) (*webView, error) {
 		boxed := (*C.WebKitNavigationAction)(unsafe.Pointer(ptr))
 		req := C.webkit_navigation_action_get_request(boxed)
 		cStr := (*C.char)(C.webkit_uri_request_get_uri(req))
-		log.Printf(C.GoString(cStr))
 		if ret.window == nil {
 			log.Printf("A tab currently not associated to a window " +
 				"attempted to open a new tab. The request was dropped.")
