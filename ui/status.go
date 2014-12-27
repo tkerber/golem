@@ -9,9 +9,9 @@ type StatusBar struct {
 	container      gtk.Container
 }
 
-// SetLocationLabel sets the text of the location.
-func (s *StatusBar) SetLocationLabel(label string) {
-	GlibMainContextInvoke(s.LocationStatus.SetLabel, label)
+// SetLocationMarkup sets the text markup of the location.
+func (s *StatusBar) SetLocationMarkup(label string) {
+	GlibMainContextInvoke(s.LocationStatus.SetMarkup, label)
 }
 
 // SetCmdLabel sets the text of the command status.

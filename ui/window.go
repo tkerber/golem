@@ -3,6 +3,8 @@ package ui
 
 import (
 	"fmt"
+	"html"
+	"regexp"
 
 	"github.com/conformal/gotk3/gtk"
 	"github.com/conformal/gotk3/pango"
@@ -15,6 +17,7 @@ type Window struct {
 	StatusBar
 	*webkit.WebView
 	*gtk.Window
+	*ColorScheme
 	webViewBox *gtk.Box
 	// How far from the top the active web view is scrolled.
 	Top int64
@@ -51,6 +54,7 @@ func NewWindow(webView *webkit.WebView) (*Window, error) {
 		return nil, err
 	}
 	locationStatus.OverrideFont("monospace")
+	locationStatus.SetUseMarkup(true)
 	locationStatus.SetEllipsize(pango.ELLIPSIZE_START)
 
 	statusBar.PackStart(cmdStatus, false, false, 0)
@@ -77,6 +81,10 @@ func NewWindow(webView *webkit.WebView) (*Window, error) {
 		StatusBar{cmdStatus, locationStatus, statusBar.Container},
 		webView,
 		win,
+		&ColorScheme{
+			0x000000,
+			0x888888,
+		},
 		webViewBox,
 		0,
 		0,
@@ -143,7 +151,26 @@ func (w *Window) replaceWebView(wv *webkit.WebView) {
 
 // UpdateLocation updates the location display of the window.
 func (w *Window) UpdateLocation() {
-	locStr := w.GetURI()
+	locStr := ""
+	unemph := fmt.Sprintf(`<span color="#%06x">`, w.FgUnemphasized)
+	emph := fmt.Sprintf(`<span color="#%06x">`, w.FgEmphasized)
+	switchFromEmph := "</span>" + unemph
+	switchToEmph := "</span>" + emph
+
+	uri := w.GetURI()
+	// The URI regex matches groups of protocol, domain and path.
+	uriRegex := regexp.MustCompile(`^([^:]*:/{0,2})([^/]*)(/.*)$`)
+	submatches := uriRegex.FindStringSubmatch(uri)
+	if submatches == nil {
+		locStr += emph + html.EscapeString(uri) + switchFromEmph
+	} else {
+		// protocal isn't emphasized.
+		locStr += unemph + html.EscapeString(submatches[1])
+		// domain is
+		locStr += switchToEmph + html.EscapeString(submatches[2])
+		// path isn't
+		locStr += switchFromEmph + html.EscapeString(submatches[3])
+	}
 	locStr += " "
 
 	backForward := ""
@@ -154,24 +181,26 @@ func (w *Window) UpdateLocation() {
 		backForward += "+"
 	}
 	if backForward != "" {
-		locStr += "[" + backForward + "]"
+		locStr += "[" + switchToEmph + backForward + switchFromEmph + "]"
 	}
 
-	locStr += fmt.Sprintf("[%d/%d]", w.TabNumber, w.TabCount)
+	locStr += fmt.Sprintf("[%s%d%s/%s%d%s]", switchToEmph, w.TabNumber, switchFromEmph, switchToEmph, w.TabCount, switchFromEmph)
 
 	var pos string
 	visible := int64(w.WebView.GetAllocatedHeight())
 	if int64(visible) >= w.Height {
-		pos = "ALL"
+		pos = "all"
 	} else if w.Top == 0 {
-		pos = "TOP"
+		pos = "top"
 	} else if w.Top == w.Height-visible {
-		pos = "BOT"
+		pos = "bot"
 	} else {
 		percent := w.Top * 100 / (w.Height - visible)
 		pos = fmt.Sprintf("%02d%%", percent)
 	}
-	locStr += "[" + pos + "]"
+	locStr += "[" + switchToEmph + pos + switchFromEmph + "]"
 
-	w.SetLocationLabel(locStr)
+	locStr += fmt.Sprintf("</span>")
+
+	w.SetLocationMarkup(locStr)
 }
