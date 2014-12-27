@@ -17,7 +17,7 @@ const timeout = time.Millisecond * 500
 type State interface {
 	// Processes a key.
 	// Returns the new state and whether the key was swallowed or not.
-	ProcessKeyPress(key Key) (State, bool)
+	ProcessKeyPress(key RealKey) (State, bool)
 	// Gets the StateIndependant.
 	GetStateIndependant() *StateIndependant
 }
@@ -100,7 +100,7 @@ func executeAfterTimeout(
 // ProcessKeyPress processes exactly one key press in normal mode.
 //
 // It returns the new state, and whether the key press was swallowed or not.
-func (s *NormalMode) ProcessKeyPress(key Key) (State, bool) {
+func (s *NormalMode) ProcessKeyPress(key RealKey) (State, bool) {
 	subtree, ok := s.CurrentTree.Subtrees[key.Normalize()]
 	// No match found
 	if !ok {
@@ -170,7 +170,7 @@ func NewInsertMode(s State) *InsertMode {
 
 // ProcessKeyPress passes through any keys except escape, which it immediately
 // swallows and switches to normal mode.
-func (s *InsertMode) ProcessKeyPress(key Key) (State, bool) {
+func (s *InsertMode) ProcessKeyPress(key RealKey) (State, bool) {
 	if key.Keyval == KeyEscape {
 		return NewNormalMode(s), true
 	}
@@ -213,13 +213,7 @@ func NewCommandLineMode(s State, f func(string)) *CommandLineMode {
 func NewPartialCommandLineMode(
 	s State, part string, f func(string)) *CommandLineMode {
 
-	keys, err := ParseKeys(part)
-	if err != nil {
-		log.Printf(
-			"Failed to open partial command: %v\nFalling back to empty.",
-			part)
-		keys = make([]Key, 0)
-	}
+	keys := ParseKeys(part)
 	return &CommandLineMode{
 		s.GetStateIndependant(),
 		keys,
@@ -238,7 +232,7 @@ func NewPartialCommandLineMode(
 // NormalMode afterwards.
 //
 // Escape returns to NormalMode.
-func (s *CommandLineMode) ProcessKeyPress(key Key) (State, bool) {
+func (s *CommandLineMode) ProcessKeyPress(key RealKey) (State, bool) {
 	switch key.Keyval {
 	// Execute command line
 	case KeyReturn:

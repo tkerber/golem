@@ -17,6 +17,7 @@ func builtinsFor(w *window) cmd.Builtins {
 		"insertMode":     w.builtinInsertMode,
 		"nop":            w.builtinNop,
 		"open":           w.builtinOpen,
+		"panic":          w.builtinPanic,
 		"reload":         w.builtinReload,
 		"runCmd":         w.builtinRunCmd,
 		"scrollDown":     w.builtinScrollDown,
@@ -70,6 +71,10 @@ func (w *window) builtinNop(_ ...interface{}) {}
 // builtinOpen initiates command mode, primed with an open command.
 func (w *window) builtinOpen(_ ...interface{}) {
 	w.setState(cmd.NewPartialCommandLineMode(w.State, "open ", w.runCmd))
+}
+
+func (w *window) builtinPanic(_ ...interface{}) {
+	panic("Builtin 'panic' called.")
 }
 
 // builtinReload reloads the current page.

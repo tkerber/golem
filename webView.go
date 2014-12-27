@@ -108,7 +108,7 @@ func (w *window) newWebView(settings *webkit.Settings) (*webView, error) {
 					req.Object.RefSink()
 					runtime.SetFinalizer(req.Object, (*glib.Object).Unref)
 
-					wv, err := ret.window.newTabWithRequest(req)
+					_, err := ret.window.newTabWithRequest(req)
 					if err != nil {
 						log.Printf("Failed creation of new tab...")
 					}

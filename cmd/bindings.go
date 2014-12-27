@@ -62,10 +62,7 @@ func stripPrefixes(str string, prefixes ...string) string {
 //
 // No other prefixes are currently supported.
 func (b RawBinding) ParseBinding(builtins Builtins) (*Binding, error) {
-	keys, err := ParseKeys(b.From)
-	if err != nil {
-		return nil, err
-	}
+	keys := ParseKeys(b.From)
 	if hasPrefixes(b.To, "builtin:", "b:") {
 		builtinName := stripPrefixes(b.To, "builtin:", "b:")
 		builtin, ok := builtins[builtinName]
