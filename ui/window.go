@@ -1,14 +1,16 @@
 // Package ui contains golem's user-interface implementation.
 package ui
 
+// #cgo pkg-config: gtk+-3.0
+// #include <gtk/gtk.h>
+// #include <stdlib.h>
+import "C"
 import (
-	"fmt"
-	"html"
-	"regexp"
+	"errors"
+	"unsafe"
 
 	"github.com/conformal/gotk3/gtk"
 	"github.com/conformal/gotk3/pango"
-	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/webkit"
 )
 
@@ -31,6 +33,14 @@ type Window struct {
 
 // NewWindow creates a new window containing the given WebView.
 func NewWindow(webView *webkit.WebView) (*Window, error) {
+	colors := NewColorScheme(
+		0xffffff,
+		0x888888,
+		0xaaffaa,
+		0xffaa88,
+		0x333333,
+	)
+
 	win, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
 	if err != nil {
 		return nil, err
@@ -42,11 +52,34 @@ func NewWindow(webView *webkit.WebView) (*Window, error) {
 		return nil, err
 	}
 
+	sc := C.gtk_widget_get_style_context(
+		(*C.GtkWidget)(unsafe.Pointer(statusBar.Native())))
+	sp := C.gtk_css_provider_new()
+	css := colors.CSS
+	gErr := new(*C.GError)
+	cCss := C.CString(css)
+	defer C.free(unsafe.Pointer(cCss))
+	C.gtk_css_provider_load_from_data(
+		sp,
+		(*C.gchar)(cCss),
+		-1,
+		gErr)
+	if *gErr != nil {
+		goStr := C.GoString((*C.char)((**gErr).message))
+		C.g_error_free(*gErr)
+		return nil, errors.New(goStr)
+	}
+	C.gtk_style_context_add_provider(
+		sc,
+		(*C.GtkStyleProvider)(unsafe.Pointer(sp)),
+		C.GTK_STYLE_PROVIDER_PRIORITY_APPLICATION)
+
 	cmdStatus, err := gtk.LabelNew("")
 	if err != nil {
 		return nil, err
 	}
 	cmdStatus.OverrideFont("monospace")
+	cmdStatus.SetUseMarkup(true)
 	cmdStatus.SetEllipsize(pango.ELLIPSIZE_START)
 
 	locationStatus, err := gtk.LabelNew("")
@@ -81,10 +114,7 @@ func NewWindow(webView *webkit.WebView) (*Window, error) {
 		StatusBar{cmdStatus, locationStatus, statusBar.Container},
 		webView,
 		win,
-		&ColorScheme{
-			0x000000,
-			0x888888,
-		},
+		colors,
 		webViewBox,
 		0,
 		0,
@@ -110,27 +140,6 @@ func (w *Window) ShowUI() {
 	w.StatusBar.container.Show()
 }
 
-// UpdateState updates the (command) state display of the window.
-func (w *Window) UpdateState(state cmd.State) {
-	var newStatus string
-	switch s := state.(type) {
-	case *cmd.NormalMode:
-		// The status is either empty, or [current_binding] if it exists.
-		if len(s.CurrentKeys) == 0 {
-			newStatus = ""
-		} else {
-			newStatus = fmt.Sprintf("[%v]", cmd.KeysString(s.CurrentKeys))
-		}
-	case *cmd.InsertMode:
-		newStatus = "-- INSERT --"
-	case *cmd.CommandLineMode:
-		newStatus = fmt.Sprintf(
-			":%v",
-			cmd.KeysStringSelective(s.CurrentKeys, false))
-	}
-	w.SetCmdLabel(newStatus)
-}
-
 // ReplaceWebView replaces the web view being shown by the UI.
 //
 // This replacing occurs in the glib main context.
@@ -147,60 +156,4 @@ func (w *Window) replaceWebView(wv *webkit.WebView) {
 	wv.Show()
 	w.webViewBox.PackStart(wv, true, true, 0)
 	w.WebView = wv
-}
-
-// UpdateLocation updates the location display of the window.
-func (w *Window) UpdateLocation() {
-	locStr := ""
-	unemph := fmt.Sprintf(`<span color="#%06x">`, w.FgUnemphasized)
-	emph := fmt.Sprintf(`<span color="#%06x">`, w.FgEmphasized)
-	switchFromEmph := "</span>" + unemph
-	switchToEmph := "</span>" + emph
-
-	uri := w.GetURI()
-	// The URI regex matches groups of protocol, domain and path.
-	uriRegex := regexp.MustCompile(`^([^:]*:/{0,2})([^/]*)(/.*)$`)
-	submatches := uriRegex.FindStringSubmatch(uri)
-	if submatches == nil {
-		locStr += emph + html.EscapeString(uri) + switchFromEmph
-	} else {
-		// protocal isn't emphasized.
-		locStr += unemph + html.EscapeString(submatches[1])
-		// domain is
-		locStr += switchToEmph + html.EscapeString(submatches[2])
-		// path isn't
-		locStr += switchFromEmph + html.EscapeString(submatches[3])
-	}
-	locStr += " "
-
-	backForward := ""
-	if w.CanGoBack() {
-		backForward += "-"
-	}
-	if w.CanGoForward() {
-		backForward += "+"
-	}
-	if backForward != "" {
-		locStr += "[" + switchToEmph + backForward + switchFromEmph + "]"
-	}
-
-	locStr += fmt.Sprintf("[%s%d%s/%s%d%s]", switchToEmph, w.TabNumber, switchFromEmph, switchToEmph, w.TabCount, switchFromEmph)
-
-	var pos string
-	visible := int64(w.WebView.GetAllocatedHeight())
-	if int64(visible) >= w.Height {
-		pos = "all"
-	} else if w.Top == 0 {
-		pos = "top"
-	} else if w.Top == w.Height-visible {
-		pos = "bot"
-	} else {
-		percent := w.Top * 100 / (w.Height - visible)
-		pos = fmt.Sprintf("%02d%%", percent)
-	}
-	locStr += "[" + switchToEmph + pos + switchFromEmph + "]"
-
-	locStr += fmt.Sprintf("</span>")
-
-	w.SetLocationMarkup(locStr)
 }
