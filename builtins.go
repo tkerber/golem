@@ -14,7 +14,6 @@ func builtinsFor(w *window) cmd.Builtins {
 		"editURI":        w.builtinEditURI,
 		"goBack":         w.builtinGoBack,
 		"goForward":      w.builtinGoForward,
-		"goHome":         w.builtinGoHome,
 		"insertMode":     w.builtinInsertMode,
 		"nop":            w.builtinNop,
 		"open":           w.builtinOpen,
@@ -31,6 +30,8 @@ func builtinsFor(w *window) cmd.Builtins {
 		"tabNext":        w.builtinTabNext,
 		"tabOpen":        w.builtinTabOpen,
 		"tabPrev":        w.builtinTabPrev,
+		"windowEditURI":  w.builtinWindowEditURI,
+		"windowOpen":     w.builtinWindowOpen,
 	}
 }
 
@@ -56,11 +57,6 @@ func (w *window) builtinGoBack(_ ...interface{}) {
 // builtinGoForward goes one step forward in browser history.
 func (w *window) builtinGoForward(_ ...interface{}) {
 	w.WebView.GoForward()
-}
-
-// builtinGoHome goes to the user's home page.
-func (w *window) builtinGoHome(_ ...interface{}) {
-	w.runCmd(fmt.Sprintf("open %v", w.parent.homePage))
 }
 
 // builtinInsertMode initiates insert mode.
@@ -164,6 +160,20 @@ func (w *window) builtinTabOpen(_ ...interface{}) {
 // builtinTabPrev goes to the previous tab.
 func (w *window) builtinTabPrev(_ ...interface{}) {
 	w.tabPrev()
+}
+
+// builtinWindowEditURI initiates command mode with a winopen command primed
+// for the current URI.
+func (w *window) builtinWindowEditURI(_ ...interface{}) {
+	w.setState(cmd.NewPartialCommandLineMode(
+		w.State,
+		fmt.Sprintf("winopen %v", w.GetURI()),
+		w.runCmd))
+}
+
+// builtinWindowOpen initiates command mode primed with a winopen command.
+func (w *window) builtinWindowOpen(_ ...interface{}) {
+	w.setState(cmd.NewPartialCommandLineMode(w.State, "winopen ", w.runCmd))
 }
 
 // scrollDelta scrolls a given amount of pixes either vertically or

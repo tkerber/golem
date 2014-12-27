@@ -38,7 +38,7 @@ func main() {
 			introspect.Introspectable(golemDBusIntrospection),
 			golemDBusPath,
 			"org.freedesktop.DBus.Introspectable")
-		g.newWindow(g.defaultSettings)
+		g.newWindow(g.defaultSettings, "")
 		// This doesn't need to run in a goroutine, but as the gtk main
 		// loop can be stopped and restarted in a goroutine, this makes
 		// more sense.

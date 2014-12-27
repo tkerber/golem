@@ -4,7 +4,6 @@ package main
 // elsewhere.
 type cfg struct {
 	searchEngines *searchEngines
-	homePage      string
 	newTabPage    string
 	scrollDelta   int
 	profile       string
@@ -14,7 +13,6 @@ type cfg struct {
 // with rc commands.
 var defaultCfg = &cfg{
 	defaultSearchEngines,
-	"http://github.com/tkerber/golem",
 	"http://github.com/tkerber/golem",
 	40,
 	"default",
@@ -30,7 +28,6 @@ set webkit:user-agent+=" golem/0 (Anvil of the Void)"
 
 bind d  builtin:tabClose
 bind r  builtin:reload
-bind gh builtin:goHome
 bind gg builtin:scrollToTop
 bind G  builtin:scrollToBottom
 bind j  builtin:scrollDown
@@ -45,6 +42,8 @@ bind o  builtin:open
 bind O  builtin:tabOpen
 bind go builtin:editURI
 bind gO builtin:tabditURI
+bind wo builtin:windowOpen
+bind we builtin:windowEditURI
 bind by "cmd:open youtube.com"
 
 " Mediasource isn't supported enough for YouTube yet :(

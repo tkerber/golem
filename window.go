@@ -58,7 +58,10 @@ func (w *window) setState(state cmd.State) {
 
 // newWindow creates a new window, using particular webkit settings as a
 // template.
-func (g *golem) newWindow(settings *webkit.Settings) error {
+//
+// A new web view is initialized and sent to a specified uri. If the URI is
+// empty, the new tab page is used instead.
+func (g *golem) newWindow(settings *webkit.Settings, uri string) error {
 	win := &window{
 		nil,
 		nil,
@@ -98,6 +101,12 @@ func (g *golem) newWindow(settings *webkit.Settings) error {
 
 	win.reconnectWebViewSignals()
 
+	if uri == "" {
+		win.webViews[0].LoadURI(g.newTabPage)
+	} else {
+		win.webViews[0].LoadURI(uri)
+	}
+
 	// Due to a bug with keypresses registering multiple times, we ignore
 	// keypresses within 10ms of each other.
 	// After each keypress, true gets sent to this channel 10ms after.
@@ -110,9 +119,6 @@ func (g *golem) newWindow(settings *webkit.Settings) error {
 		}
 		g.closeWindow(win)
 	})
-
-	// Load the start page
-	win.builtins["goHome"]()
 
 	win.Show()
 	return nil
@@ -156,15 +162,19 @@ func (w *window) handleKeyPress(uiWin *gtk.Window, e *gdk.Event) bool {
 
 // rebuildBindings rebuilds the bindings for this window.
 func (w *window) rebuildBindings() {
-	bindings, err := cmd.ParseRawBindings(w.parent.rawBindings, w.builtins)
-	if err != nil {
-		log.Printf("Error: Failed to parse key bindings: %v\n", err)
-		return
+	bindings, errs := cmd.ParseRawBindings(w.parent.rawBindings, w.builtins)
+	if errs != nil {
+		for _, err := range errs {
+			log.Printf("Error: Failed to parse key bindings: %v\n", err)
+		}
+		log.Printf("Faulty bindings have been dropped.")
 	}
-	bindingTree, err := cmd.NewBindingTree(bindings)
-	if err != nil {
-		log.Printf("Error: Failed to parse key bindings: %v\n", err)
-		return
+	bindingTree, errs := cmd.NewBindingTree(bindings)
+	if errs != nil {
+		for _, err := range errs {
+			log.Printf("Error: Failed to parse key bindings: %v\n", err)
+		}
+		log.Printf("Faulty bindings have been dropped.")
 	}
 	*(w.bindings) = *bindingTree
 }

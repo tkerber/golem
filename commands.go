@@ -12,16 +12,31 @@ import (
 )
 
 // commands maps a command name to the command's function.
-var commands = map[string]func(*window, *golem, []string){
-	"o":       cmdOpen,
-	"open":    cmdOpen,
-	"t":       cmdTabOpen,
-	"tabopen": cmdTabOpen,
-	"newtab":  cmdTabOpen,
-	"bind":    cmdBind,
-	"set":     cmdSet,
-	"q":       cmdQuit,
-	"quit":    cmdQuit,
+var commands map[string]func(*window, *golem, []string)
+
+// init initializes commands;
+//
+// This is to prevent a initialization loop. As, however, none of the commands
+// are used during initialization, it is fine for them to reside in init,
+// (which is executed after constant/variabel initialization.
+func init() {
+	commands = map[string]func(*window, *golem, []string){
+		"o":          cmdOpen,
+		"open":       cmdOpen,
+		"t":          cmdTabOpen,
+		"topen":      cmdTabOpen,
+		"tabopen":    cmdTabOpen,
+		"newtab":     cmdTabOpen,
+		"w":          cmdWindowOpen,
+		"wopen":      cmdWindowOpen,
+		"winopen":    cmdWindowOpen,
+		"windowopen": cmdWindowOpen,
+		"newwindow":  cmdWindowOpen,
+		"bind":       cmdBind,
+		"set":        cmdSet,
+		"q":          cmdQuit,
+		"quit":       cmdQuit,
+	}
 }
 
 // logInvalidArgs prints a log message indicating that the arguments given
@@ -74,6 +89,13 @@ func cmdTabOpen(w *window, g *golem, args []string) {
 	}
 	uri := g.openURI(args[1:])
 	w.newTab(uri)
+}
+
+// cmdWindowOpen behaves like cmdOpen, but opens the uri in a new window. If
+// no uri is given, it opens the new tab page instead.
+func cmdWindowOpen(w *window, g *golem, args []string) {
+	uri := g.openURI(args[1:])
+	g.newWindow(g.defaultSettings, uri)
 }
 
 // openURI gets the uri to go to for a command of the "open" class.

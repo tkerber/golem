@@ -85,19 +85,27 @@ func (b RawBinding) ParseBinding(builtins Builtins) (*Binding, error) {
 
 // ParseRawBindings applies RawBinding.ParseBinding to a slice of raw
 // bindings.
+//
+// Parse errors are not ignored, but parsing will continue regardless. All
+// parse errors are returned, along with all bindings which did not fail to
+// parse.
 func ParseRawBindings(
 	bindings []RawBinding,
-	builtins Builtins) ([]*Binding, error) {
+	builtins Builtins) ([]*Binding, []error) {
 
-	ret := make([]*Binding, len(bindings))
-	for i, binding := range bindings {
+	ret := make([]*Binding, 0, len(bindings))
+	var errs []error
+	for _, binding := range bindings {
 		b, err := binding.ParseBinding(builtins)
+		// We do return errors, but we continue parsing regardless. This way,
+		// a single parse error still yields a useable program.
 		if err != nil {
-			return nil, err
+			errs = append(errs, err)
+		} else {
+			ret = append(ret, b)
 		}
-		ret[i] = b
 	}
-	return ret, nil
+	return ret, errs
 }
 
 // A Binding maps a sequence of keys to a function to be executed when they
@@ -117,15 +125,19 @@ type BindingTree struct {
 
 // NewBindingTree converts a slice of Bindings into a tree format. Errors
 // occur only if bindings conflict.
-func NewBindingTree(bindings []*Binding) (*BindingTree, error) {
+//
+// Building the binding tree continues if errors occur; only those elements
+// which cause the conflict (i.e. the latter conflicting ones) will be ignored.
+func NewBindingTree(bindings []*Binding) (*BindingTree, []error) {
 	t := &BindingTree{nil, make(map[Key]*BindingTree)}
+	var errs []error
 	for _, binding := range bindings {
 		err := t.Append(binding)
 		if err != nil {
-			return nil, err
+			errs = append(errs, err)
 		}
 	}
-	return t, nil
+	return t, errs
 }
 
 // Append adds a new binding to a BindingTree.
