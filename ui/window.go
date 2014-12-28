@@ -191,4 +191,8 @@ func (w *Window) replaceWebView(wv *webkit.WebView) {
 	w.webViewBox.PackStart(wv, true, true, 0)
 	w.WebView = wv
 	wv.QueueDraw()
+	wv.GrabFocus()
+	//C.gtk_window_set_focus(
+	//	(*C.GtkWindow)(unsafe.Pointer(w.Native())),
+	//	(*C.GtkWidget)(unsafe.Pointer(wv.Native())))
 }

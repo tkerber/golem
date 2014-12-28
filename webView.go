@@ -86,6 +86,8 @@ func (w *window) newWebView(settings *webkit.Settings) (*webView, error) {
 
 			switch t {
 			case C.WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION:
+				fallthrough
+			case C.WEBKIT_POLICY_DECISION_TYPE_NEW_WINDOW_ACTION:
 				nav := (*C.WebKitNavigationPolicyDecision)(unsafe.Pointer(decision.Native()))
 				action :=
 					C.webkit_navigation_policy_decision_get_navigation_action(
@@ -116,7 +118,6 @@ func (w *window) newWebView(settings *webkit.Settings) (*webView, error) {
 					}
 					return true
 				}
-			case C.WEBKIT_POLICY_DECISION_TYPE_NEW_WINDOW_ACTION:
 			case C.WEBKIT_POLICY_DECISION_TYPE_RESPONSE:
 			}
 			return false
