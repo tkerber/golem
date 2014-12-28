@@ -188,14 +188,12 @@ func (w *Window) ReplaceWebView(wv *webkit.WebView) {
 //
 // MUST ONLY BE INVOKED THROUGH GlibMainContextInvoke!
 func (w *Window) replaceWebView(wv *webkit.WebView) {
-	w.webViewBox.Remove(w.WebView)
 	w.WebView.Hide()
+	if p, _ := wv.GetParent(); p == nil {
+		w.webViewBox.PackStart(wv, true, true, 0)
+	}
 	wv.Show()
-	w.webViewBox.PackStart(wv, true, true, 0)
 	w.WebView = wv
 	wv.QueueDraw()
 	wv.GrabFocus()
-	//C.gtk_window_set_focus(
-	//	(*C.GtkWindow)(unsafe.Pointer(w.Native())),
-	//	(*C.GtkWidget)(unsafe.Pointer(wv.Native())))
 }

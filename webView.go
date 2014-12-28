@@ -10,6 +10,7 @@ import (
 	"unsafe"
 
 	"github.com/conformal/gotk3/glib"
+	"github.com/conformal/gotk3/gtk"
 	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/ui"
 	"github.com/tkerber/golem/webkit"
@@ -159,4 +160,8 @@ func (wv *webView) close() {
 	wv.parent.wMutex.Lock()
 	defer wv.parent.wMutex.Unlock()
 	delete(wv.parent.webViews, wv.id)
+	if p, _ := wv.WebView.GetParent(); p != nil {
+		cont := &gtk.Container{*p}
+		cont.Remove(wv.WebView)
+	}
 }
