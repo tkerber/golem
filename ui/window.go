@@ -163,11 +163,13 @@ func (w *Window) Show() {
 // HideUI hides all UI (non-webkit) elements.
 func (w *Window) HideUI() {
 	w.StatusBar.container.Hide()
+	w.TabBar.Box.Hide()
 }
 
 // ShowUI shows all UI elements.
 func (w *Window) ShowUI() {
 	w.StatusBar.container.Show()
+	w.TabBar.Box.Show()
 }
 
 // SetTitle wraps gtk.Window.SetTitle in glib's main context.
