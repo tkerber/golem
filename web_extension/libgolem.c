@@ -38,6 +38,7 @@ struct Exten {
     glong            last_height;
     gboolean         last_input_focus;
     gchar           *object_path;
+    gchar           *profile;
 };
 
 static void
@@ -246,14 +247,14 @@ on_bus_acquired(GDBusConnection *connection,
                 const gchar     *name,
                 gpointer         user_data)
 {
-    struct Exten *exten = malloc(sizeof(struct Exten));
+    struct Exten *exten = user_data;
     exten->connection = connection;
-    exten->web_page = user_data;
     exten->last_top = 0;
     exten->last_height = 0;
     exten->last_input_focus = FALSE;
     exten->object_path = g_strdup_printf(
-            "/com/github/tkerber/golem/WebExtension/page%d", 
+            "/com/github/tkerber/golem/WebExtension/%s/page%d", 
+            exten->profile,
             webkit_web_page_get_id(exten->web_page));
     // Register DBus methods
     gint registration_id = g_dbus_connection_register_object(
@@ -291,12 +292,16 @@ web_page_created_callback(WebKitWebExtension *extension,
                           WebKitWebPage      *web_page,
                           gpointer            user_data)
 {
+    struct Exten *exten = malloc(sizeof(struct Exten));
+    exten->web_page = web_page;
+    exten->profile = user_data;
     guint owner_id;
 
     introspection_data = g_dbus_node_info_new_for_xml(introspection_xml, NULL);
     g_assert(introspection_data != NULL);
     gchar *bus_name = g_strdup_printf(
-            "com.github.tkerber.golem.WebExtension.Page%d", 
+            "com.github.tkerber.golem.WebExtension.%s.Page%d", 
+            exten->profile,
             webkit_web_page_get_id(web_page));
     owner_id = g_bus_own_name(G_BUS_TYPE_SESSION,
             bus_name,
@@ -304,14 +309,16 @@ web_page_created_callback(WebKitWebExtension *extension,
             on_bus_acquired,
             NULL,
             on_name_lost,
-            web_page,
+            exten,
             NULL);
     free(bus_name);
 }
 
 G_MODULE_EXPORT void
-webkit_web_extension_initialize(WebKitWebExtension *extension)
+webkit_web_extension_initialize_with_user_data(WebKitWebExtension *extension,
+                                               GVariant           *data)
 {
+    gchar *profile = g_variant_dup_string(data, NULL);
     g_signal_connect(extension, "page-created",
-        G_CALLBACK(web_page_created_callback), NULL);
+        G_CALLBACK(web_page_created_callback), profile);
 }

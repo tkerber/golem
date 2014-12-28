@@ -3,38 +3,41 @@ package main
 import (
 	"fmt"
 
-	"github.com/conformal/gotk3/gtk"
 	"github.com/guelfey/go.dbus"
 	"github.com/guelfey/go.dbus/introspect"
+	"github.com/mattn/go-shellwords"
+	"github.com/tkerber/golem/ui"
 	"github.com/tkerber/golem/webkit"
 )
 
 const (
 	// webExtenDBusInterface is the interface name of golem's web extensions.
 	webExtenDBusInterface = "com.github.tkerber.golem.WebExtension"
-	// webExtenDBusNamePrefix is the common prefix of the names of all of
-	// golem's web extensions.
-	webExtenDBusNamePrefix = "com.github.tkerber.golem.WebExtension.Page"
+	// webExtenDBusNamePrefix is a format string for the common prefix of the
+	// names of all of golem's web extensions for a given profile.
+	webExtenDBusNamePrefix = "com.github.tkerber.golem.WebExtension.%s.Page"
 	// webExtenDBusName is a format string for the dbus name of the web
-	// extension with the given page id.
+	// extension with the given profile and page id.
 	webExtenDBusName = webExtenDBusNamePrefix + "%d"
-	// webExtenDBusPathPrefix is the common prefix of the paths used by golem's
-	// web extensions.
-	webExtenDBusPathPrefix = "/com/github/tkerber/golem/WebExtension/page"
+	// webExtenDBusPathPrefix is a format string for the common prefix of the
+	// paths used by golem's web extensions for a given profile.
+	webExtenDBusPathPrefix = "/com/github/tkerber/golem/WebExtension/%s/page"
 	// webExtenDBusPath is a format string for the dbus path of the web
-	// extension with the given page id.
+	// extension with the given profile and page id.
 	webExtenDBusPath = webExtenDBusPathPrefix + "%d"
 
 	// webExtenWatchMessage is a format string for the message to watch dbus
-	// signals from a particular web extension. It takes the page id twice.
+	// signals from a particular web extension. It takes two profile, page id
+	// pairs.
 	webExtenWatchMessage = "type='signal',path='" + webExtenDBusPath +
 		"',interface='" + webExtenDBusInterface +
 		"',sender='" + webExtenDBusName + "'"
 
 	// golemDBusInterface is the interface name of golem's main process.
 	golemDBusInterface = "com.github.tkerber.Golem"
-	// golemDBusName is the dbus name of golem's main process.
-	golemDBusName = "com.github.tkerber.Golem"
+	// golemDBusName is a format string for the dbus name of golem's main
+	// process, given the profile name as an argument.
+	golemDBusName = "com.github.tkerber.Golem.%s"
 	// golemDBusPath is the dbus path of golem's main process.
 	golemDBusPath = "/com/github/tkerber/Golem"
 	// golemDBusIntrospection is the introspection string of the interface of
@@ -43,6 +46,9 @@ const (
 <node>
 	<interface name="` + golemDBusInterface + `">
 		<method name="NewWindow" />
+		<method name="NewTab">
+			<arg direction="in" type="s" name="uri" />
+		</method>
 	</interface>` + introspect.IntrospectDataString + `</node>`
 )
 
@@ -53,17 +59,30 @@ type dbusGolem struct {
 
 // NewWindow creates a new window in golem's main process.
 func (g *dbusGolem) NewWindow() *dbus.Error {
-	// GTK can't be running during creation of new window, lest it
-	// crash and burn horrificly. (Remeber, this is triggered by DBus, not
-	// GTK. Consider this a kind of join() with the GTK thread)
-	gtk.MainQuit()
-	// Aww, [defer go gtk.Main()] doesn't work :(
-	defer func() { go gtk.Main() }()
-
-	err := g.newWindow(g.defaultSettings, "")
+	var err error
+	ui.GlibMainContextInvoke(func() {
+		_, err = g.newWindow(g.defaultSettings, "")
+	})
 	if err != nil {
-		return &dbus.Error{golemDBusName + ".Error", []interface{}{err}}
+		return &dbus.Error{
+			fmt.Sprintf(golemDBusName+".Error", g.profile),
+			[]interface{}{err}}
 	}
+	return nil
+}
+
+func (g *dbusGolem) NewTab(uri string) *dbus.Error {
+	// we try to split it into parts to allow searches to be passed
+	// via command line. If this fails, we ignore the error and just
+	// pass the whole string instead.
+	ui.GlibMainContextInvoke(func() {
+		parts, err := shellwords.Parse(uri)
+		if err != nil {
+			parts = []string{uri}
+		}
+		uri = g.openURI(parts)
+		g.windows[0].newTab(uri)
+	})
 	return nil
 }
 
@@ -73,11 +92,11 @@ type webExtension struct {
 }
 
 // webExtensionForWebView creates a webExtension for a particular WebView.
-func webExtensionForWebView(sBus *dbus.Conn, wv *webkit.WebView) *webExtension {
+func webExtensionForWebView(g *golem, wv *webkit.WebView) *webExtension {
 	page := wv.GetPageID()
-	return &webExtension{sBus.Object(
-		fmt.Sprintf(webExtenDBusName, page),
-		dbus.ObjectPath(fmt.Sprintf(webExtenDBusPath, page)))}
+	return &webExtension{g.sBus.Object(
+		fmt.Sprintf(webExtenDBusName, g.profile, page),
+		dbus.ObjectPath(fmt.Sprintf(webExtenDBusPath, g.profile, page)))}
 }
 
 // getScrollTop retrieves the webExtension's scroll position from the top of

@@ -64,7 +64,7 @@ func (w *window) setState(state cmd.State) {
 //
 // A new web view is initialized and sent to a specified uri. If the URI is
 // empty, the new tab page is used instead.
-func (g *golem) newWindow(settings *webkit.Settings, uri string) error {
+func (g *golem) newWindow(settings *webkit.Settings, uri string) (*window, error) {
 	win := &window{
 		nil,
 		nil,
@@ -83,19 +83,19 @@ func (g *golem) newWindow(settings *webkit.Settings, uri string) error {
 	win.webViews[0], err = win.newWebView(settings)
 	if err != nil {
 		log.Printf("Error: Failed to open new window: %v\n", err)
-		return err
+		return nil, err
 	}
 
 	win.Window, err = ui.NewWindow(win.webViews[0].WebView)
 	if err != nil {
 		log.Printf("Error: Failed to open new window: %v\n", err)
-		return err
+		return nil, err
 	}
 
 	tabUI, err := win.Window.AppendTab()
 	if err != nil {
 		log.Printf("Error: Failed to open new window: %v\n", err)
-		return err
+		return nil, err
 	}
 	win.webViews[0].setTabUI(tabUI)
 	win.Window.FocusTab(0)
@@ -132,7 +132,7 @@ func (g *golem) newWindow(settings *webkit.Settings, uri string) error {
 	})
 
 	win.Show()
-	return nil
+	return win, nil
 }
 
 // handleKeyPress handles a gdk key press event.
@@ -201,10 +201,13 @@ func (w *window) reconnectWebViewSignals() {
 	for _, handle := range w.activeSignalHandles {
 		handle.disconnect()
 	}
+
+	wv := w.getWebView().WebView
+
 	w.activeSignalHandles = make([]signalHandle, 5)
 
 	titleSetFunc := func() {
-		title := w.WebView.GetTitle()
+		title := wv.GetTitle()
 		if title != "" {
 			w.SetTitle(fmt.Sprintf("%s - Golem", title))
 		} else {
@@ -213,27 +216,27 @@ func (w *window) reconnectWebViewSignals() {
 	}
 	titleSetFunc()
 
-	handle, err := w.WebView.Connect("notify::title", titleSetFunc)
+	handle, err := wv.Connect("notify::title", titleSetFunc)
 	if err != nil {
 		panic("Failed to connect to window event.")
 	}
-	w.activeSignalHandles[0] = signalHandle{w.WebView.Object, handle}
+	w.activeSignalHandles[0] = signalHandle{wv.Object, handle}
 
-	handle, err = w.WebView.Connect("notify::uri", w.UpdateLocation)
+	handle, err = wv.Connect("notify::uri", w.UpdateLocation)
 	if err != nil {
 		panic("Failed to connect to window event.")
 	}
-	w.activeSignalHandles[1] = signalHandle{w.WebView.Object, handle}
+	w.activeSignalHandles[1] = signalHandle{wv.Object, handle}
 
-	bfl := w.WebView.GetBackForwardList()
+	bfl := wv.GetBackForwardList()
 	handle, err = bfl.Connect("changed", w.UpdateLocation)
 	w.activeSignalHandles[2] = signalHandle{bfl.Object, handle}
 
-	handle, err = w.WebView.Connect("enter-fullscreen", w.Window.HideUI)
-	w.activeSignalHandles[3] = signalHandle{w.WebView.Object, handle}
+	handle, err = wv.Connect("enter-fullscreen", w.Window.HideUI)
+	w.activeSignalHandles[3] = signalHandle{wv.Object, handle}
 
-	handle, err = w.WebView.Connect("leave-fullscreen", w.Window.ShowUI)
-	w.activeSignalHandles[4] = signalHandle{w.WebView.Object, handle}
+	handle, err = wv.Connect("leave-fullscreen", w.Window.ShowUI)
+	w.activeSignalHandles[4] = signalHandle{wv.Object, handle}
 }
 
 // runCmd runs a command.

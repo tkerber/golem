@@ -1,9 +1,14 @@
 package main
 
+// #cgo pkg-config: webkit2gtk-4.0
+// #include <webkit2/webkit2.h>
+// #include <stdlib.h>
+import "C"
 import (
 	"go/build"
 	"os"
 	"path/filepath"
+	"unsafe"
 
 	"github.com/tkerber/golem/webkit"
 )
@@ -25,6 +30,14 @@ func (g *golem) webkitInit() {
 
 	c := webkit.GetDefaultWebContext()
 	c.SetWebExtensionsDirectory(extenPath)
+
+	// Set the profile string to be passed to the web extensions.
+	cProfile := C.CString(g.profile)
+	defer C.free(unsafe.Pointer(cProfile))
+	profileVariant := C.g_variant_new_string((*C.gchar)(cProfile))
+	C.webkit_web_context_set_web_extensions_initialization_user_data(
+		(*C.WebKitWebContext)(unsafe.Pointer(c.Native())),
+		profileVariant)
 
 	// NOTE: removing this will cause bugs in golems web extension.
 	// Tread lightly.

@@ -41,7 +41,7 @@ bind ,l builtin:goForward
 bind o  builtin:open
 bind O  builtin:tabOpen
 bind go builtin:editURI
-bind gO builtin:tabditURI
+bind gO builtin:tabEditURI
 bind wo builtin:windowOpen
 bind we builtin:windowEditURI
 bind by "cmd:open youtube.com"

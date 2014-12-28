@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"strconv"
 	"strings"
@@ -35,7 +36,7 @@ type golem struct {
 }
 
 // newGolem creates a new instance of golem.
-func newGolem(sBus *dbus.Conn) (*golem, error) {
+func newGolem(sBus *dbus.Conn, profile string) (*golem, error) {
 	ucm, err := webkit.NewUserContentManager()
 	if err != nil {
 		return nil, err
@@ -67,6 +68,7 @@ func newGolem(sBus *dbus.Conn) (*golem, error) {
 		webkit.NewSettings(),
 		nil,
 	}
+	g.profile = profile
 
 	g.files, err = g.newFiles()
 	if err != nil {
@@ -119,11 +121,15 @@ func (g *golem) bind(from string, to string) {
 // handles them appropriately.
 func (g *golem) watchSignals(c <-chan *dbus.Signal) {
 	for sig := range c {
-		if !strings.HasPrefix(string(sig.Path), webExtenDBusPathPrefix) {
+		if !strings.HasPrefix(
+			string(sig.Path),
+			fmt.Sprintf(webExtenDBusPathPrefix, g.profile)) {
+
 			continue
 		}
 		originId, err := strconv.ParseUint(
-			string(sig.Path[len(webExtenDBusPathPrefix):len(sig.Path)]),
+			string(sig.Path[len(
+				fmt.Sprintf(webExtenDBusPathPrefix, g.profile)):len(sig.Path)]),
 			0,
 			64)
 		if err != nil {

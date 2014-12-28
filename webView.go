@@ -42,7 +42,7 @@ func (w *window) newWebView(settings *webkit.Settings) (*webView, error) {
 
 	wv.SetSettings(newSettings)
 
-	webExten := webExtensionForWebView(w.parent.sBus, wv)
+	webExten := webExtensionForWebView(w.parent, wv)
 
 	ret := &webView{
 		wv,
@@ -132,7 +132,8 @@ func (w *window) newWebView(settings *webkit.Settings) (*webView, error) {
 	w.parent.sBus.BusObject().Call(
 		"org.freedesktop.DBus.AddMatch",
 		0,
-		fmt.Sprintf(webExtenWatchMessage, ret.id, ret.id),
+		fmt.Sprintf(webExtenWatchMessage, w.parent.profile, ret.id,
+			w.parent.profile, ret.id),
 	)
 
 	// Add webview to golem and return.
