@@ -11,6 +11,7 @@ import (
 
 	"github.com/conformal/gotk3/glib"
 	"github.com/tkerber/golem/cmd"
+	"github.com/tkerber/golem/ui"
 	"github.com/tkerber/golem/webkit"
 )
 
@@ -24,6 +25,7 @@ type webView struct {
 	parent   *golem
 	settings *webkit.Settings
 	window   *window
+	tabUI    *ui.TabBarTab
 }
 
 // newWebView creates a new webView using given settings as a template.
@@ -51,6 +53,7 @@ func (w *window) newWebView(settings *webkit.Settings) (*webView, error) {
 		w.parent,
 		newSettings,
 		w,
+		nil,
 	}
 
 	// Attach to the create signal, which creates new tabs on demand.
@@ -136,6 +139,14 @@ func (w *window) newWebView(settings *webkit.Settings) (*webView, error) {
 	defer w.parent.wMutex.Unlock()
 	w.parent.webViews[ret.id] = ret
 	return ret, nil
+}
+
+// setTabUI sets the tab display for the tab.
+func (wv *webView) setTabUI(t *ui.TabBarTab) {
+	wv.WebView.Connect("notify::title", func() {
+		t.SetTitle(wv.WebView.GetTitle())
+	})
+	wv.tabUI = t
 }
 
 // close updates bookkeeping after the web view is closed.

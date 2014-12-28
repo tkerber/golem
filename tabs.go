@@ -39,6 +39,11 @@ func (w *window) newTabBlank() (*webView, error) {
 	if err != nil {
 		return nil, err
 	}
+	tab, err := w.Window.TabBar.AddTab(w.currentWebView + 1)
+	if err != nil {
+		return nil, err
+	}
+	wv.setTabUI(tab)
 	w.wMutex.Lock()
 	defer w.wMutex.Unlock()
 	// At the new tab directly after the current one.
@@ -78,6 +83,7 @@ func (w *window) tabGo(index int) error {
 	w.Height = wv.height
 	w.reconnectWebViewSignals()
 	w.ReplaceWebView(wv.WebView)
+	w.Window.TabBar.FocusTab(index)
 	go w.UpdateLocation()
 	return nil
 }
@@ -91,6 +97,7 @@ func (w *window) tabClose() {
 		w.webViews[w.currentWebView:len(w.webViews)-1],
 		w.webViews[w.currentWebView+1:])
 	w.webViews = w.webViews[:len(w.webViews)-1]
+	w.Window.CloseTab(w.currentWebView)
 	i := w.currentWebView - 1
 	if i < 0 {
 		i = 0
@@ -101,6 +108,7 @@ func (w *window) tabClose() {
 	if len(w.webViews) == 0 {
 		w.Window.Close()
 	} else {
+		w.Window.FocusTab(i)
 		w.reconnectWebViewSignals()
 		w.ReplaceWebView(w.getWebView().WebView)
 		w.Window.TabCount = len(w.webViews)

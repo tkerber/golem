@@ -92,6 +92,14 @@ func (g *golem) newWindow(settings *webkit.Settings, uri string) error {
 		return err
 	}
 
+	tabUI, err := win.Window.AppendTab()
+	if err != nil {
+		log.Printf("Error: Failed to open new window: %v\n", err)
+		return err
+	}
+	win.webViews[0].setTabUI(tabUI)
+	win.Window.FocusTab(0)
+
 	win.builtins = builtinsFor(win)
 
 	win.setState(cmd.NewState(win.bindings, win.setState))
@@ -196,7 +204,7 @@ func (w *window) reconnectWebViewSignals() {
 	w.activeSignalHandles = make([]signalHandle, 5)
 
 	handle, err := w.WebView.Connect("notify::title", func() {
-		title := w.GetTitle()
+		title := w.WebView.GetTitle()
 		if title != "" {
 			w.SetTitle(fmt.Sprintf("%s - Golem", title))
 		} else {

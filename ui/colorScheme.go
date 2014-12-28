@@ -12,13 +12,16 @@ import (
 // Its MarkupReplacer is a Replacer which "converts" an internal markup
 // representation into pango's text markup.
 //
-// Internal tags are <em> (for emphasis), <secure> and <key>.
+// Internal tags are <em> (for emphasis), <secure>, <key>, <num> and <focus>.
 type ColorScheme struct {
 	FgEmphasized   Color
 	FgUnemphasized Color
 	FgSecure       Color
 	FgKey          Color
 	Bg             Color
+	Num            Color
+	FgFocus        Color
+	BgFocus        Color
 	MarkupReplacer *strings.Replacer
 	CSS            string
 }
@@ -35,6 +38,9 @@ func NewColorScheme(
 	unemphasized,
 	secure,
 	key,
+	num,
+	fgFocus,
+	bgFocus,
 	bg Color) *ColorScheme {
 
 	return &ColorScheme{
@@ -42,6 +48,9 @@ func NewColorScheme(
 		unemphasized,
 		secure,
 		key,
+		num,
+		fgFocus,
+		bgFocus,
 		bg,
 		strings.NewReplacer(
 			"<em>",
@@ -55,6 +64,14 @@ func NewColorScheme(
 			"<key>",
 			fmt.Sprintf(`<span color="#%06x">`, key),
 			"</key>",
+			"</span>",
+			"<num>",
+			fmt.Sprintf(`<span color="#%06x">`, num),
+			"</num>",
+			"</span>",
+			"<focus>",
+			fmt.Sprintf(`<span bgcolor="#%06x" color="#%06x">`, bgFocus, fgFocus),
+			"</focus>",
 			"</span>",
 		),
 		fmt.Sprintf(cssFormatString, bg, unemphasized),

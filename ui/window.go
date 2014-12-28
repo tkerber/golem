@@ -16,7 +16,8 @@ import (
 
 // A Window is one of golem's windows.
 type Window struct {
-	StatusBar
+	*StatusBar
+	*TabBar
 	*webkit.WebView
 	*gtk.Window
 	*ColorScheme
@@ -38,14 +39,31 @@ func NewWindow(webView *webkit.WebView) (*Window, error) {
 		0x888888,
 		0xaaffaa,
 		0xffaa88,
+		0x66aaaa,
+		0xdddddd,
+		0x225588,
 		0x333333,
 	)
+
+	w := &Window{
+		nil,
+		nil,
+		webView,
+		nil,
+		colors,
+		nil,
+		0,
+		0,
+		1,
+		1,
+	}
 
 	win, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
 	if err != nil {
 		return nil, err
 	}
 	win.SetTitle("Golem")
+	w.Window = win
 
 	statusBar, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 10)
 	if err != nil {
@@ -92,6 +110,20 @@ func NewWindow(webView *webkit.WebView) (*Window, error) {
 
 	statusBar.PackStart(cmdStatus, false, false, 0)
 	statusBar.PackEnd(locationStatus, false, false, 0)
+	w.StatusBar = &StatusBar{cmdStatus, locationStatus, statusBar.Container}
+
+	tabBar, err := NewTabBar(w)
+	if err != nil {
+		return nil, err
+	}
+	w.TabBar = tabBar
+
+	sc = C.gtk_widget_get_style_context(
+		(*C.GtkWidget)(unsafe.Pointer(tabBar.Native())))
+	C.gtk_style_context_add_provider(
+		sc,
+		(*C.GtkStyleProvider)(unsafe.Pointer(sp)),
+		C.GTK_STYLE_PROVIDER_PRIORITY_APPLICATION)
 
 	box, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 0)
 	if err != nil {
@@ -102,25 +134,22 @@ func NewWindow(webView *webkit.WebView) (*Window, error) {
 	if err != nil {
 		return nil, err
 	}
+	w.webViewBox = webViewBox
 	webViewBox.PackStart(webView, true, true, 0)
-	box.PackStart(webViewBox, true, true, 0)
+
+	contentBox, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
+	if err != nil {
+		return nil, err
+	}
+	contentBox.PackStart(tabBar, false, false, 0)
+	contentBox.PackStart(webViewBox, true, true, 0)
+
+	box.PackStart(contentBox, true, true, 0)
 	box.PackStart(statusBar, false, false, 0)
 	win.Add(box)
 
 	// TODO sensible default size. (Default to screen size?)
 	win.SetDefaultSize(800, 600)
-
-	w := &Window{
-		StatusBar{cmdStatus, locationStatus, statusBar.Container},
-		webView,
-		win,
-		colors,
-		webViewBox,
-		0,
-		0,
-		1,
-		1,
-	}
 
 	return w, nil
 }
