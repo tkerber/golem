@@ -13,11 +13,13 @@ import (
 // A TabBar is a bar containing tab displays.
 type TabBar struct {
 	*gtk.Box
-	tabs             []*TabBarTab
-	parent           *Window
-	focused          *TabBarTab
-	fmtString        string
-	fmtStringBaseLen int
+	tabs                 []*TabBarTab
+	parent               *Window
+	focused              *TabBarTab
+	fmtString            string
+	fmtStringBaseLen     int
+	fmtLoadString        string
+	fmtLoadStringBaseLen int
 }
 
 // NewTabBar creates a new TabBar for a Window.
@@ -27,7 +29,7 @@ func NewTabBar(parent *Window) (*TabBar, error) {
 		return nil, err
 	}
 
-	tabBar := &TabBar{box, make([]*TabBarTab, 0, 100), parent, nil, "", 0}
+	tabBar := &TabBar{box, make([]*TabBarTab, 0, 100), parent, nil, "", 0, "", 0}
 
 	return tabBar, nil
 }
@@ -66,9 +68,13 @@ func (tb *TabBar) UpdateFormatString() {
 		var numLen int
 		numLen = int(math.Floor(math.Log10(float64(len(tb.tabs))))) + 1
 		fmtString := fmt.Sprintf("<num>%%0%dd</num> %%s", numLen)
-		if tb.fmtString != fmtString {
+		fmtLoadString := fmt.Sprintf(
+			"<num>%%0%dd</num> [<load>%%02d%%%%</load>] %%s", numLen)
+		if tb.fmtString != fmtString || tb.fmtLoadString != fmtLoadString {
 			tb.fmtString = fmtString
+			tb.fmtLoadString = fmtLoadString
 			tb.fmtStringBaseLen = numLen + 1
+			tb.fmtLoadStringBaseLen = numLen + 7
 			// redraw all tabs
 			for i, t := range tb.tabs {
 				t.index = i
@@ -149,10 +155,11 @@ func (tb *TabBar) CloseTab(i int) {
 // A TabBarTab is the display of a single tab name.
 type TabBarTab struct {
 	*gtk.Label
-	parent  *TabBar
-	title   string
-	index   int
-	focused bool
+	parent       *TabBar
+	title        string
+	index        int
+	focused      bool
+	loadProgress float64
 }
 
 // newTabBarTab creates a new TabBarTab in a given TabBar at a given index.
@@ -167,12 +174,18 @@ func newTabBarTab(parent *TabBar, index int) (*TabBarTab, error) {
 	l.SetMaxWidthChars(15)
 	l.SetWidthChars(15)
 	l.SetUseMarkup(true)
-	return &TabBarTab{l, parent, "", index, false}, nil
+	return &TabBarTab{l, parent, "", index, false, 1.0}, nil
 }
 
 // SetTitle sets the tabs title.
 func (t *TabBarTab) SetTitle(title string) {
 	t.title = title
+	GlibMainContextInvoke(t.redraw)
+}
+
+// SetLoadProgress sets the load progress to be displayed for this tab.
+func (t *TabBarTab) SetLoadProgress(to float64) {
+	t.loadProgress = to
 	GlibMainContextInvoke(t.redraw)
 }
 
@@ -184,12 +197,23 @@ func (t *TabBarTab) redraw() {
 	if title == "" {
 		title = "[untitled]"
 	}
-	text := fmt.Sprintf(
-		t.parent.fmtString,
-		t.index+1,
-		html.EscapeString(title))
-	// Pad to short text. God this stuff is horrible code...
-	length := t.parent.fmtStringBaseLen + utf8.RuneCountInString(title)
+	var text string
+	var length int
+	if t.loadProgress == 1.0 {
+		text = fmt.Sprintf(
+			t.parent.fmtString,
+			t.index+1,
+			html.EscapeString(title))
+		// Pad to short text. God this stuff is horrible code...
+		length = t.parent.fmtStringBaseLen + utf8.RuneCountInString(title)
+	} else {
+		text = fmt.Sprintf(
+			t.parent.fmtLoadString,
+			t.index+1,
+			int(t.loadProgress*100),
+			html.EscapeString(title))
+		length = t.parent.fmtLoadStringBaseLen + utf8.RuneCountInString(title)
+	}
 	for i := length; i < 15; i++ {
 		text += " "
 	}
@@ -197,5 +221,4 @@ func (t *TabBarTab) redraw() {
 		text = fmt.Sprintf("<focus>%s</focus>", text)
 	}
 	t.SetMarkup(t.parent.parent.MarkupReplacer.Replace(text))
-	t.SetWidthChars(15)
 }

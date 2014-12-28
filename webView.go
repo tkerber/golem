@@ -147,6 +147,9 @@ func (wv *webView) setTabUI(t *ui.TabBarTab) {
 	wv.WebView.Connect("notify::title", func() {
 		t.SetTitle(wv.WebView.GetTitle())
 	})
+	wv.WebView.Connect("notify::estimated-load-progress", func() {
+		t.SetLoadProgress(wv.WebView.GetEstimatedLoadProgress())
+	})
 	wv.tabUI = t
 }
 

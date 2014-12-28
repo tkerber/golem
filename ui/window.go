@@ -42,6 +42,7 @@ func NewWindow(webView *webkit.WebView) (*Window, error) {
 		0x66aaaa,
 		0xdddddd,
 		0x225588,
+		0xdd9955,
 		0x333333,
 	)
 
