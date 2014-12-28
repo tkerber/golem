@@ -203,14 +203,17 @@ func (w *window) reconnectWebViewSignals() {
 	}
 	w.activeSignalHandles = make([]signalHandle, 5)
 
-	handle, err := w.WebView.Connect("notify::title", func() {
+	titleSetFunc := func() {
 		title := w.WebView.GetTitle()
 		if title != "" {
 			w.SetTitle(fmt.Sprintf("%s - Golem", title))
 		} else {
 			w.SetTitle("Golem")
 		}
-	})
+	}
+	titleSetFunc()
+
+	handle, err := w.WebView.Connect("notify::title", titleSetFunc)
 	if err != nil {
 		panic("Failed to connect to window event.")
 	}

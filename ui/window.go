@@ -169,6 +169,11 @@ func (w *Window) ShowUI() {
 	w.StatusBar.container.Show()
 }
 
+// SetTitle wraps gtk.Window.SetTitle in glib's main context.
+func (w *Window) SetTitle(title string) {
+	GlibMainContextInvoke(w.Window.SetTitle, title)
+}
+
 // ReplaceWebView replaces the web view being shown by the UI.
 //
 // This replacing occurs in the glib main context.
@@ -185,4 +190,5 @@ func (w *Window) replaceWebView(wv *webkit.WebView) {
 	wv.Show()
 	w.webViewBox.PackStart(wv, true, true, 0)
 	w.WebView = wv
+	wv.QueueDraw()
 }
