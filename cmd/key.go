@@ -12,6 +12,7 @@ gdk_event_key_is_modifier(GdkEventKey *key) {
 import "C"
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 	"unsafe"
@@ -139,6 +140,18 @@ type RealKey struct {
 	Keyval     uint
 	Modifiers  Modifiers
 	IsModifier bool
+}
+
+// IsNum checks if a real key is a number key.
+func (k RealKey) IsNum() bool {
+	str := k.String()
+	return len(str) == 1 && str[0] >= '0' && str[0] <= '9'
+}
+
+// NumVal retrieves the numeric value of a single key.
+func (k RealKey) NumVal() (int, error) {
+	i, err := strconv.ParseInt(k.String(), 10, 0)
+	return int(i), err
 }
 
 // KeyType gets the type of the key.

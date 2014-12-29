@@ -173,7 +173,7 @@ func (w *window) handleKeyPress(uiWin *gtk.Window, e *gdk.Event) bool {
 
 // rebuildBindings rebuilds the bindings for this window.
 func (w *window) rebuildBindings() {
-	bindings, errs := cmd.ParseRawBindings(w.parent.rawBindings, w.builtins)
+	bindings, errs := cmd.ParseRawBindings(w.parent.rawBindings, w.builtins, w.runCmd)
 	if errs != nil {
 		for _, err := range errs {
 			log.Printf("Error: Failed to parse key bindings: %v\n", err)

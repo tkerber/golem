@@ -16,13 +16,20 @@ var keyMatcher = regexp.MustCompile(`&lt;.*?&gt;`)
 // uriRegex matches groups of protocol, protocol seperator, domain and path.
 var uriRegex = regexp.MustCompile(`^([^:]*)(:/{0,2})([^/]*)(/.*)$`)
 
+// numRegex matches a decimal number.
+var numRegex = regexp.MustCompile(`[0-9]+`)
+
 // keysToMarkupString converts a slice of keys into an appropriate markup
 // string.
-func keysToMarkupString(keys []cmd.Key, selective bool) string {
-	return keyMatcher.ReplaceAllString(
+func keysToMarkupString(keys []cmd.Key, selective, highlightNums bool) string {
+	str := keyMatcher.ReplaceAllString(
 		html.EscapeString(
 			cmd.KeysStringSelective(keys, selective)),
 		"<key>$0</key>")
+	if highlightNums {
+		return numRegex.ReplaceAllString(str, "<num>$0</num>")
+	}
+	return str
 }
 
 // A StatusBar contains the status bar UI elements.
@@ -53,14 +60,14 @@ func (w *Window) UpdateState(state cmd.State) {
 		} else {
 			newStatus = fmt.Sprintf(
 				"[<em>%v</em>]",
-				keysToMarkupString(s.CurrentKeys, true))
+				keysToMarkupString(s.CurrentKeys, true, true))
 		}
 	case *cmd.InsertMode:
 		newStatus = "-- <em>insert</em> --"
 	case *cmd.CommandLineMode:
 		newStatus = fmt.Sprintf(
 			":<em>%v</em>",
-			keysToMarkupString(s.CurrentKeys, false))
+			keysToMarkupString(s.CurrentKeys, false, false))
 	}
 	w.SetCmdMarkup(w.MarkupReplacer.Replace(newStatus))
 }

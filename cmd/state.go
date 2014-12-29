@@ -29,6 +29,9 @@ func NewState(bindings *BindingTree, setState func(State)) State {
 		make([]Key, 0),
 		bindings,
 		make(chan bool),
+		0,
+		false,
+		false,
 	}
 }
 
@@ -56,6 +59,13 @@ type NormalMode struct {
 	//
 	// This should be a non-buffered channel.
 	cancelTimeout chan bool
+
+	// The single number associated with the key sequence.
+	num int
+	// Whether or not we are currently parsing a <num> virtual key.
+	inNum bool
+	// Whether or not we parsed a <num> virtual key.
+	hadNum bool
 }
 
 // NewNormalMode creates a baseline NormalMode state from a base state.
@@ -66,6 +76,9 @@ func NewNormalMode(s State) *NormalMode {
 		make([]Key, 0),
 		si.Bindings,
 		make(chan bool),
+		0,
+		false,
+		false,
 	}
 }
 
@@ -76,7 +89,8 @@ func NewNormalMode(s State) *NormalMode {
 // binding is executed, to reset the state to a blank normal mode.
 func executeAfterTimeout(
 	timeoutChan <-chan bool,
-	binding func(),
+	binding func(*int),
+	nump *int,
 	s State,
 	keys []Key) {
 
@@ -89,7 +103,7 @@ func executeAfterTimeout(
 	case <-time.After(timeout):
 		// Continue
 	}
-	go binding()
+	go binding(nump)
 	// Somewhat ugly. We have to tell the owner of the state to reset it.
 	if debug.PrintBindings {
 		log.Printf(
@@ -104,7 +118,39 @@ func executeAfterTimeout(
 // It returns the new state, and whether the key press was swallowed or not.
 func (s *NormalMode) ProcessKeyPress(key RealKey) (State, bool) {
 	subtree, ok := s.CurrentTree.Subtrees[key.Normalize()]
-	// No match found
+	num := s.num
+	inNum := s.inNum
+	hadNum := s.hadNum
+	if ok && inNum {
+		inNum = false
+		hadNum = true
+	}
+	// If we are waiting for a virtual <num> key, and the key pressed was
+	// a number, we use up the <num> key, and set the number.
+	// If we just used up a <num> key, and the key pressed was a number,
+	// we don't use up any keys, and amend the number.
+	// We check if a <num> key was used simply by checking if the saved
+	// num is zero.
+	if !ok && key.IsNum() {
+		if s.inNum {
+			// We are currently in a <num> virtual key.
+			digit, _ := key.NumVal()
+			num = num*10 + digit
+			ok = true
+			subtree = s.CurrentTree
+		} else {
+			// We aren't in a new <num> virtual key. Check if we can start
+			// a new one.
+			subtree, ok = s.CurrentTree.Subtrees[VirtualKey("num")]
+			if ok {
+				// If we can, start the new num.
+				num, _ = key.NumVal()
+				inNum = true
+				hadNum = false
+			}
+		}
+	}
+	// Key wasn't handled.
 	if !ok {
 		// If any bindings are waiting to run, run them now.
 		if s.CurrentTree.Binding != nil {
@@ -127,19 +173,31 @@ func (s *NormalMode) ProcessKeyPress(key RealKey) (State, bool) {
 	// We have a binding
 	if subtree.Binding != nil {
 		soleBinding := len(subtree.Subtrees) == 0
+		// We use a pointer to num to pass to the executers. That was, passing
+		// nil indicates no number was passed.
+		// As states are stateful, the number pointed to is guaranteed not
+		// to change.
+		var nump *int
+		if hadNum || inNum {
+			nump = &num
+		} else {
+			nump = nil
+		}
 		if soleBinding {
 			// We have a difinite match for a binding. Execute it and reset the
 			// state.
 			if debug.PrintBindings {
-				log.Printf("Executing binding for %v...", KeysString(append(s.CurrentKeys, key)))
+				log.Printf("Executing binding for %v...",
+					KeysString(append(s.CurrentKeys, key)))
 			}
-			go subtree.Binding()
+			go subtree.Binding(nump)
 			return NewNormalMode(s), true
 		}
 		// Otherwise, we wait for another keypress.
 		go executeAfterTimeout(
 			timeoutChan,
 			subtree.Binding,
+			nump,
 			s,
 			append(s.CurrentKeys, key))
 		// The return is the same as if no binding exists. i.e. Fallthrough.
@@ -150,6 +208,9 @@ func (s *NormalMode) ProcessKeyPress(key RealKey) (State, bool) {
 		append(s.CurrentKeys, key),
 		subtree,
 		timeoutChan,
+		num,
+		inNum,
+		hadNum,
 	}, true
 }
 

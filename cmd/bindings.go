@@ -16,7 +16,7 @@ func (e *bindingConflict) Error() string {
 }
 
 // Builtins are a collection of functions, which are accessible by their name.
-type Builtins map[string]func(...interface{})
+type Builtins map[string]func(*int)
 
 // A RawBinding map one string (representing the keysequence to be pressed) to
 // another (representing what the binding should do).
@@ -61,7 +61,9 @@ func stripPrefixes(str string, prefixes ...string) string {
 // 'runCmd' with the command as the single string argument)
 //
 // No other prefixes are currently supported.
-func (b RawBinding) ParseBinding(builtins Builtins) (*Binding, error) {
+func (b RawBinding) ParseBinding(
+	builtins Builtins, runCmd func(string)) (*Binding, error) {
+
 	keys := ParseKeys(b.From)
 	if hasPrefixes(b.To, "builtin:", "b:") {
 		builtinName := stripPrefixes(b.To, "builtin:", "b:")
@@ -69,11 +71,11 @@ func (b RawBinding) ParseBinding(builtins Builtins) (*Binding, error) {
 		if !ok {
 			return nil, fmt.Errorf("Unknown builtin function: %v", builtinName)
 		}
-		return &Binding{keys, func() { builtin() }}, nil
+		return &Binding{keys, func(i *int) { builtin(i) }}, nil
 	} else if hasPrefixes(b.To, "command:", "cmd:", "c:") {
 		cmd := stripPrefixes(b.To, "command:", "cmd:", "c:")
-		return &Binding{keys, func() {
-			builtins["runCmd"](cmd)
+		return &Binding{keys, func(_ *int) {
+			runCmd(cmd)
 		}}, nil
 	}
 	// TODO maybe add other mapping types.
@@ -88,12 +90,13 @@ func (b RawBinding) ParseBinding(builtins Builtins) (*Binding, error) {
 // parse.
 func ParseRawBindings(
 	bindings []RawBinding,
-	builtins Builtins) ([]*Binding, []error) {
+	builtins Builtins,
+	runCmd func(string)) ([]*Binding, []error) {
 
 	ret := make([]*Binding, 0, len(bindings))
 	var errs []error
 	for _, binding := range bindings {
-		b, err := binding.ParseBinding(builtins)
+		b, err := binding.ParseBinding(builtins, runCmd)
 		// We do return errors, but we continue parsing regardless. This way,
 		// a single parse error still yields a useable program.
 		if err != nil {
@@ -109,14 +112,14 @@ func ParseRawBindings(
 // are pressed.
 type Binding struct {
 	From []Key
-	To   func()
+	To   func(*int)
 }
 
 // A BindingTree is a tree structure for a set of bindings. Each key sequence
 // corresponds to a node in the tree, (the empty sequence being the root),
 // with a binding function optionally attached to any node.
 type BindingTree struct {
-	Binding  func()
+	Binding  func(*int)
 	Subtrees map[Key]*BindingTree
 }
 

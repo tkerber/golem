@@ -54,7 +54,11 @@ func (g *golem) newFiles() (*files, error) {
 	// content.
 	_, err = os.Stat(rc)
 	if err != nil && os.IsNotExist(err) {
-		err = ioutil.WriteFile(rc, []byte(defaultRc), 0600)
+		defaultRc, err := Asset("golemrc")
+		if err != nil {
+			return nil, err
+		}
+		err = ioutil.WriteFile(rc, defaultRc, 0600)
 		if err != nil {
 			return nil, err
 		}
