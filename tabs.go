@@ -108,9 +108,12 @@ func (w *window) tabClose() {
 	if len(w.webViews) == 0 {
 		w.Window.Close()
 	} else {
+		wv := w.getWebView()
 		w.Window.FocusTab(i)
 		w.reconnectWebViewSignals()
-		w.ReplaceWebView(w.getWebView().WebView)
+		w.ReplaceWebView(wv.WebView)
+		w.Top = wv.top
+		w.Height = wv.height
 		w.Window.TabCount = len(w.webViews)
 		go w.UpdateLocation()
 	}
