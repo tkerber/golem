@@ -19,19 +19,23 @@ type ColorScheme struct {
 	FgUnemphasized Color
 	FgSecure       Color
 	FgKey          Color
-	Bg             Color
 	Num            Color
 	FgFocus        Color
 	BgFocus        Color
 	FgLoad         Color
+	Bg             Color
+	TabBarBg       Color
 	MarkupReplacer *strings.Replacer
 	CSS            string
 }
 
 const cssFormatString = `
-GtkBox {
+GtkBox#statusbar, GtkBox#tabbar GtkLabel {
 	background-color: #%06x;
 	color: #%06x;
+}
+GtkBox#tabbar {
+	background-color: #%06x;
 }`
 
 // NewColorScheme creates a new color scheme, given the specified colors.
@@ -44,7 +48,8 @@ func NewColorScheme(
 	fgFocus,
 	bgFocus,
 	load,
-	bg Color) *ColorScheme {
+	bg,
+	tabbarBg Color) *ColorScheme {
 
 	return &ColorScheme{
 		emphasized,
@@ -56,6 +61,7 @@ func NewColorScheme(
 		bgFocus,
 		load,
 		bg,
+		tabbarBg,
 		strings.NewReplacer(
 			"<em>",
 			fmt.Sprintf(`<span color="#%06x">`, emphasized),
@@ -82,7 +88,7 @@ func NewColorScheme(
 			"</load>",
 			"</span>",
 		),
-		fmt.Sprintf(cssFormatString, bg, unemphasized),
+		fmt.Sprintf(cssFormatString, bg, unemphasized, tabbarBg),
 	}
 }
 

@@ -28,6 +28,7 @@ func NewTabBar(parent *Window) (*TabBar, error) {
 	if err != nil {
 		return nil, err
 	}
+	box.SetName("tabbar")
 
 	tabBar := &TabBar{box, make([]*TabBarTab, 0, 100), parent, nil, "", 0, "", 0}
 

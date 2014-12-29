@@ -44,6 +44,7 @@ func NewWindow(webView *webkit.WebView) (*Window, error) {
 		0x225588,
 		0xdd9955,
 		0x333333,
+		0x222222,
 	)
 
 	w := &Window{
@@ -66,13 +67,6 @@ func NewWindow(webView *webkit.WebView) (*Window, error) {
 	win.SetTitle("Golem")
 	w.Window = win
 
-	statusBar, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 10)
-	if err != nil {
-		return nil, err
-	}
-
-	sc := C.gtk_widget_get_style_context(
-		(*C.GtkWidget)(unsafe.Pointer(statusBar.Native())))
 	sp := C.gtk_css_provider_new()
 	css := colors.CSS
 	gErr := new(*C.GError)
@@ -88,10 +82,20 @@ func NewWindow(webView *webkit.WebView) (*Window, error) {
 		C.g_error_free(*gErr)
 		return nil, errors.New(goStr)
 	}
-	C.gtk_style_context_add_provider(
-		sc,
+	screen, err := win.GetScreen()
+	if err != nil {
+		return nil, err
+	}
+	C.gtk_style_context_add_provider_for_screen(
+		(*C.GdkScreen)(unsafe.Pointer(screen.Native())),
 		(*C.GtkStyleProvider)(unsafe.Pointer(sp)),
 		C.GTK_STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+	statusBar, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 10)
+	if err != nil {
+		return nil, err
+	}
+	statusBar.SetName("statusbar")
 
 	cmdStatus, err := gtk.LabelNew("")
 	if err != nil {
@@ -118,13 +122,6 @@ func NewWindow(webView *webkit.WebView) (*Window, error) {
 		return nil, err
 	}
 	w.TabBar = tabBar
-
-	sc = C.gtk_widget_get_style_context(
-		(*C.GtkWidget)(unsafe.Pointer(tabBar.Native())))
-	C.gtk_style_context_add_provider(
-		sc,
-		(*C.GtkStyleProvider)(unsafe.Pointer(sp)),
-		C.GTK_STYLE_PROVIDER_PRIORITY_APPLICATION)
 
 	box, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 0)
 	if err != nil {
