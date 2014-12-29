@@ -87,27 +87,31 @@ func (w *window) tabGo(index int) error {
 }
 
 // tabClose closes the current tab.
-func (w *window) tabClose() {
+func (w *window) tabClose(i int) {
 	w.wMutex.Lock()
 	defer w.wMutex.Unlock()
-	wv := w.getWebView()
+	wv := w.webViews[i]
 	copy(
-		w.webViews[w.currentWebView:len(w.webViews)-1],
-		w.webViews[w.currentWebView+1:])
-	w.webViews = w.webViews[:len(w.webViews)-1]
-	w.Window.CloseTab(w.currentWebView)
-	i := w.currentWebView - 1
-	if i < 0 {
-		i = 0
+		w.webViews[i:len(w.webViews)-1],
+		w.webViews[i+1:])
+	activeWebView := w.currentWebView == i
+	if w.currentWebView > i {
+		w.currentWebView--
 	}
-	w.currentWebView = i
-	w.Window.TabNumber = i + 1
+	w.webViews = w.webViews[:len(w.webViews)-1]
+	w.Window.CloseTab(i)
 	wv.close()
 	if len(w.webViews) == 0 {
 		w.Window.Close()
-	} else {
+	} else if activeWebView {
+		j := w.currentWebView - 1
+		if j < 0 {
+			j = 0
+		}
+		w.currentWebView = j
+		w.Window.TabNumber = j + 1
 		wv := w.getWebView()
-		w.Window.FocusTab(i)
+		w.Window.FocusTab(j)
 		w.reconnectWebViewSignals()
 		w.ReplaceWebView(wv)
 		w.Window.TabCount = len(w.webViews)
