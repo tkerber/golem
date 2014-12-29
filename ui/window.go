@@ -11,7 +11,6 @@ import (
 
 	"github.com/conformal/gotk3/gtk"
 	"github.com/conformal/gotk3/pango"
-	"github.com/tkerber/golem/webkit"
 )
 
 // A Window is one of golem's windows.
@@ -171,7 +170,7 @@ func (w *Window) SetTitle(title string) {
 // ReplaceWebView replaces the web view being shown by the UI.
 //
 // This replacing occurs in the glib main context.
-func (w *Window) ReplaceWebView(wv *webkit.WebView) {
+func (w *Window) ReplaceWebView(wv WebView) {
 	GlibMainContextInvoke(w.replaceWebView, wv)
 }
 

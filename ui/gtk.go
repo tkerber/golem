@@ -31,6 +31,7 @@ var activeInvokations = make(map[*invokation]*invokation, 10)
 type invokation struct {
 	f    interface{}
 	args []interface{}
+	rets []interface{}
 	done chan bool
 }
 
@@ -44,7 +45,11 @@ func (i *invokation) invoke() {
 	for i, arg := range i.args {
 		args[i] = reflect.ValueOf(arg)
 	}
-	fRef.Call(args)
+	outs := fRef.Call(args)
+	i.rets = make([]interface{}, len(outs))
+	for j, out := range outs {
+		i.rets[j] = out.Interface()
+	}
 	i.done <- true
 }
 
@@ -61,9 +66,10 @@ func cgoInvoke(ptr C.gpointer) C.gboolean {
 //
 // No type checks are made, and if the types do not match a runtime panic will
 // be caused.
-func GlibMainContextInvoke(f interface{}, args ...interface{}) {
-	inv := &invokation{f, args, make(chan bool, 1)}
+func GlibMainContextInvoke(f interface{}, args ...interface{}) []interface{} {
+	inv := &invokation{f, args, []interface{}{}, make(chan bool, 1)}
 	activeInvokations[inv] = inv
 	C.go_invoke(C.gpointer(unsafe.Pointer(inv)))
 	<-inv.done
+	return inv.rets
 }
