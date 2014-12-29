@@ -74,7 +74,8 @@ func (w *Window) UpdateState(state cmd.State) {
 
 // UpdateLocation updates the location display of the window.
 func (w *Window) UpdateLocation() {
-	uri := w.GetWebView().GetURI()
+	wv := w.GetWebView()
+	uri := wv.GetURI()
 	submatches := uriRegex.FindStringSubmatch(uri)
 	var uriStr string
 	if submatches == nil {
@@ -97,18 +98,24 @@ func (w *Window) UpdateLocation() {
 	}
 
 	backForward := ""
-	if w.GetWebView().CanGoBack() {
+	if wv.CanGoBack() {
 		backForward += "-"
 	}
-	if w.GetWebView().CanGoForward() {
+	if wv.CanGoForward() {
 		backForward += "+"
 	}
 	if backForward != "" {
 		backForward = "[<em>" + backForward + "</em>]"
 	}
 
+	load := wv.GetEstimatedLoadProgress()
+	var loadStr string
+	if load != 1.0 {
+		loadStr = fmt.Sprintf("[<load>%02d%%</load>]", int(load*100))
+	}
+
 	var pos string
-	visible := int64(w.GetWebView().GetAllocatedHeight())
+	visible := int64(wv.GetAllocatedHeight())
 	if int64(visible) >= w.GetHeight() {
 		pos = "all"
 	} else if w.GetTop() == 0 {
@@ -121,9 +128,10 @@ func (w *Window) UpdateLocation() {
 	}
 
 	locStr := fmt.Sprintf(
-		"%s %s[<em>%d</em>/<em>%d</em>][<em>%s</em>]",
+		"%s %s%s[<em>%d</em>/<em>%d</em>][<em>%s</em>]",
 		uriStr,
 		backForward,
+		loadStr,
 		w.TabNumber,
 		w.TabCount,
 		pos,
