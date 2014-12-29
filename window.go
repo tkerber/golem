@@ -29,7 +29,7 @@ type signalHandle struct {
 
 func newSignalHandle(obj *glib.Object, handle glib.SignalHandle, err error) *signalHandle {
 	// failed connects won't cause any errors, but *will* be logged.
-	if obj != nil && err != nil {
+	if obj != nil && err == nil {
 		return &signalHandle{obj, handle}
 	}
 	log.Printf("Broken signal handle dropped...")
@@ -243,7 +243,7 @@ func (w *window) reconnectWebViewSignals() {
 
 	bfl := wv.GetBackForwardList()
 	handle, err = bfl.Connect("changed", w.UpdateLocation)
-	w.activeSignalHandles[i] = newSignalHandle(wv.Object, handle, err)
+	w.activeSignalHandles[i] = newSignalHandle(bfl.Object, handle, err)
 	i++
 
 	handle, err = wv.Connect("enter-fullscreen", w.Window.HideUI)
