@@ -148,9 +148,7 @@ func (g *golem) watchSignals(c <-chan *dbus.Signal) {
 			wv.height = sig.Body[1].(int64)
 			// Update any windows with this webview displayed.
 			for _, w := range g.windows {
-				if wv.WebView == w.WebView {
-					w.Top = wv.top
-					w.Height = wv.height
+				if wv == w.getWebView() {
 					w.UpdateLocation()
 				}
 			}
@@ -162,7 +160,7 @@ func (g *golem) watchSignals(c <-chan *dbus.Signal) {
 			// Otherwise, if the window is currently in insert mode and it's
 			// newly unfocused, set this webview to normal mode.
 			for _, w := range g.windows {
-				if wv.WebView == w.WebView {
+				if wv == w.getWebView() {
 					if focused {
 						w.setState(cmd.NewInsertMode(w.State))
 					} else if _, ok := w.State.(*cmd.InsertMode); ok {

@@ -84,7 +84,7 @@ func cmdOpen(w *window, g *golem, args []string) {
 		logInvalidArgs(args)
 		return
 	}
-	w.WebView.LoadURI(uri)
+	w.getWebView().LoadURI(uri)
 }
 
 // cmdTabOpen behaves like cmdOpen, but opens the uri in a new tab. If no

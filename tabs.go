@@ -79,8 +79,6 @@ func (w *window) tabGo(index int) error {
 	w.currentWebView = index
 	w.Window.TabNumber = index + 1
 	wv := w.getWebView()
-	w.Top = wv.top
-	w.Height = wv.height
 	w.reconnectWebViewSignals()
 	w.ReplaceWebView(wv.WebView)
 	w.Window.TabBar.FocusTab(index)
@@ -112,8 +110,6 @@ func (w *window) tabClose() {
 		w.Window.FocusTab(i)
 		w.reconnectWebViewSignals()
 		w.ReplaceWebView(wv.WebView)
-		w.Top = wv.top
-		w.Height = wv.height
 		w.Window.TabCount = len(w.webViews)
 		go w.UpdateLocation()
 	}

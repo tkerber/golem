@@ -86,7 +86,7 @@ func (g *golem) newWindow(settings *webkit.Settings, uri string) (*window, error
 		return nil, err
 	}
 
-	win.Window, err = ui.NewWindow(win.webViews[0].WebView)
+	win.Window, err = ui.NewWindow(win.webViews[0])
 	if err != nil {
 		log.Printf("Error: Failed to open new window: %v\n", err)
 		return nil, err

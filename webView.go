@@ -144,6 +144,21 @@ func (w *window) newWebView(settings *webkit.Settings) (*webView, error) {
 	return ret, nil
 }
 
+// GetTop retrieves the scroll distance from the top of the web view.
+func (wv *webView) GetTop() int64 {
+	return wv.top
+}
+
+// GetHeight retrieves the height of the web view.
+func (wv *webView) GetHeight() int64 {
+	return wv.height
+}
+
+// GetWebView retrieves the webkit webview.
+func (wv *webView) GetWebView() *webkit.WebView {
+	return wv.WebView
+}
+
 // setTabUI sets the tab display for the tab.
 func (wv *webView) setTabUI(t *ui.TabBarTab) {
 	wv.WebView.Connect("notify::title", func() {

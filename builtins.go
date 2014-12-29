@@ -71,21 +71,21 @@ func (w *window) builtinCommandMode(_ *int) {
 func (w *window) builtinEditURI(_ *int) {
 	w.setState(cmd.NewPartialCommandLineMode(
 		w.State,
-		fmt.Sprintf("open %v", w.WebView.GetURI()),
+		fmt.Sprintf("open %v", w.getWebView().GetURI()),
 		w.runCmd))
 }
 
 // builtinGoBack goes one step back in browser history.
 func (w *window) builtinGoBack(n *int) {
-	for num := getWithDefault(n, 1, 0, 50); num > 0 && w.WebView.CanGoBack(); num-- {
-		w.WebView.GoBack()
+	for num := getWithDefault(n, 1, 0, 50); num > 0 && w.getWebView().CanGoBack(); num-- {
+		w.getWebView().GoBack()
 	}
 }
 
 // builtinGoForward goes one step forward in browser history.
 func (w *window) builtinGoForward(n *int) {
-	for num := getWithDefault(n, 1, 0, 50); num > 0 && w.WebView.CanGoForward(); num-- {
-		w.WebView.GoForward()
+	for num := getWithDefault(n, 1, 0, 50); num > 0 && w.getWebView().CanGoForward(); num-- {
+		w.getWebView().GoForward()
 	}
 }
 
@@ -108,12 +108,12 @@ func (w *window) builtinPanic(_ *int) {
 
 // builtinReload reloads the current page.
 func (w *window) builtinReload(_ *int) {
-	w.WebView.Reload()
+	w.getWebView().Reload()
 }
 
 // builtinReloadNoCache reloads the current page, bypassing the cache.
 func (w *window) builtinReloadNoCache(_ *int) {
-	w.WebView.ReloadBypassCache()
+	w.getWebView().ReloadBypassCache()
 }
 
 // builtinScrollDown scrolls down.
@@ -170,7 +170,7 @@ func (w *window) builtinTabClose(n *int) {
 func (w *window) builtinTabEditURI(_ *int) {
 	w.setState(cmd.NewPartialCommandLineMode(
 		w.State,
-		fmt.Sprintf("tabopen %v", w.GetURI()),
+		fmt.Sprintf("tabopen %v", w.getWebView().GetURI()),
 		w.runCmd))
 }
 
@@ -214,7 +214,7 @@ func (w *window) builtinTabPrev(n *int) {
 func (w *window) builtinWindowEditURI(_ *int) {
 	w.setState(cmd.NewPartialCommandLineMode(
 		w.State,
-		fmt.Sprintf("winopen %v", w.GetURI()),
+		fmt.Sprintf("winopen %v", w.getWebView().GetURI()),
 		w.runCmd))
 }
 

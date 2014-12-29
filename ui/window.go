@@ -18,14 +18,10 @@ import (
 type Window struct {
 	*StatusBar
 	*TabBar
-	*webkit.WebView
+	WebView
 	*gtk.Window
 	*ColorScheme
 	webViewBox *gtk.Box
-	// How far from the top the active web view is scrolled.
-	Top int64
-	// The height of the active web view.
-	Height int64
 	// The number of the active tab.
 	TabNumber int
 	// The number of total tabs in this window.
@@ -33,7 +29,7 @@ type Window struct {
 }
 
 // NewWindow creates a new window containing the given WebView.
-func NewWindow(webView *webkit.WebView) (*Window, error) {
+func NewWindow(webView WebView) (*Window, error) {
 	colors := NewColorScheme(
 		0xffffff,
 		0x888888,
@@ -54,8 +50,6 @@ func NewWindow(webView *webkit.WebView) (*Window, error) {
 		nil,
 		colors,
 		nil,
-		0,
-		0,
 		1,
 		1,
 	}
@@ -133,7 +127,7 @@ func NewWindow(webView *webkit.WebView) (*Window, error) {
 		return nil, err
 	}
 	w.webViewBox = webViewBox
-	webViewBox.PackStart(webView, true, true, 0)
+	webViewBox.PackStart(webView.GetWebView(), true, true, 0)
 
 	contentBox, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
 	if err != nil {
@@ -184,13 +178,14 @@ func (w *Window) ReplaceWebView(wv *webkit.WebView) {
 // replaceWebView replaces the web view being shown by the UI.
 //
 // MUST ONLY BE INVOKED THROUGH GlibMainContextInvoke!
-func (w *Window) replaceWebView(wv *webkit.WebView) {
-	w.WebView.Hide()
-	if p, _ := wv.GetParent(); p == nil {
-		w.webViewBox.PackStart(wv, true, true, 0)
+func (w *Window) replaceWebView(wv WebView) {
+	wvWidget := wv.GetWebView()
+	w.GetWebView().Hide()
+	if p, _ := wvWidget.GetParent(); p == nil {
+		w.webViewBox.PackStart(wvWidget, true, true, 0)
 	}
-	wv.Show()
+	wvWidget.Show()
 	w.WebView = wv
-	wv.QueueDraw()
-	wv.GrabFocus()
+	wvWidget.QueueDraw()
+	wvWidget.GrabFocus()
 }

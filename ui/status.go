@@ -74,7 +74,7 @@ func (w *Window) UpdateState(state cmd.State) {
 
 // UpdateLocation updates the location display of the window.
 func (w *Window) UpdateLocation() {
-	uri := w.GetURI()
+	uri := w.GetWebView().GetURI()
 	submatches := uriRegex.FindStringSubmatch(uri)
 	var uriStr string
 	if submatches == nil {
@@ -97,10 +97,10 @@ func (w *Window) UpdateLocation() {
 	}
 
 	backForward := ""
-	if w.CanGoBack() {
+	if w.GetWebView().CanGoBack() {
 		backForward += "-"
 	}
-	if w.CanGoForward() {
+	if w.GetWebView().CanGoForward() {
 		backForward += "+"
 	}
 	if backForward != "" {
@@ -108,15 +108,15 @@ func (w *Window) UpdateLocation() {
 	}
 
 	var pos string
-	visible := int64(w.WebView.GetAllocatedHeight())
-	if int64(visible) >= w.Height {
+	visible := int64(w.GetWebView().GetAllocatedHeight())
+	if int64(visible) >= w.GetHeight() {
 		pos = "all"
-	} else if w.Top == 0 {
+	} else if w.GetTop() == 0 {
 		pos = "top"
-	} else if w.Top == w.Height-visible {
+	} else if w.GetTop() == w.GetHeight()-visible {
 		pos = "bot"
 	} else {
-		percent := w.Top * 100 / (w.Height - visible)
+		percent := w.GetTop() * 100 / (w.GetHeight() - visible)
 		pos = fmt.Sprintf("%02d%%", percent)
 	}
 
