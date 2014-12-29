@@ -19,6 +19,7 @@ func builtinsFor(w *window) cmd.Builtins {
 		"open":           w.builtinOpen,
 		"panic":          w.builtinPanic,
 		"reload":         w.builtinReload,
+		"reloadNoCache":  w.builtinReloadNoCache,
 		"scrollDown":     w.builtinScrollDown,
 		"scrollLeft":     w.builtinScrollLeft,
 		"scrollRight":    w.builtinScrollRight,
@@ -27,6 +28,7 @@ func builtinsFor(w *window) cmd.Builtins {
 		"scrollUp":       w.builtinScrollUp,
 		"tabClose":       w.builtinTabClose,
 		"tabEditURI":     w.builtinTabEditURI,
+		"tabGo":          w.builtinTabGo,
 		"tabNext":        w.builtinTabNext,
 		"tabOpen":        w.builtinTabOpen,
 		"tabPrev":        w.builtinTabPrev,
@@ -109,6 +111,11 @@ func (w *window) builtinReload(_ *int) {
 	w.WebView.Reload()
 }
 
+// builtinReloadNoCache reloads the current page, bypassing the cache.
+func (w *window) builtinReloadNoCache(_ *int) {
+	w.WebView.ReloadBypassCache()
+}
+
 // builtinScrollDown scrolls down.
 func (w *window) builtinScrollDown(n *int) {
 	w.scrollDelta(w.parent.scrollDelta*getWithDefault(n, 1, 0, 1<<20), true)
@@ -165,6 +172,12 @@ func (w *window) builtinTabEditURI(_ *int) {
 		w.State,
 		fmt.Sprintf("tabopen %v", w.GetURI()),
 		w.runCmd))
+}
+
+// builtinTabGo goes to the specified tab.
+func (w *window) builtinTabGo(n *int) {
+	num := getWithDefault(n, 1, 1, len(w.webViews))
+	w.tabGo(num - 1)
 }
 
 // builtinTabNext goes to the next tab.

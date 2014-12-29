@@ -8,8 +8,11 @@ bind h       builtin:tabPrev
 bind <num>h  builtin:tabPrev
 bind l       builtin:tabNext
 bind <num>l  builtin:tabNext
+bind T       builtin:tabGo
+bind <num>T  builtin:tabGo
 
 bind r       builtin:reload
+bind R       builtin:reloadNoCache
 
 bind gg      builtin:scrollToTop
 bind G       builtin:scrollToBottom

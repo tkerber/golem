@@ -94,6 +94,11 @@ func (w *WebView) Reload() {
 	C.webkit_web_view_reload(w.native())
 }
 
+// ReloadBypassCache request the WebView to reload, bypassing the cache..
+func (w *WebView) ReloadBypassCache() {
+	C.webkit_web_view_reload_bypass_cache(w.native())
+}
+
 // GetEstimatedLoadProgress gets an estimation for the progress of a load
 // operation.
 func (w *WebView) GetEstimatedLoadProgress() float64 {
