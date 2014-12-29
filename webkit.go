@@ -5,7 +5,7 @@ package main
 // #include <stdlib.h>
 import "C"
 import (
-	"go/build"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"unsafe"
@@ -15,21 +15,23 @@ import (
 
 // webkitInit initializes webkit for golem's use.
 func (g *golem) webkitInit() {
-	// TODO figure out a better way to reference this. (i.e. without the source)
-	extenPath := ""
-	for _, src := range build.Default.SrcDirs() {
-		p := filepath.Join(src, "github.com", "tkerber", "golem", "web_extension")
-		if _, err := os.Stat(p); err == nil {
-			extenPath = p
-			break
-		}
+	extenDir, err := ioutil.TempDir("", "golem-web-exten")
+	if err != nil {
+		panic("Failed to create temporary directory.")
 	}
-	if extenPath == "" {
-		panic("Failed to find source files!")
+	g.extenDir = extenDir
+	extenData, err := Asset("libgolem.so")
+	if err != nil {
+		panic("Failed to access web extension embedded data.")
+	}
+	extenPath := filepath.Join(extenDir, "libgolem.so")
+	err = ioutil.WriteFile(extenPath, extenData, 0700)
+	if err != nil {
+		panic("Failed to write web extension to temporary directory.")
 	}
 
 	c := webkit.GetDefaultWebContext()
-	c.SetWebExtensionsDirectory(extenPath)
+	c.SetWebExtensionsDirectory(extenDir)
 
 	// Set the profile string to be passed to the web extensions.
 	cProfile := C.CString(g.profile)
@@ -52,6 +54,11 @@ func (g *golem) webkitInit() {
 
 	// TODO this is temporary.
 	c.RegisterURIScheme("golem", golemSchemeHandler)
+}
+
+// webkitCleanup removes the temporary webkit extension directory.
+func (g *golem) webkitCleanup() {
+	os.RemoveAll(g.extenDir)
 }
 
 // golemSchemeHandler handles request to the 'golem:' scheme.

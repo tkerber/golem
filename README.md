@@ -4,6 +4,27 @@
 
 Go away. Nothing to see here. Yet.
 
+## `go get` / `go generate`
+
+Golem does not follow go conventions that `go generate` is to be run by the
+author and generated code stored in the repository.
+
+Reason for this is that platform the generated code includes a platform-
+dependant shared object file.
+
+As golem is not a library, the fact that it doesn't directly function with
+`go get` is not a huge loss.
+
+To install golem with the `go` command, instead execute:
+
+    go get -d github.com/tkerber/golem
+    go generate .../golem
+    go install .../golem
+
+Note that `go-bindata` is a dependency for golems `go generate` command.
+Run `go get github.com/jteeuwen/go-bindata` to install it. The executable
+is expected to with in the `PATH`.
+
 ## Naming
 
 The name `golem` was chosen to remind people of what this browser should not

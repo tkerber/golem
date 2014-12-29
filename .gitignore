@@ -5,3 +5,5 @@
 *.so
 # The golem executable
 /golem
+# bindata
+/bindata.go

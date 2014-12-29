@@ -12,6 +12,11 @@ import (
 	"github.com/mattn/go-shellwords"
 )
 
+// Build web extension
+//go:generate make -C web_extension
+// Pack data
+//go:generate go-bindata -nomemcopy -prefix data data
+
 // main runs golem (yay!)
 func main() {
 	// Init command line flags.
@@ -45,6 +50,7 @@ func main() {
 	case dbus.RequestNameReplyPrimaryOwner:
 		gtk.Init(&args)
 		g, err := newGolem(sBus, profile)
+		defer g.webkitCleanup()
 		if err != nil {
 			panic(fmt.Sprintf("Error during golem initialization: %v", err))
 		}

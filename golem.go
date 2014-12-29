@@ -33,6 +33,7 @@ type golem struct {
 	rawBindings        []cmd.RawBinding
 	defaultSettings    *webkit.Settings
 	files              *files
+	extenDir           string
 }
 
 // newGolem creates a new instance of golem.
@@ -67,6 +68,7 @@ func newGolem(sBus *dbus.Conn, profile string) (*golem, error) {
 		make([]cmd.RawBinding, 0, 100),
 		webkit.NewSettings(),
 		nil,
+		"",
 	}
 	g.profile = profile
 
