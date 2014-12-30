@@ -18,8 +18,12 @@ bind gg      builtin:scrollToTop
 bind G       builtin:scrollToBottom
 bind j       builtin:scrollDown
 bind <num>j  builtin:scrollDown
+bind J       builtin:scrollPageDown
+bind <num>J  builtin:scrollPageDown
 bind k       builtin:scrollUp
-bind <num>l  builtin:scrollUp
+bind <num>k  builtin:scrollUp
+bind K       builtin:scrollPageUp
+bind <num>K  builtin:scrollPageUp
 
 bind :       builtin:commandMode
 bind i       builtin:insertMode

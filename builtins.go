@@ -23,6 +23,8 @@ func builtinsFor(w *window) cmd.Builtins {
 		"scrollDown":     w.builtinScrollDown,
 		"scrollLeft":     w.builtinScrollLeft,
 		"scrollRight":    w.builtinScrollRight,
+		"scrollPageDown": w.builtinScrollPageDown,
+		"scrollPageUp":   w.builtinScrollPageUp,
 		"scrollToBottom": w.builtinScrollToBottom,
 		"scrollToTop":    w.builtinScrollToTop,
 		"scrollUp":       w.builtinScrollUp,
@@ -129,6 +131,24 @@ func (w *window) builtinScrollLeft(n *int) {
 // builtinScrollRight scrolls right.
 func (w *window) builtinScrollRight(n *int) {
 	w.scrollDelta(w.parent.scrollDelta*getWithDefault(n, 1, 0, 1<<20), false)
+}
+
+// builtinScrollPageDown scrolls down 80% of the page.
+func (w *window) builtinScrollPageDown(n *int) {
+	w.scrollDelta(
+		int(float64(w.Window.WebView.GetWebView().GetAllocatedHeight())*
+			0.8*
+			float64(getWithDefault(n, 1, 0, 1<<20))),
+		true)
+}
+
+// builtinScrollPageUp scrolls up 80% of the page.
+func (w *window) builtinScrollPageUp(n *int) {
+	w.scrollDelta(
+		int(-float64(w.Window.WebView.GetWebView().GetAllocatedHeight())*
+			0.8*
+			float64(getWithDefault(n, 1, 0, 1<<20))),
+		true)
 }
 
 // builtinScrollToBottom scrolls to the bottom of the page.
