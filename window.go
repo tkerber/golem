@@ -323,3 +323,10 @@ func runCmd(w *window, g *golem, command string) {
 		log.Printf("Failed to run command '%v': No such command.", command)
 	}
 }
+
+// addDownload adds an active download.
+func (w *window) addDownload(d *webkit.Download) {
+	w.setState(cmd.NewStatusMode(
+		w.State,
+		"Download started..."))
+}

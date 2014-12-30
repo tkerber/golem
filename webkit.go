@@ -5,11 +5,14 @@ package main
 // #include <stdlib.h>
 import "C"
 import (
+	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"unsafe"
 
+	"github.com/conformal/gotk3/glib"
 	"github.com/tkerber/golem/webkit"
 )
 
@@ -51,6 +54,39 @@ func (g *golem) webkitInit() {
 	c.GetCookieManager().SetPersistentStorage(
 		g.files.cookies,
 		webkit.CookiePersistentStorageText)
+
+	c.Connect("download-started", func(_ *glib.Object, d *webkit.Download) {
+		// Find the window
+		wv := d.GetWebView()
+		var win *window
+	outer:
+		for _, w := range g.windows {
+			for _, wv2 := range w.webViews {
+				if wv.Native() == wv2.Native() {
+					win = w
+					break outer
+				}
+			}
+		}
+		if win != nil {
+			win.addDownload(d)
+		}
+		g.addDownload(d)
+		dlDir := g.files.downloadDir
+		d.Connect("decide-destination", func(d *webkit.Download, suggestedName string) bool {
+			// Check if the file with the suggested name exists in dlDir
+			path := filepath.Join(dlDir, suggestedName)
+			_, err := os.Stat(path)
+			exists := !os.IsNotExist(err)
+			for i := 1; exists; i++ {
+				path = filepath.Join(dlDir, fmt.Sprintf("%d_%s", i, suggestedName))
+				_, err := os.Stat(path)
+				exists = !os.IsNotExist(err)
+			}
+			d.SetDestination(fmt.Sprintf("file://%s", path))
+			return false
+		})
+	})
 
 	// TODO this is temporary.
 	c.RegisterURIScheme("golem", golemSchemeHandler)

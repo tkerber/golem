@@ -13,7 +13,7 @@ import (
 // representation into pango's text markup.
 //
 // Internal tags are <em> (for emphasis), <secure>, <key>, <num>, <focus>,
-// <load> and <cursor>.
+// <load>, <cursor> and <error>.
 type ColorScheme struct {
 	FgEmphasized   Color
 	FgUnemphasized Color

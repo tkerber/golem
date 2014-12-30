@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -10,10 +11,11 @@ import (
 
 // files keeps track of all files golem uses.
 type files struct {
-	configDir string
-	cacheDir  string
-	cookies   string
-	rc        string
+	configDir   string
+	cacheDir    string
+	cookies     string
+	rc          string
+	downloadDir string
 }
 
 // newFiles initializes the files golem uses.
@@ -27,12 +29,19 @@ func (g *golem) newFiles() (*files, error) {
 		home = user.HomeDir
 	}
 
+	downloads := filepath.Join(home, "Downloads")
+	stat, err := os.Stat(downloads)
+	if err != nil || !stat.IsDir() {
+		log.Printf("Failed to stat download dir, falling back to $HOME.")
+		downloads = home
+	}
+
 	configDir := os.Getenv("XDG_CONFIG_HOME")
 	if configDir == "" {
 		configDir = filepath.Join(home, ".config")
 	}
 	configDir = filepath.Join(configDir, "golem", g.profile)
-	err := os.MkdirAll(configDir, 0700)
+	err = os.MkdirAll(configDir, 0700)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +75,7 @@ func (g *golem) newFiles() (*files, error) {
 		return nil, err
 	}
 
-	return &files{configDir, cacheDir, cookies, rc}, nil
+	return &files{configDir, cacheDir, cookies, rc, downloads}, nil
 }
 
 // readRC reades the RC file.

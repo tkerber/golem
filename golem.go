@@ -203,3 +203,7 @@ func (g *golem) closeWindow(w *window) {
 		g.quit <- true
 	}
 }
+
+// addDownload adds a new download to the tracked downloads.
+func (g *golem) addDownload(d *webkit.Download) {
+}
