@@ -8,6 +8,22 @@ import (
 	"github.com/tkerber/golem/debug"
 )
 
+// max returns the greater of two integers.
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// min returns the lesser of two integers.
+func min(a, b int) int {
+	if a > b {
+		return b
+	}
+	return a
+}
+
 // timeout is the time waited in normal mode before an ambiguous binding is
 // executed.
 const timeout = time.Millisecond * 500
@@ -252,6 +268,7 @@ func (s *InsertMode) GetStateIndependant() *StateIndependant {
 type CommandLineMode struct {
 	*StateIndependant
 	CurrentKeys []Key
+	CursorPos   int
 	Finalizer   func(string)
 }
 
@@ -264,6 +281,7 @@ func NewCommandLineMode(s State, f func(string)) *CommandLineMode {
 	return &CommandLineMode{
 		s.GetStateIndependant(),
 		make([]Key, 0),
+		0,
 		f,
 	}
 }
@@ -280,6 +298,7 @@ func NewPartialCommandLineMode(
 	return &CommandLineMode{
 		s.GetStateIndependant(),
 		keys,
+		len(keys),
 		f}
 }
 
@@ -298,28 +317,98 @@ func NewPartialCommandLineMode(
 func (s *CommandLineMode) ProcessKeyPress(key RealKey) (State, bool) {
 	switch key.Keyval {
 	// Execute command line
+	case KeyKPEnter:
+		fallthrough
 	case KeyReturn:
 		s.Finalizer(KeysStringSelective(s.CurrentKeys, false))
 		fallthrough
 	// Cancel command line
 	case KeyEscape:
 		return NewNormalMode(s), true
-	// Delete last key.
-	case KeyBackSpace:
-		// Remove the last key from the list.
-		if len(s.CurrentKeys) > 0 {
-			return &CommandLineMode{
-				s.StateIndependant,
-				s.CurrentKeys[0 : len(s.CurrentKeys)-1],
-				s.Finalizer,
-			}, true
-		}
-		return NewNormalMode(s), true
-	// Add new key
-	default:
+	// Move cursor left
+	case KeyKPLeft:
+		fallthrough
+	case KeyLeft:
 		return &CommandLineMode{
 			s.StateIndependant,
-			append(s.CurrentKeys, key),
+			s.CurrentKeys,
+			max(s.CursorPos-1, 0),
+			s.Finalizer,
+		}, true
+	// Move cursor right
+	case KeyKPRight:
+		fallthrough
+	case KeyRight:
+		return &CommandLineMode{
+			s.StateIndependant,
+			s.CurrentKeys,
+			min(s.CursorPos+1, len(s.CurrentKeys)),
+			s.Finalizer,
+		}, true
+	// Delete last key.
+	case KeyDelete:
+		fallthrough
+	case KeyKPDelete:
+		// Remove the next key from the list.
+		if s.CursorPos < len(s.CurrentKeys) {
+			newKeys := make([]Key, len(s.CurrentKeys)-1)
+			// Copy keys before cursor
+			copy(
+				newKeys[:s.CursorPos],
+				s.CurrentKeys[:s.CursorPos])
+			// Copy all but one key after cursor
+			copy(
+				newKeys[s.CursorPos:],
+				s.CurrentKeys[s.CursorPos+1:])
+			return &CommandLineMode{
+				s.StateIndependant,
+				newKeys,
+				s.CursorPos,
+				s.Finalizer,
+			}, true
+		} else if len(s.CurrentKeys) == 0 {
+			return NewNormalMode(s), true
+		}
+		return s, false
+	// Delete next key. Very similar to above.
+	case KeyBackSpace:
+		// Remove the last key from the list.
+		if s.CursorPos > 0 {
+			newKeys := make([]Key, len(s.CurrentKeys)-1)
+			// Copy all but one key before cursor
+			copy(
+				newKeys[:s.CursorPos-1],
+				s.CurrentKeys[:s.CursorPos-1])
+			// Copy keys after cursor
+			copy(
+				newKeys[s.CursorPos-1:],
+				s.CurrentKeys[s.CursorPos:])
+			return &CommandLineMode{
+				s.StateIndependant,
+				newKeys,
+				s.CursorPos - 1,
+				s.Finalizer,
+			}, true
+		} else if len(s.CurrentKeys) == 0 {
+			return NewNormalMode(s), true
+		}
+		return s, false
+	// Add new key
+	default:
+		newKeys := make([]Key, len(s.CurrentKeys)+1)
+		// Copy keys before cursor
+		copy(
+			newKeys[:s.CursorPos],
+			s.CurrentKeys[:s.CursorPos])
+		// Copy keys after cursor
+		copy(
+			newKeys[s.CursorPos+1:],
+			s.CurrentKeys[s.CursorPos:])
+		newKeys[s.CursorPos] = key
+		return &CommandLineMode{
+			s.StateIndependant,
+			newKeys,
+			s.CursorPos + 1,
 			s.Finalizer,
 		}, true
 	}

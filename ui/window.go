@@ -34,6 +34,7 @@ func NewWindow(webView WebView) (*Window, error) {
 		0x888888,
 		0xaaffaa,
 		0xffaa88,
+		0xff8888,
 		0x66aaaa,
 		0xdddddd,
 		0x225588,

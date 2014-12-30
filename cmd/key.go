@@ -78,8 +78,15 @@ const (
 const (
 	KeyVoid      = C.GDK_KEY_VoidSymbol
 	KeyEscape    = C.GDK_KEY_Escape
+	KeyLeft      = C.GDK_KEY_Left
+	KeyKPLeft    = C.GDK_KEY_KP_Left
+	KeyRight     = C.GDK_KEY_Right
+	KeyKPRight   = C.GDK_KEY_KP_Right
 	KeyReturn    = C.GDK_KEY_Return
+	KeyKPEnter   = C.GDK_KEY_KP_Enter
 	KeyBackSpace = C.GDK_KEY_BackSpace
+	KeyDelete    = C.GDK_KEY_Delete
+	KeyKPDelete  = C.GDK_KEY_KP_Delete
 )
 
 // isNonPrintRune checks in a rune is a member of nonPrintRunes.

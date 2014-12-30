@@ -65,9 +65,12 @@ func (w *Window) UpdateState(state cmd.State) {
 	case *cmd.InsertMode:
 		newStatus = "-- <em>insert</em> --"
 	case *cmd.CommandLineMode:
+		beforeCursor := s.CurrentKeys[:s.CursorPos]
+		afterCursor := s.CurrentKeys[s.CursorPos:]
 		newStatus = fmt.Sprintf(
-			":<em>%v</em>",
-			keysToMarkupString(s.CurrentKeys, false, false))
+			":<em>%v</em><cursor>_</cursor><em>%v</em>",
+			keysToMarkupString(beforeCursor, false, false),
+			keysToMarkupString(afterCursor, false, false))
 	}
 	w.SetCmdMarkup(w.MarkupReplacer.Replace(newStatus))
 }
