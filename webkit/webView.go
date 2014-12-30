@@ -19,6 +19,21 @@ import (
 	"github.com/conformal/gotk3/gtk"
 )
 
+// init registers the WebView type marshaler to glib.
+func init() {
+	glib.RegisterGValueMarshalers([]glib.TypeMarshaler{
+		glib.TypeMarshaler{
+			glib.Type(C.webkit_web_view_get_type()),
+			func(ptr uintptr) (interface{}, error) {
+				c := C.g_value_get_object((*C.GValue)(unsafe.Pointer(ptr)))
+				obj := &glib.Object{glib.ToGObject(unsafe.Pointer(c))}
+				webView := wrapWebView(obj)
+				return webView, nil
+			},
+		},
+	})
+}
+
 // WebView represents a WebKitWebView widget.
 type WebView struct {
 	gtk.Container

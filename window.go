@@ -53,6 +53,7 @@ type window struct {
 	builtins            cmd.Builtins
 	bindings            *cmd.BindingTree
 	activeSignalHandles []*signalHandle
+	windowSignalHandles []glib.SignalHandle
 	timeoutChan         chan bool
 	wMutex              *sync.Mutex
 }
@@ -85,6 +86,7 @@ func (g *golem) newWindow(settings *webkit.Settings, uri string) (*window, error
 		nil,
 		new(cmd.BindingTree),
 		make([]*signalHandle, 0),
+		make([]glib.SignalHandle, 0, 2),
 		make(chan bool, 1),
 		new(sync.Mutex),
 	}
@@ -134,13 +136,31 @@ func (g *golem) newWindow(settings *webkit.Settings, uri string) (*window, error
 	// After each keypress, true gets sent to this channel 10ms after.
 	win.timeoutChan <- true
 
-	win.Window.Window.Connect("key-press-event", win.handleKeyPress)
-	win.Window.Window.Connect("destroy", func() {
+	handle, err := win.Window.Window.Connect("key-press-event", win.handleKeyPress)
+	if err == nil {
+		win.windowSignalHandles = append(win.windowSignalHandles, handle)
+	}
+	handle, err = win.Window.Window.Connect("destroy", func() {
 		for _, wv := range win.webViews {
 			wv.close()
 		}
+		for _, h := range win.activeSignalHandles {
+			h.disconnect()
+		}
+		for _, h := range win.windowSignalHandles {
+			win.Window.Window.HandlerDisconnect(h)
+		}
 		g.closeWindow(win)
+		// Ensure garbage collection
+		win.Window.WebView = nil
+		win.bindings = nil
+		win.builtins = nil
+		win.State = nil
+		schedGc()
 	})
+	if err == nil {
+		win.windowSignalHandles = append(win.windowSignalHandles, handle)
+	}
 
 	win.Show()
 	return win, nil
@@ -215,7 +235,7 @@ func (w *window) reconnectWebViewSignals() {
 
 	wv := w.getWebView().WebView
 
-	w.activeSignalHandles = make([]*signalHandle, 6)
+	w.activeSignalHandles = make([]*signalHandle, 0, 6)
 
 	titleSetFunc := func() {
 		title := wv.GetTitle()
@@ -227,32 +247,36 @@ func (w *window) reconnectWebViewSignals() {
 	}
 	titleSetFunc()
 
-	i := 0
-
 	handle, err := wv.Connect("notify::title", titleSetFunc)
-	w.activeSignalHandles[i] = newSignalHandle(wv.Object, handle, err)
-	i++
+	w.activeSignalHandles = append(
+		w.activeSignalHandles,
+		newSignalHandle(wv.Object, handle, err))
 
 	handle, err = wv.Connect("notify::uri", w.UpdateLocation)
-	w.activeSignalHandles[i] = newSignalHandle(wv.Object, handle, err)
-	i++
+	w.activeSignalHandles = append(
+		w.activeSignalHandles,
+		newSignalHandle(wv.Object, handle, err))
 
 	handle, err = wv.Connect("notify::estimated-load-progress", w.UpdateLocation)
-	w.activeSignalHandles[i] = newSignalHandle(wv.Object, handle, err)
-	i++
+	w.activeSignalHandles = append(
+		w.activeSignalHandles,
+		newSignalHandle(wv.Object, handle, err))
 
 	bfl := wv.GetBackForwardList()
 	handle, err = bfl.Connect("changed", w.UpdateLocation)
-	w.activeSignalHandles[i] = newSignalHandle(bfl.Object, handle, err)
-	i++
+	w.activeSignalHandles = append(
+		w.activeSignalHandles,
+		newSignalHandle(bfl.Object, handle, err))
 
 	handle, err = wv.Connect("enter-fullscreen", w.Window.HideUI)
-	w.activeSignalHandles[i] = newSignalHandle(wv.Object, handle, err)
-	i++
+	w.activeSignalHandles = append(
+		w.activeSignalHandles,
+		newSignalHandle(wv.Object, handle, err))
 
 	handle, err = wv.Connect("leave-fullscreen", w.Window.ShowUI)
-	w.activeSignalHandles[i] = newSignalHandle(wv.Object, handle, err)
-	i++
+	w.activeSignalHandles = append(
+		w.activeSignalHandles,
+		newSignalHandle(wv.Object, handle, err))
 }
 
 // runCmd runs a command.
