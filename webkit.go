@@ -7,7 +7,6 @@ import "C"
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"unsafe"
