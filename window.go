@@ -195,6 +195,8 @@ func (w *window) handleKeyPress(uiWin *gtk.Window, e *gdk.Event) bool {
 		// takes precedence.
 		if oldState == w.State {
 			w.setState(newState)
+		} else if statusM, ok := w.State.(*cmd.StatusMode); ok && statusM.State == oldState {
+			w.setState(cmd.NewStatusMode(newState, statusM.Status))
 		}
 		return ret
 	default:
@@ -207,6 +209,9 @@ func (w *window) rebuildBindings() {
 	bindings, errs := cmd.ParseRawBindings(w.parent.rawBindings, w.builtins, w.runCmd)
 	if errs != nil {
 		for _, err := range errs {
+			w.setState(cmd.NewStatusMode(
+				w.State,
+				fmt.Errorf("Error: Failed to parse key bindings: %v", err)))
 			log.Printf("Error: Failed to parse key bindings: %v\n", err)
 		}
 		log.Printf("Faulty bindings have been dropped.")
@@ -214,6 +219,9 @@ func (w *window) rebuildBindings() {
 	bindingTree, errs := cmd.NewBindingTree(bindings)
 	if errs != nil {
 		for _, err := range errs {
+			w.setState(cmd.NewStatusMode(
+				w.State,
+				fmt.Errorf("Error: Failed to parse key bindings: %v", err)))
 			log.Printf("Error: Failed to parse key bindings: %v\n", err)
 		}
 		log.Printf("Faulty bindings have been dropped.")
@@ -285,15 +293,18 @@ func (w *window) runCmd(cmd string) {
 }
 
 // runCmd runs a command.
-func runCmd(w *window, g *golem, cmd string) {
+func runCmd(w *window, g *golem, command string) {
 	// Space followed optionally by a line comment (starting with ")
-	if blankLineRegex.MatchString(cmd) {
+	if blankLineRegex.MatchString(command) {
 		return
 	}
 
-	parts, err := shellwords.Parse(cmd)
+	parts, err := shellwords.Parse(command)
 	if err != nil {
-		log.Printf("Failed to parse command '%v': %v", cmd, err)
+		w.setState(cmd.NewStatusMode(
+			w.State,
+			fmt.Errorf("Error: Failed to parse command '%v': %v", command, err)))
+		log.Printf("Failed to parse command '%v': %v", command, err)
 		return
 	}
 	if len(parts[0]) == 0 {
@@ -302,10 +313,13 @@ func runCmd(w *window, g *golem, cmd string) {
 	f, ok := commands[parts[0]]
 	if ok {
 		if debug.PrintCommands {
-			log.Printf("Running command '%v'.", cmd)
+			log.Printf("Running command '%v'.", command)
 		}
 		f(w, g, parts)
 	} else {
-		log.Printf("Failed to run command '%v': No such command.", cmd)
+		w.setState(cmd.NewStatusMode(
+			w.State,
+			fmt.Errorf("Error: Failed to run command '%v': No such command.", command)))
+		log.Printf("Failed to run command '%v': No such command.", command)
 	}
 }

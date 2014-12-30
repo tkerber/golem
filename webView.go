@@ -4,6 +4,7 @@ package main
 // #include <webkit2/webkit2.h>
 import "C"
 import (
+	"errors"
 	"fmt"
 	"log"
 	"runtime"
@@ -72,6 +73,9 @@ func (w *window) newWebView(settings *webkit.Settings) (*webView, error) {
 		} else {
 			wv, err := ret.window.newTab(C.GoString(cStr))
 			if err != nil {
+				ret.window.setState(cmd.NewStatusMode(
+					ret.window.State,
+					errors.New("Failed creation of new tab...")))
 				log.Printf("Failed creation of new tab...")
 			} else {
 				// Focus our new tab.
@@ -121,6 +125,9 @@ func (w *window) newWebView(settings *webkit.Settings) (*webView, error) {
 
 					_, err := ret.window.newTabWithRequest(req)
 					if err != nil {
+						ret.window.setState(cmd.NewStatusMode(
+							ret.window.State,
+							errors.New("Failed creation of new tab...")))
 						log.Printf("Failed creation of new tab...")
 					}
 					return true

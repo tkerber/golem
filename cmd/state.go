@@ -418,3 +418,32 @@ func (s *CommandLineMode) ProcessKeyPress(key RealKey) (State, bool) {
 func (s *CommandLineMode) GetStateIndependant() *StateIndependant {
 	return s.StateIndependant
 }
+
+// Alias for interface{}.
+//
+// Usually will be printed with Printf("%v").
+//
+// This is useful to recognize which statuses are errors and which are "normal"
+// statuses.
+type Status interface{}
+
+// StatusMode is a mode which displays a single status line.
+//
+// It keeps the previous state as a part of it, and does nothing itself.
+// All methods called are directed to the previous that; most notably: any
+// key press will revert out of StatusMode, and the old state will handle the
+// key press as normal.
+type StatusMode struct {
+	State
+	Status Status
+}
+
+// NewStatusMode creates a new StatusMode with a given state and status string.
+func NewStatusMode(s State, status Status) *StatusMode {
+	// Only wrap the innermost state, avoid nested status modes (they are
+	// useless anyway)
+	if sm, ok := s.(*StatusMode); ok {
+		return &StatusMode{sm.State, status}
+	}
+	return &StatusMode{s, status}
+}

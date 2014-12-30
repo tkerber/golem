@@ -156,6 +156,7 @@ func (w *window) builtinScrollToBottom(_ *int) {
 	ext := w.getWebView()
 	height, err := ext.getScrollHeight()
 	if err != nil {
+		w.setState(cmd.NewStatusMode(w.State, fmt.Errorf("Error scrolling: %v", err)))
 		log.Printf("Error scrolling: %v", err)
 	}
 	err = ext.setScrollTop(height)
@@ -168,6 +169,7 @@ func (w *window) builtinScrollToBottom(_ *int) {
 func (w *window) builtinScrollToTop(_ *int) {
 	err := w.getWebView().setScrollTop(0)
 	if err != nil {
+		w.setState(cmd.NewStatusMode(w.State, fmt.Errorf("Error scrolling: %v", err)))
 		log.Printf("Error scrolling: %v", err)
 	}
 }
@@ -262,6 +264,7 @@ func (w *window) scrollDelta(delta int, vertical bool) {
 		curr, err = wv.getScrollLeft()
 	}
 	if err != nil {
+		w.setState(cmd.NewStatusMode(w.State, fmt.Errorf("Error scrolling: %v", err)))
 		log.Printf("Error scrolling: %v", err)
 		return
 	}
@@ -272,6 +275,7 @@ func (w *window) scrollDelta(delta int, vertical bool) {
 		err = wv.setScrollLeft(curr)
 	}
 	if err != nil {
+		w.setState(cmd.NewStatusMode(w.State, fmt.Errorf("Error scrolling: %v", err)))
 		log.Printf("Error scrolling: %v", err)
 		return
 	}

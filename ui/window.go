@@ -32,6 +32,7 @@ func NewWindow(webView WebView) (*Window, error) {
 	colors := NewColorScheme(
 		0xffffff,
 		0x888888,
+		0xff8888,
 		0xaaffaa,
 		0xffaa88,
 		0xff8888,

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/webkit"
 )
 
@@ -48,7 +49,12 @@ func init() {
 
 // logInvalidArgs prints a log message indicating that the arguments given
 // where invalid.
-func logInvalidArgs(args []string) {
+func (w *window) logInvalidArgs(args []string) {
+	if w != nil {
+		w.setState(cmd.NewStatusMode(
+			w.State,
+			fmt.Errorf("Invalid arguments recieved for command %v.", args[0])))
+	}
 	log.Printf("Invalid arguments recieved for command %v.", args[0])
 }
 
@@ -81,7 +87,7 @@ func cmdOpen(w *window, g *golem, args []string) {
 	}
 	uri := g.openURI(args[1:])
 	if uri == "" {
-		logInvalidArgs(args)
+		w.logInvalidArgs(args)
 		return
 	}
 	w.getWebView().LoadURI(uri)
@@ -129,7 +135,7 @@ func (g *golem) openURI(args []string) string {
 // cmdBind adds a binding, globally to golem.
 func cmdBind(w *window, g *golem, args []string) {
 	if len(args) != 3 {
-		logInvalidArgs(args)
+		w.logInvalidArgs(args)
 		return
 	}
 	g.bind(args[1], args[2])
@@ -183,6 +189,7 @@ func cmdSet(w *window, g *golem, args []string) {
 	for _, arg := range args[1:len(args)] {
 		op, keyParts, valueStr, err := cmdSetSplitOperator(arg)
 		if err != nil {
+			w.setState(cmd.NewStatusMode(w.State, fmt.Errorf("%v: '%v'", err, arg)))
 			log.Printf("%v: '%v'", err, arg)
 			continue
 		}
@@ -198,6 +205,7 @@ func cmdSet(w *window, g *golem, args []string) {
 			setFunc, getFunc, iterChan, valueType, err =
 				cmdSetWebkit(w, g, keyParts)
 			if err != nil {
+				w.setState(cmd.NewStatusMode(w.State, fmt.Errorf("%v: '%v'", err, arg)))
 				log.Printf("%v: '%v'", err, arg)
 				continue
 			}
@@ -205,12 +213,14 @@ func cmdSet(w *window, g *golem, args []string) {
 			// TODO Not yet implemented.
 			fallthrough
 		default:
+			w.setState(cmd.NewStatusMode(w.State, fmt.Errorf("Failed to parse set instruction: '%v'", arg)))
 			log.Printf("Failed to parse set instruction: '%v'", arg)
 			continue
 		}
 
 		operatorFunc, err := cmdSetOperatorFunc(op, setFunc, getFunc, valueType)
 		if err != nil {
+			w.setState(cmd.NewStatusMode(w.State, fmt.Errorf("%v: '%v'", err, arg)))
 			log.Printf("%v: '%v'", err, arg)
 			continue
 		}
@@ -218,6 +228,7 @@ func cmdSet(w *window, g *golem, args []string) {
 		// Parse value according to the type and apply.
 		value, err := cmdSetParseValueString(valueStr, valueType)
 		if err != nil {
+			w.setState(cmd.NewStatusMode(w.State, err))
 			log.Printf(err.Error())
 			continue
 		}

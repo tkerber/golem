@@ -71,6 +71,13 @@ func (w *Window) UpdateState(state cmd.State) {
 			":<em>%v</em><cursor>_</cursor><em>%v</em>",
 			keysToMarkupString(beforeCursor, false, false),
 			keysToMarkupString(afterCursor, false, false))
+	case *cmd.StatusMode:
+		if err, ok := s.Status.(error); ok {
+			newStatus = fmt.Sprintf("<error>%s</error>",
+				html.EscapeString(err.Error()))
+		} else {
+			newStatus = html.EscapeString(fmt.Sprintf("%v", s.Status))
+		}
 	}
 	w.SetCmdMarkup(w.MarkupReplacer.Replace(newStatus))
 }

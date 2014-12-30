@@ -17,6 +17,7 @@ import (
 type ColorScheme struct {
 	FgEmphasized   Color
 	FgUnemphasized Color
+	FgError        Color
 	FgSecure       Color
 	FgKey          Color
 	FgCursor       Color
@@ -43,6 +44,7 @@ GtkBox#tabbar {
 func NewColorScheme(
 	emphasized,
 	unemphasized,
+	err,
 	secure,
 	key,
 	cursor,
@@ -56,6 +58,7 @@ func NewColorScheme(
 	return &ColorScheme{
 		emphasized,
 		unemphasized,
+		err,
 		secure,
 		key,
 		cursor,
@@ -69,6 +72,10 @@ func NewColorScheme(
 			"<em>",
 			fmt.Sprintf(`<span color="#%06x">`, emphasized),
 			"</em>",
+			"</span>",
+			"<error>",
+			fmt.Sprintf(`<span color="#%06x">`, err),
+			"</error>",
 			"</span>",
 			"<secure>",
 			fmt.Sprintf(`<span color="#%06x">`, secure),
