@@ -27,6 +27,7 @@ type webView struct {
 	settings *webkit.Settings
 	window   *window
 	tabUI    *ui.TabBarTab
+	handles  []glib.SignalHandle
 }
 
 // newWebView creates a new webView using given settings as a template.
@@ -55,10 +56,11 @@ func (w *window) newWebView(settings *webkit.Settings) (*webView, error) {
 		newSettings,
 		w,
 		nil,
+		make([]glib.SignalHandle, 0, 4),
 	}
 
 	// Attach to the create signal, which creates new tabs on demand.
-	ret.WebView.Connect("create", func(obj *glib.Object, ptr uintptr) {
+	handle, err := ret.WebView.Connect("create", func(obj *glib.Object, ptr uintptr) {
 		// TODO clean this up. It should probably be somewhere in the
 		// webkit package.
 		boxed := (*C.WebKitNavigationAction)(unsafe.Pointer(ptr))
@@ -77,9 +79,13 @@ func (w *window) newWebView(settings *webkit.Settings) (*webView, error) {
 			}
 		}
 	})
+	if err != nil {
+		return nil, err
+	}
+	ret.handles = append(ret.handles, handle)
 
 	// Attach to decision policies.
-	ret.WebView.Connect("decide-policy",
+	handle, err = ret.WebView.Connect("decide-policy",
 		func(
 			obj *glib.Object,
 			decision *glib.Object,
@@ -123,6 +129,10 @@ func (w *window) newWebView(settings *webkit.Settings) (*webView, error) {
 			}
 			return false
 		})
+	if err != nil {
+		return nil, err
+	}
+	ret.handles = append(ret.handles, handle)
 
 	// Attach dbus to watch for signals from this extension.
 	// There is no real need to disconnect this, dbus disconnects it for us
@@ -161,17 +171,26 @@ func (wv *webView) GetWebView() *webkit.WebView {
 
 // setTabUI sets the tab display for the tab.
 func (wv *webView) setTabUI(t *ui.TabBarTab) {
-	wv.WebView.Connect("notify::title", func() {
+	handle, err := wv.WebView.Connect("notify::title", func() {
 		t.SetTitle(wv.WebView.GetTitle())
 	})
-	wv.WebView.Connect("notify::estimated-load-progress", func() {
+	if err == nil {
+		wv.handles = append(wv.handles, handle)
+	}
+	handle, err = wv.WebView.Connect("notify::estimated-load-progress", func() {
 		t.SetLoadProgress(wv.WebView.GetEstimatedLoadProgress())
 	})
+	if err == nil {
+		wv.handles = append(wv.handles, handle)
+	}
 	wv.tabUI = t
 }
 
 // close updates bookkeeping after the web view is closed.
 func (wv *webView) close() {
+	for _, handle := range wv.handles {
+		wv.WebView.HandlerDisconnect(handle)
+	}
 	wv.parent.wMutex.Lock()
 	defer wv.parent.wMutex.Unlock()
 	delete(wv.parent.webViews, wv.id)

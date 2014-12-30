@@ -98,6 +98,7 @@ func (w *window) tabClose(i int) {
 	if w.currentWebView > i {
 		w.currentWebView--
 	}
+	w.webViews[len(w.webViews)-1] = nil
 	w.webViews = w.webViews[:len(w.webViews)-1]
 	w.Window.CloseTab(i)
 	wv.close()
