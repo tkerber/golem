@@ -50,8 +50,14 @@ func (r *URISchemeRequest) Finish(data []byte, mimeType string) {
 	// into a GInputStream.
 	cstr := C.CString(mimeType)
 	defer C.free(unsafe.Pointer(cstr))
+	var dataPtr unsafe.Pointer
+	if len(data) == 0 {
+		dataPtr = nil
+	} else {
+		dataPtr = unsafe.Pointer(&data[0])
+	}
 	s := C.g_memory_input_stream_new_from_data(
-		unsafe.Pointer(&data[0]),
+		dataPtr,
 		C.gssize(len(data)),
 		nil)
 	C.webkit_uri_scheme_request_finish(

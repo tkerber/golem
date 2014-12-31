@@ -7,8 +7,11 @@ import "C"
 import (
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 	"unsafe"
 
 	"github.com/conformal/gotk3/glib"
@@ -89,6 +92,7 @@ func (g *golem) webkitInit() {
 
 	// TODO this is temporary.
 	c.RegisterURIScheme("golem", golemSchemeHandler)
+	c.GetSecurityManager().RegisterUriSchemeAsCorsEnabled("golem")
 }
 
 // webkitCleanup removes the temporary webkit extension directory.
@@ -98,5 +102,64 @@ func (g *golem) webkitCleanup() {
 
 // golemSchemeHandler handles request to the 'golem:' scheme.
 func golemSchemeHandler(req *webkit.URISchemeRequest) {
-	req.Finish([]byte("<html><head><title>Golem</title></head><body><h1>Golem Home Page</h1><p>And stuff.</p></body></html>"), "text/html")
+	rPath := strings.TrimPrefix(req.GetURI(), "golem://")
+	// If we have a ? or # suffix, we discard it.
+	splitPath := strings.SplitN(rPath, "#", 2)
+	rPath = splitPath[0]
+	splitPath = strings.SplitN(rPath, "?", 2)
+	rPath = splitPath[0]
+	data, err := Asset(path.Join("srv", rPath))
+	if err == nil {
+		mime := guessMimeFromExtension(rPath)
+		req.Finish(data, mime)
+	} else {
+		switch rPath {
+		case "/pdf.js/loop":
+			// We loop a page request from another scheme into the golem scheme
+			// Ever-so-slightly dangerous.
+			// TODO this code is temporary, until an actual stream can be set up
+			splitPath = strings.SplitN(req.GetURI(), "?", 2)
+			if len(splitPath) == 1 {
+				// TODO finish the request w/ error.
+				req.Finish(nil, "application/octet-stream")
+				return
+			}
+			uri := splitPath[1]
+			// TODO handle stuff other than http, preferably through webkit
+			// (possibly silently download in background?)
+			res, err := http.Get(uri)
+			if err != nil {
+				// TODO finish w/ error
+				req.Finish(nil, "application/octet-stream")
+				return
+			}
+			cont, err := ioutil.ReadAll(res.Body)
+			res.Body.Close()
+			if err != nil {
+				// TODO finish w/ error
+				req.Finish(nil, "application/octet-stream")
+				return
+			}
+			req.Finish(cont, "application/octet-stream")
+		default:
+			// TODO finish w/ error
+			req.Finish(nil, "application/octet-stream")
+		}
+	}
+}
+
+func guessMimeFromExtension(path string) string {
+	split := strings.Split(path, ".")
+	// No extension to speak of, default to text.
+	if len(split) == 1 {
+		return "text/plain"
+	}
+	switch split[len(split)-1] {
+	case "html":
+		return "text/html"
+	case "css":
+		return "text/css"
+	default:
+		return "application/octet-stream"
+	}
 }

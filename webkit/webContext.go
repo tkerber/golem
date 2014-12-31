@@ -60,8 +60,9 @@ var defaultWebContext *WebContext
 // It manages aspects common to all WebViews.
 type WebContext struct {
 	*glib.Object
-	cookieManager *CookieManager
-	uriSchemes    map[*func(*URISchemeRequest)]bool
+	cookieManager   *CookieManager
+	securityManager *SecurityManager
+	uriSchemes      map[*func(*URISchemeRequest)]bool
 }
 
 // native retrieves the pre-cast pointer to the native C representation of the
@@ -83,6 +84,7 @@ func GetDefaultWebContext() *WebContext {
 		runtime.SetFinalizer(obj, (*glib.Object).Unref)
 		defaultWebContext = &WebContext{
 			obj,
+			nil,
 			nil,
 			make(map[*func(*URISchemeRequest)]bool, 5),
 		}
@@ -156,4 +158,13 @@ func (c *WebContext) GetCookieManager() *CookieManager {
 		c.cookieManager = wrapCookieManager(cptr)
 	}
 	return c.cookieManager
+}
+
+// GetSecurityManager retrieves the web context's security manager.
+func (c *WebContext) GetSecurityManager() *SecurityManager {
+	if c.securityManager == nil {
+		cptr := C.webkit_web_context_get_security_manager(c.native())
+		c.securityManager = wrapSecurityManager(cptr)
+	}
+	return c.securityManager
 }

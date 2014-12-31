@@ -15,7 +15,7 @@ import (
 // Build web extension
 //go:generate make -C web_extension
 // Pack data
-//go:generate go-bindata -nomemcopy -prefix data data
+//go:generate go-bindata -nomemcopy -prefix data data/...
 
 // main runs golem (yay!)
 func main() {

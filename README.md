@@ -25,6 +25,14 @@ Note that `go-bindata` is a dependency for golems `go generate` command.
 Run `go get github.com/jteeuwen/go-bindata` to install it. The executable
 is expected to with in the `PATH`.
 
+### pdf.js
+
+Golem has builtin support for using pdf.js to render pdf files. At the time
+of writing, the pdf.js files are not in this repository in order to keep it
+clean, and aren't built automatically.
+
+See #8
+
 ## Naming
 
 The name `golem` was chosen to remind people of what this browser should not
