@@ -12,8 +12,8 @@ import (
 	"github.com/mattn/go-shellwords"
 )
 
-// Build web extension
-//go:generate make -C web_extension
+// Build web extension & pdf.js
+//go:generate make all
 // Pack data
 //go:generate go-bindata -nomemcopy -prefix data data/...
 

@@ -21,17 +21,16 @@ To install golem with the `go` command, instead execute:
     go generate .../golem
     go install .../golem
 
-Note that `go-bindata` is a dependency for golems `go generate` command.
-Run `go get github.com/jteeuwen/go-bindata` to install it. The executable
-is expected to with in the `PATH`.
+`go generate` requires the following programs to execute:
 
-### pdf.js
+* `go-bindata` which can be obtained with `go get github.com/jteeuwen/go-bindata`
+* `node` i.e. node.js
+* `/usr/share/java/closure-compiler/closure-compiler.jar`
 
-Golem has builtin support for using pdf.js to render pdf files. At the time
-of writing, the pdf.js files are not in this repository in order to keep it
-clean, and aren't built automatically.
-
-See #8
+If one of the latter two is not available; they are not critical for the
+functioning of `golem`. They first is required for pdf.js, and the latter
+is used to minify it. Minor changes in the Makefile can be done to either
+not build pdf.js at all, or not minify it.
 
 ## Naming
 
