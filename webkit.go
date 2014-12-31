@@ -7,16 +7,18 @@ import "C"
 import (
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"unsafe"
 
 	"github.com/conformal/gotk3/glib"
 	"github.com/tkerber/golem/webkit"
 )
+
+var urlMatchRegex = regexp.MustCompile(`(http://|https://|file:///).*`)
 
 // webkitInit initializes webkit for golem's use.
 func (g *golem) webkitInit() {
@@ -59,7 +61,12 @@ func (g *golem) webkitInit() {
 
 	c.Connect("download-started", func(_ *glib.Object, d *webkit.Download) {
 		// Find the window
-		wv := d.GetWebView()
+		wv, err := d.GetWebView()
+		// Download has no webview. It is probably a silent download, so we
+		// drop it.
+		if err != nil {
+			return
+		}
 		var win *window
 	outer:
 		for _, w := range g.windows {
@@ -113,34 +120,9 @@ func golemSchemeHandler(req *webkit.URISchemeRequest) {
 		mime := guessMimeFromExtension(rPath)
 		req.Finish(data, mime)
 	} else {
-		switch rPath {
-		case "/pdf.js/loop":
-			// We loop a page request from another scheme into the golem scheme
-			// Ever-so-slightly dangerous.
-			// TODO this code is temporary, until an actual stream can be set up
-			splitPath = strings.SplitN(req.GetURI(), "?", 2)
-			if len(splitPath) == 1 {
-				// TODO finish the request w/ error.
-				req.Finish(nil, "application/octet-stream")
-				return
-			}
-			uri := splitPath[1]
-			// TODO handle stuff other than http, preferably through webkit
-			// (possibly silently download in background?)
-			res, err := http.Get(uri)
-			if err != nil {
-				// TODO finish w/ error
-				req.Finish(nil, "application/octet-stream")
-				return
-			}
-			cont, err := ioutil.ReadAll(res.Body)
-			res.Body.Close()
-			if err != nil {
-				// TODO finish w/ error
-				req.Finish(nil, "application/octet-stream")
-				return
-			}
-			req.Finish(cont, "application/octet-stream")
+		switch {
+		case strings.Contains(rPath, "/loop/"):
+			handleLoopRequest(req)
 		default:
 			// TODO finish w/ error
 			req.Finish(nil, "application/octet-stream")
@@ -148,6 +130,65 @@ func golemSchemeHandler(req *webkit.URISchemeRequest) {
 	}
 }
 
+// handleLoopRequest handles a request to a loop/ pseudo-file
+//
+// Any request to a golem protocol containing the path /loop/ (which is not an
+// existing asset) will be treated as a loop request, with the URI after the
+// loop/ part. E.g. golem:///pdf.js/loop/http://example.com/example-pdf.pdf
+func handleLoopRequest(req *webkit.URISchemeRequest) {
+	// We loop a page request from another scheme into the golem scheme
+	// Ever-so-slightly dangerous.
+	splitPath := strings.SplitN(req.GetURI(), "/loop/", 2)
+	if len(splitPath) == 1 {
+		req.Finish([]byte{}, "text/plain")
+		return
+	}
+	uri := splitPath[1]
+
+	if !urlMatchRegex.MatchString(uri) {
+		req.FinishError(fmt.Errorf("Invalid url: %v", uri))
+		return
+	}
+
+	tmpDir, err := ioutil.TempDir("", "golem-loop-")
+	if err != nil {
+		req.FinishError(err)
+		return
+	}
+	dlFile, err := filepath.Abs(filepath.Join(tmpDir, "loopdl"))
+	if err != nil {
+		req.FinishError(err)
+		os.RemoveAll(tmpDir)
+		return
+	}
+	dwnld := webkit.GetDefaultWebContext().DownloadUri(uri)
+	dwnld.SetDestination("file://" + dlFile)
+	var handle glib.SignalHandle
+	handle, err = dwnld.Connect("finished", func() {
+		defer os.RemoveAll(tmpDir)
+		dwnld.HandlerDisconnect(handle)
+		data, err := ioutil.ReadFile(dlFile)
+		if err != nil {
+			req.FinishError(err)
+			return
+		}
+		var mimetype string
+		resp, err := dwnld.GetResponse()
+		if err != nil {
+			mimetype = "application/octet-stream"
+		} else {
+			mimetype = resp.GetMimeType()
+		}
+		req.Finish(data, mimetype)
+	})
+	if err != nil {
+		req.FinishError(err)
+		os.RemoveAll(tmpDir)
+		return
+	}
+}
+
+// guessMimeFromExtension guesses a files mime type based on its file path.
 func guessMimeFromExtension(path string) string {
 	split := strings.Split(path, ".")
 	// No extension to speak of, default to text.

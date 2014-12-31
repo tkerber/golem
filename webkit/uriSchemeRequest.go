@@ -67,3 +67,18 @@ func (r *URISchemeRequest) Finish(data []byte, mimeType string) {
 		(*C.gchar)(cstr))
 	C.g_object_unref(C.gpointer(s))
 }
+
+// FinishError completes the request with an error.
+func (r *URISchemeRequest) FinishError(err error) {
+	cstr := C.CString(err.Error())
+	defer C.free(unsafe.Pointer(cstr))
+	quarkStr := C.CString("golem")
+	defer C.free(unsafe.Pointer(quarkStr))
+	cerr := C.g_error_new_literal(
+		C.g_quark_from_static_string((*C.gchar)(quarkStr)),
+		0,
+		(*C.gchar)(cstr))
+	C.webkit_uri_scheme_request_finish_error(
+		(*C.WebKitURISchemeRequest)(unsafe.Pointer(r.Native())),
+		cerr)
+}

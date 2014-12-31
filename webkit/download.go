@@ -89,10 +89,27 @@ func (d *Download) GetReceivedDataLength() int64 {
 }
 
 // GetWebView gets the web view associated with this download.
-func (d *Download) GetWebView() *WebView {
+func (d *Download) GetWebView() (*WebView, error) {
 	cWv := C.webkit_download_get_web_view(d.native())
+	if cWv == nil {
+		return nil, errNilPtr
+	}
 	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(cWv))}
 	obj.Ref()
 	runtime.SetFinalizer(obj, (*glib.Object).Unref)
-	return wrapWebView(obj)
+	return wrapWebView(obj), nil
+}
+
+// GetResponse gets the uri response to the download request.
+//
+// Returns an error if the response is not yet available.
+func (d *Download) GetResponse() (*UriResponse, error) {
+	cresp := C.webkit_download_get_response(d.native())
+	if cresp == nil {
+		return nil, errNilPtr
+	}
+	resp := &UriResponse{&glib.Object{glib.ToGObject(unsafe.Pointer(cresp))}}
+	resp.Object.Ref()
+	runtime.SetFinalizer(resp.Object, (*glib.Object).Unref)
+	return resp, nil
 }

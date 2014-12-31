@@ -168,3 +168,14 @@ func (c *WebContext) GetSecurityManager() *SecurityManager {
 	}
 	return c.securityManager
 }
+
+// DownloadUri requests the web context to download the specified URI.
+func (c *WebContext) DownloadUri(uri string) *Download {
+	cUri := C.CString(uri)
+	defer C.free(unsafe.Pointer(cUri))
+	cdl := C.webkit_web_context_download_uri(c.native(), (*C.gchar)(cUri))
+	dl := &Download{&glib.Object{glib.ToGObject(unsafe.Pointer(cdl))}}
+	dl.Object.RefSink()
+	runtime.SetFinalizer(dl.Object, (*glib.Object).Unref)
+	return dl
+}
