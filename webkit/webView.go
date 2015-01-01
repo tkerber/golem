@@ -177,3 +177,16 @@ func (w *WebView) GetSettings() *Settings {
 	}
 	return w.settings
 }
+
+// LoadAlternativeHtml loads html into the web view, with a given uri.
+//
+// baseUri is used to resolve relative paths in the html.
+func (w *WebView) LoadAlternateHtml(content []byte, contentUri, baseUri string) {
+	ccont := (*C.gchar)(C.CString(string(content)))
+	defer C.free(unsafe.Pointer(ccont))
+	ccuri := (*C.gchar)(C.CString(contentUri))
+	defer C.free(unsafe.Pointer(ccuri))
+	cburi := (*C.gchar)(C.CString(baseUri))
+	defer C.free(unsafe.Pointer(cburi))
+	C.webkit_web_view_load_alternate_html(w.native(), ccont, ccuri, cburi)
+}

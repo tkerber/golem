@@ -25,3 +25,9 @@ func (r *UriResponse) GetMimeType() string {
 	cstr := C.webkit_uri_response_get_mime_type(r.native())
 	return C.GoString((*C.char)(cstr))
 }
+
+// GetUri gets the uri for which this is the response.
+func (r *UriResponse) GetUri() string {
+	cstr := C.webkit_uri_response_get_uri(r.native())
+	return C.GoString((*C.char)(cstr))
+}

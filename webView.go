@@ -6,8 +6,8 @@ import "C"
 import (
 	"errors"
 	"fmt"
+	"html"
 	"log"
-	"runtime"
 	"unsafe"
 
 	"github.com/conformal/gotk3/glib"
@@ -92,36 +92,28 @@ func (w *window) newWebView(settings *webkit.Settings) (*webView, error) {
 	handle, err = ret.WebView.Connect("decide-policy",
 		func(
 			wv *webkit.WebView,
-			decision *glib.Object,
+			decision webkit.PolicyDecision,
 			t C.WebKitPolicyDecisionType) bool {
 
 			switch t {
 			case C.WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION:
 				fallthrough
 			case C.WEBKIT_POLICY_DECISION_TYPE_NEW_WINDOW_ACTION:
-				nav := (*C.WebKitNavigationPolicyDecision)(unsafe.Pointer(decision.Native()))
-				action :=
-					C.webkit_navigation_policy_decision_get_navigation_action(
-						nav)
-				button := C.webkit_navigation_action_get_mouse_button(action)
-				modifiers := C.webkit_navigation_action_get_modifiers(action)
+				decision := decision.(*webkit.NavigationPolicyDecision)
+				action := decision.GetNavigationAction()
+				button := action.GetMouseButton()
+				modifiers := action.GetModifiers()
 				if button == 2 || (modifiers&cmd.ControlMask) != 0 {
 					// We don't actually want to open this window directly.
 					// we want it in a new tab.
-					C.webkit_policy_decision_ignore(
-						(*C.WebKitPolicyDecision)(unsafe.Pointer(nav)))
+					decision.Ignore()
 					if ret.window == nil {
 						log.Printf("A tab currently not associated to a " +
 							"window attempted to open a new tab. The " +
 							"request was dropped.")
 						return true
 					}
-					cReq := C.webkit_navigation_action_get_request(action)
-					req := &webkit.UriRequest{
-						&glib.Object{glib.ToGObject(unsafe.Pointer(cReq))},
-					}
-					req.Object.RefSink()
-					runtime.SetFinalizer(req.Object, (*glib.Object).Unref)
+					req := action.GetRequest()
 
 					_, err := ret.window.newTabWithRequest(req)
 					if err != nil {
@@ -133,6 +125,30 @@ func (w *window) newWebView(settings *webkit.Settings) (*webView, error) {
 					return true
 				}
 			case C.WEBKIT_POLICY_DECISION_TYPE_RESPONSE:
+				decision := decision.(*webkit.ResponsePolicyDecision)
+				resp := decision.GetResponse()
+				mimetype := resp.GetMimeType()
+				switch mimetype {
+				case "application/pdf", "application/x-pdf":
+					if resp.GetUri() == ret.WebView.GetURI() {
+						site, err := Asset("srv/pdf.js/frame.html.fmt")
+						if err == nil && w.parent.pdfjsEnabled {
+							decision.Ignore()
+							ret.WebView.LoadAlternateHtml(
+								[]byte(fmt.Sprintf(
+									string(site),
+									html.EscapeString(resp.GetUri()))),
+								resp.GetUri(),
+								fmt.Sprintf(
+									"golem:///pdf.js/frame.html?%s",
+									resp.GetUri))
+							return true
+						}
+					}
+					return false
+				default:
+					return false
+				}
 			}
 			return false
 		})
