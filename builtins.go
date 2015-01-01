@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/tkerber/golem/cmd"
+	"github.com/tkerber/golem/golem/states"
 )
 
 // builtinsfor retrieves the builtin functions bound to a specific window.
@@ -65,7 +66,7 @@ func getWithDefault(ptr *int, def, minv, maxv int) int {
 
 // builtinCommandMode initiates command mode.
 func (w *window) builtinCommandMode(_ *int) {
-	w.setState(cmd.NewCommandLineMode(w.State, w.runCmd))
+	w.setState(cmd.NewCommandLineMode(w.State, cmd.SubstateNone, w.runCmd))
 }
 
 // builtinEditURI initiates command mode with the open command primed for
@@ -73,6 +74,7 @@ func (w *window) builtinCommandMode(_ *int) {
 func (w *window) builtinEditURI(_ *int) {
 	w.setState(cmd.NewPartialCommandLineMode(
 		w.State,
+		cmd.SubstateNone,
 		fmt.Sprintf("open %v", w.getWebView().GetURI()),
 		w.runCmd))
 }
@@ -93,7 +95,7 @@ func (w *window) builtinGoForward(n *int) {
 
 // builtinInsertMode initiates insert mode.
 func (w *window) builtinInsertMode(_ *int) {
-	w.setState(cmd.NewInsertMode(w.State))
+	w.setState(cmd.NewInsertMode(w.State, cmd.SubstateNone))
 }
 
 // builtinNop does nothing. It is occasionally useful as a binding.
@@ -101,7 +103,7 @@ func (w *window) builtinNop(_ *int) {}
 
 // builtinOpen initiates command mode, primed with an open command.
 func (w *window) builtinOpen(_ *int) {
-	w.setState(cmd.NewPartialCommandLineMode(w.State, "open ", w.runCmd))
+	w.setState(cmd.NewPartialCommandLineMode(w.State, cmd.SubstateNone, "open ", w.runCmd))
 }
 
 func (w *window) builtinPanic(_ *int) {
@@ -156,7 +158,9 @@ func (w *window) builtinScrollToBottom(_ *int) {
 	ext := w.getWebView()
 	height, err := ext.getScrollHeight()
 	if err != nil {
-		w.setState(cmd.NewStatusMode(w.State, fmt.Errorf("Error scrolling: %v", err)))
+		w.setState(cmd.NewStatusMode(w.State,
+			states.StatusSubstateError,
+			fmt.Sprintf("Error scrolling: %v", err)))
 		log.Printf("Error scrolling: %v", err)
 	}
 	err = ext.setScrollTop(height)
@@ -169,7 +173,7 @@ func (w *window) builtinScrollToBottom(_ *int) {
 func (w *window) builtinScrollToTop(_ *int) {
 	err := w.getWebView().setScrollTop(0)
 	if err != nil {
-		w.setState(cmd.NewStatusMode(w.State, fmt.Errorf("Error scrolling: %v", err)))
+		w.setState(cmd.NewStatusMode(w.State, states.StatusSubstateError, fmt.Sprintf("Error scrolling: %v", err)))
 		log.Printf("Error scrolling: %v", err)
 	}
 }
@@ -199,6 +203,7 @@ func (w *window) builtinTabClose(n *int) {
 func (w *window) builtinTabEditURI(_ *int) {
 	w.setState(cmd.NewPartialCommandLineMode(
 		w.State,
+		cmd.SubstateNone,
 		fmt.Sprintf("tabopen %v", w.getWebView().GetURI()),
 		w.runCmd))
 }
@@ -223,7 +228,7 @@ func (w *window) builtinTabNext(n *int) {
 
 // builtinTabOpen initiates command mode primed with a tabopen command.
 func (w *window) builtinTabOpen(_ *int) {
-	w.setState(cmd.NewPartialCommandLineMode(w.State, "tabopen ", w.runCmd))
+	w.setState(cmd.NewPartialCommandLineMode(w.State, cmd.SubstateNone, "tabopen ", w.runCmd))
 }
 
 // builtinTabPrev goes to the previous tab.
@@ -243,13 +248,14 @@ func (w *window) builtinTabPrev(n *int) {
 func (w *window) builtinWindowEditURI(_ *int) {
 	w.setState(cmd.NewPartialCommandLineMode(
 		w.State,
+		cmd.SubstateNone,
 		fmt.Sprintf("winopen %v", w.getWebView().GetURI()),
 		w.runCmd))
 }
 
 // builtinWindowOpen initiates command mode primed with a winopen command.
 func (w *window) builtinWindowOpen(_ *int) {
-	w.setState(cmd.NewPartialCommandLineMode(w.State, "winopen ", w.runCmd))
+	w.setState(cmd.NewPartialCommandLineMode(w.State, cmd.SubstateNone, "winopen ", w.runCmd))
 }
 
 // scrollDelta scrolls a given amount of pixes either vertically or
@@ -264,7 +270,7 @@ func (w *window) scrollDelta(delta int, vertical bool) {
 		curr, err = wv.getScrollLeft()
 	}
 	if err != nil {
-		w.setState(cmd.NewStatusMode(w.State, fmt.Errorf("Error scrolling: %v", err)))
+		w.setState(cmd.NewStatusMode(w.State, states.StatusSubstateError, fmt.Sprintf("Error scrolling: %v", err)))
 		log.Printf("Error scrolling: %v", err)
 		return
 	}
@@ -275,7 +281,7 @@ func (w *window) scrollDelta(delta int, vertical bool) {
 		err = wv.setScrollLeft(curr)
 	}
 	if err != nil {
-		w.setState(cmd.NewStatusMode(w.State, fmt.Errorf("Error scrolling: %v", err)))
+		w.setState(cmd.NewStatusMode(w.State, states.StatusSubstateError, fmt.Sprintf("Error scrolling: %v", err)))
 		log.Printf("Error scrolling: %v", err)
 		return
 	}

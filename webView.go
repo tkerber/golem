@@ -4,7 +4,6 @@ package main
 // #include <webkit2/webkit2.h>
 import "C"
 import (
-	"errors"
 	"fmt"
 	"html"
 	"log"
@@ -13,6 +12,7 @@ import (
 	"github.com/conformal/gotk3/glib"
 	"github.com/conformal/gotk3/gtk"
 	"github.com/tkerber/golem/cmd"
+	"github.com/tkerber/golem/golem/states"
 	"github.com/tkerber/golem/ui"
 	"github.com/tkerber/golem/webkit"
 )
@@ -75,7 +75,8 @@ func (w *window) newWebView(settings *webkit.Settings) (*webView, error) {
 			if err != nil {
 				ret.window.setState(cmd.NewStatusMode(
 					ret.window.State,
-					errors.New("Failed creation of new tab...")))
+					states.StatusSubstateError,
+					"Failed creation of new tab..."))
 				log.Printf("Failed creation of new tab...")
 			} else {
 				// Focus our new tab.
@@ -119,7 +120,8 @@ func (w *window) newWebView(settings *webkit.Settings) (*webView, error) {
 					if err != nil {
 						ret.window.setState(cmd.NewStatusMode(
 							ret.window.State,
-							errors.New("Failed creation of new tab...")))
+							states.StatusSubstateError,
+							"Failed creation of new tab..."))
 						log.Printf("Failed creation of new tab...")
 					}
 					return true

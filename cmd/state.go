@@ -36,14 +36,27 @@ type State interface {
 	ProcessKeyPress(key RealKey) (State, bool)
 	// Gets the StateIndependant.
 	GetStateIndependant() *StateIndependant
+	// Gets the code of the current substate.
+	GetSubstate() Substate
 }
 
+// A Substate allows using the same state for several different purposes.
+//
+// Substates are not defined in this module, with the exception of the
+// SubstateNone, and left for the main program to define.
+type Substate uint
+
+// SubstateNone is a substate marking that the "default" substate is being
+// used.
+const SubstateNone Substate = 0
+
 // NewState creates a new state, in its original setting.
-func NewState(bindings *BindingTree, setState func(State)) State {
+func NewState(bindings map[Substate]*BindingTree, setState func(State)) State {
 	return &NormalMode{
 		&StateIndependant{bindings, setState},
+		SubstateNone,
 		make([]Key, 0),
-		bindings,
+		bindings[SubstateNone],
 		make(chan bool),
 		0,
 		false,
@@ -54,7 +67,7 @@ func NewState(bindings *BindingTree, setState func(State)) State {
 // A StateIndependant encompasses all data indepentant of the state, avoiding
 // copying it around every time the state is changed.
 type StateIndependant struct {
-	Bindings *BindingTree
+	Bindings map[Substate]*BindingTree
 	SetState func(s State)
 }
 
@@ -64,6 +77,7 @@ type StateIndependant struct {
 // executed if the key sequence is used.
 type NormalMode struct {
 	*StateIndependant
+	Substate
 	CurrentKeys []Key
 	CurrentTree *BindingTree
 	// If a binding could be processed, but further bindings are available
@@ -86,11 +100,16 @@ type NormalMode struct {
 
 // NewNormalMode creates a baseline NormalMode state from a base state.
 func NewNormalMode(s State) *NormalMode {
+	return NewNormalModeWithSubstate(s, SubstateNone)
+}
+
+func NewNormalModeWithSubstate(s State, st Substate) *NormalMode {
 	si := s.GetStateIndependant()
 	return &NormalMode{
 		si,
+		st,
 		make([]Key, 0),
-		si.Bindings,
+		si.Bindings[st],
 		make(chan bool),
 		0,
 		false,
@@ -133,6 +152,12 @@ func executeAfterTimeout(
 //
 // It returns the new state, and whether the key press was swallowed or not.
 func (s *NormalMode) ProcessKeyPress(key RealKey) (State, bool) {
+	if s.CurrentTree == nil {
+		s.CurrentTree = s.Bindings[s.Substate]
+		if s.CurrentTree == nil {
+			return s, false
+		}
+	}
 	subtree, ok := s.CurrentTree.Subtrees[key.Normalize()]
 	num := s.num
 	inNum := s.inNum
@@ -221,6 +246,7 @@ func (s *NormalMode) ProcessKeyPress(key RealKey) (State, bool) {
 	// We add the key to our list and wait for a new keypress.
 	return &NormalMode{
 		s.StateIndependant,
+		s.Substate,
 		append(s.CurrentKeys, key),
 		subtree,
 		timeoutChan,
@@ -235,16 +261,22 @@ func (s *NormalMode) GetStateIndependant() *StateIndependant {
 	return s.StateIndependant
 }
 
+// GetSubstate gets the substate associated with this state.
+func (s *NormalMode) GetSubstate() Substate {
+	return s.Substate
+}
+
 // InsertMode is a mode which ignores any keypresses, with the exception of the
 // escape key,
 type InsertMode struct {
 	*StateIndependant
+	Substate
 }
 
 // NewInsertMode basically just copies over the StateIndependant and returns
 // a new InsertMode.
-func NewInsertMode(s State) *InsertMode {
-	return &InsertMode{s.GetStateIndependant()}
+func NewInsertMode(s State, st Substate) *InsertMode {
+	return &InsertMode{s.GetStateIndependant(), st}
 }
 
 // ProcessKeyPress passes through any keys except escape, which it immediately
@@ -261,12 +293,18 @@ func (s *InsertMode) GetStateIndependant() *StateIndependant {
 	return s.StateIndependant
 }
 
+// GetSubstate gets the substate associated with this state.
+func (s *InsertMode) GetSubstate() Substate {
+	return s.Substate
+}
+
 // CommandLineMode a mode which allows the user to enter a single line of text.
 //
 // The invoker of CommandLineMode supplies a Finalizer function, which is used
 // to act on the text after the user presses enter.
 type CommandLineMode struct {
 	*StateIndependant
+	Substate
 	CurrentKeys []Key
 	CursorPos   int
 	Finalizer   func(string)
@@ -277,9 +315,10 @@ type CommandLineMode struct {
 //
 // The finalizer function is run if a command line entry is accepted, with the
 // command line entry as an argument.
-func NewCommandLineMode(s State, f func(string)) *CommandLineMode {
+func NewCommandLineMode(s State, st Substate, f func(string)) *CommandLineMode {
 	return &CommandLineMode{
 		s.GetStateIndependant(),
+		st,
 		make([]Key, 0),
 		0,
 		f,
@@ -292,11 +331,12 @@ func NewCommandLineMode(s State, f func(string)) *CommandLineMode {
 // Note that the string is parsed into it's Key components; if this fails,
 // it defaults back to an empty string.
 func NewPartialCommandLineMode(
-	s State, part string, f func(string)) *CommandLineMode {
+	s State, st Substate, part string, f func(string)) *CommandLineMode {
 
 	keys := ParseKeys(part)
 	return &CommandLineMode{
 		s.GetStateIndependant(),
+		st,
 		keys,
 		len(keys),
 		f}
@@ -331,6 +371,7 @@ func (s *CommandLineMode) ProcessKeyPress(key RealKey) (State, bool) {
 	case KeyLeft:
 		return &CommandLineMode{
 			s.StateIndependant,
+			s.Substate,
 			s.CurrentKeys,
 			max(s.CursorPos-1, 0),
 			s.Finalizer,
@@ -341,6 +382,7 @@ func (s *CommandLineMode) ProcessKeyPress(key RealKey) (State, bool) {
 	case KeyRight:
 		return &CommandLineMode{
 			s.StateIndependant,
+			s.Substate,
 			s.CurrentKeys,
 			min(s.CursorPos+1, len(s.CurrentKeys)),
 			s.Finalizer,
@@ -362,6 +404,7 @@ func (s *CommandLineMode) ProcessKeyPress(key RealKey) (State, bool) {
 				s.CurrentKeys[s.CursorPos+1:])
 			return &CommandLineMode{
 				s.StateIndependant,
+				s.Substate,
 				newKeys,
 				s.CursorPos,
 				s.Finalizer,
@@ -385,6 +428,7 @@ func (s *CommandLineMode) ProcessKeyPress(key RealKey) (State, bool) {
 				s.CurrentKeys[s.CursorPos:])
 			return &CommandLineMode{
 				s.StateIndependant,
+				s.Substate,
 				newKeys,
 				s.CursorPos - 1,
 				s.Finalizer,
@@ -407,6 +451,7 @@ func (s *CommandLineMode) ProcessKeyPress(key RealKey) (State, bool) {
 		newKeys[s.CursorPos] = key
 		return &CommandLineMode{
 			s.StateIndependant,
+			s.Substate,
 			newKeys,
 			s.CursorPos + 1,
 			s.Finalizer,
@@ -419,13 +464,10 @@ func (s *CommandLineMode) GetStateIndependant() *StateIndependant {
 	return s.StateIndependant
 }
 
-// Alias for interface{}.
-//
-// Usually will be printed with Printf("%v").
-//
-// This is useful to recognize which statuses are errors and which are "normal"
-// statuses.
-type Status interface{}
+// GetSubstate gets the substate associated with this state.
+func (s *CommandLineMode) GetSubstate() Substate {
+	return s.Substate
+}
 
 // StatusMode is a mode which displays a single status line.
 //
@@ -435,15 +477,21 @@ type Status interface{}
 // key press as normal.
 type StatusMode struct {
 	State
-	Status Status
+	Substate
+	Status string
 }
 
 // NewStatusMode creates a new StatusMode with a given state and status string.
-func NewStatusMode(s State, status Status) *StatusMode {
+func NewStatusMode(s State, st Substate, status string) *StatusMode {
 	// Only wrap the innermost state, avoid nested status modes (they are
 	// useless anyway)
 	if sm, ok := s.(*StatusMode); ok {
-		return &StatusMode{sm.State, status}
+		return &StatusMode{sm.State, st, status}
 	}
-	return &StatusMode{s, status}
+	return &StatusMode{s, st, status}
+}
+
+// GetSubstate gets the substate associated with this state.
+func (s *StatusMode) GetSubstate() Substate {
+	return s.Substate
 }

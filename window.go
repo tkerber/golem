@@ -13,6 +13,7 @@ import (
 	"github.com/mattn/go-shellwords"
 	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/debug"
+	"github.com/tkerber/golem/golem/states"
 	"github.com/tkerber/golem/ui"
 	"github.com/tkerber/golem/webkit"
 )
@@ -51,7 +52,7 @@ type window struct {
 	currentWebView      int
 	parent              *golem
 	builtins            cmd.Builtins
-	bindings            *cmd.BindingTree
+	bindings            map[cmd.Substate]*cmd.BindingTree
 	activeSignalHandles []*signalHandle
 	windowSignalHandles []glib.SignalHandle
 	timeoutChan         chan bool
@@ -84,7 +85,7 @@ func (g *golem) newWindow(settings *webkit.Settings, uri string) (*window, error
 		0,
 		g,
 		nil,
-		new(cmd.BindingTree),
+		make(map[cmd.Substate]*cmd.BindingTree),
 		make([]*signalHandle, 0),
 		make([]glib.SignalHandle, 0, 2),
 		make(chan bool, 1),
@@ -196,7 +197,7 @@ func (w *window) handleKeyPress(uiWin *gtk.Window, e *gdk.Event) bool {
 		if oldState == w.State {
 			w.setState(newState)
 		} else if statusM, ok := w.State.(*cmd.StatusMode); ok && statusM.State == oldState {
-			w.setState(cmd.NewStatusMode(newState, statusM.Status))
+			w.setState(cmd.NewStatusMode(newState, statusM.Substate, statusM.Status))
 		}
 		return ret
 	default:
@@ -211,7 +212,8 @@ func (w *window) rebuildBindings() {
 		for _, err := range errs {
 			w.setState(cmd.NewStatusMode(
 				w.State,
-				fmt.Errorf("Error: Failed to parse key bindings: %v", err)))
+				states.StatusSubstateError,
+				fmt.Sprintf("Error: Failed to parse key bindings: %v", err)))
 			log.Printf("Error: Failed to parse key bindings: %v\n", err)
 		}
 		log.Printf("Faulty bindings have been dropped.")
@@ -221,12 +223,13 @@ func (w *window) rebuildBindings() {
 		for _, err := range errs {
 			w.setState(cmd.NewStatusMode(
 				w.State,
-				fmt.Errorf("Error: Failed to parse key bindings: %v", err)))
+				states.StatusSubstateError,
+				fmt.Sprintf("Error: Failed to parse key bindings: %v", err)))
 			log.Printf("Error: Failed to parse key bindings: %v\n", err)
 		}
 		log.Printf("Faulty bindings have been dropped.")
 	}
-	*(w.bindings) = *bindingTree
+	w.bindings[cmd.SubstateNone] = bindingTree
 }
 
 // getWebView retrieves the currently active webView.
@@ -303,7 +306,8 @@ func runCmd(w *window, g *golem, command string) {
 	if err != nil {
 		w.setState(cmd.NewStatusMode(
 			w.State,
-			fmt.Errorf("Error: Failed to parse command '%v': %v", command, err)))
+			states.StatusSubstateError,
+			fmt.Sprintf("Error: Failed to parse command '%v': %v", command, err)))
 		log.Printf("Failed to parse command '%v': %v", command, err)
 		return
 	}
@@ -319,7 +323,8 @@ func runCmd(w *window, g *golem, command string) {
 	} else {
 		w.setState(cmd.NewStatusMode(
 			w.State,
-			fmt.Errorf("Error: Failed to run command '%v': No such command.", command)))
+			states.StatusSubstateError,
+			fmt.Sprintf("Error: Failed to run command '%v': No such command.", command)))
 		log.Printf("Failed to run command '%v': No such command.", command)
 	}
 }
@@ -328,5 +333,6 @@ func runCmd(w *window, g *golem, command string) {
 func (w *window) addDownload(d *webkit.Download) {
 	w.setState(cmd.NewStatusMode(
 		w.State,
+		states.StatusSubstateMajor,
 		"Download started..."))
 }

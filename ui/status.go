@@ -7,6 +7,7 @@ import (
 
 	"github.com/conformal/gotk3/gtk"
 	"github.com/tkerber/golem/cmd"
+	"github.com/tkerber/golem/golem/states"
 )
 
 // keyMatcher matches a single already escaped "key" (i.e. value in angular
@@ -72,12 +73,16 @@ func (w *Window) UpdateState(state cmd.State) {
 			keysToMarkupString(beforeCursor, false, false),
 			keysToMarkupString(afterCursor, false, false))
 	case *cmd.StatusMode:
-		if err, ok := s.Status.(error); ok {
-			newStatus = fmt.Sprintf("<error>%s</error>",
-				html.EscapeString(err.Error()))
-		} else {
-			newStatus = html.EscapeString(fmt.Sprintf("%v", s.Status))
+		var fmtString string
+		switch s.Substate {
+		case states.StatusSubstateMinor:
+			fmtString = "%s"
+		case states.StatusSubstateMajor:
+			fmtString = "<em>%s</em>"
+		case states.StatusSubstateError:
+			fmtString = "<error>%s</error>"
 		}
+		newStatus = fmt.Sprintf(fmtString, html.EscapeString(s.Status))
 	}
 	w.SetCmdMarkup(w.MarkupReplacer.Replace(newStatus))
 }

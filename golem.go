@@ -162,7 +162,7 @@ func (g *golem) watchSignals(c <-chan *dbus.Signal) {
 			for _, w := range g.windows {
 				if wv == w.getWebView() {
 					if focused {
-						w.setState(cmd.NewInsertMode(w.State))
+						w.setState(cmd.NewInsertMode(w.State, cmd.SubstateNone))
 					} else if _, ok := w.State.(*cmd.InsertMode); ok {
 						w.setState(
 							cmd.NewNormalMode(w.State))
