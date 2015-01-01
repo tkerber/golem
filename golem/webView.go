@@ -1,4 +1,4 @@
-package main
+package golem
 
 // #cgo pkg-config: webkit2gtk-4.0
 // #include <webkit2/webkit2.h>
@@ -13,7 +13,7 @@ import (
 	"github.com/conformal/gotk3/gtk"
 	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/golem/states"
-	"github.com/tkerber/golem/ui"
+	"github.com/tkerber/golem/golem/ui"
 	"github.com/tkerber/golem/webkit"
 )
 
@@ -24,15 +24,15 @@ type webView struct {
 	id       uint64
 	top      int64
 	height   int64
-	parent   *golem
+	parent   *Golem
 	settings *webkit.Settings
-	window   *window
+	window   *Window
 	tabUI    *ui.TabBarTab
 	handles  []glib.SignalHandle
 }
 
 // newWebView creates a new webView using given settings as a template.
-func (w *window) newWebView(settings *webkit.Settings) (*webView, error) {
+func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 	wv, err := webkit.NewWebViewWithUserContentManager(
 		w.parent.userContentManager)
 	if err != nil {
@@ -71,7 +71,7 @@ func (w *window) newWebView(settings *webkit.Settings) (*webView, error) {
 			log.Printf("A tab currently not associated to a window " +
 				"attempted to open a new tab. The request was dropped.")
 		} else {
-			wv, err := ret.window.newTab(C.GoString(cStr))
+			wv, err := ret.window.NewTab(C.GoString(cStr))
 			if err != nil {
 				ret.window.setState(cmd.NewStatusMode(
 					ret.window.State,

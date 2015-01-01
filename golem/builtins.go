@@ -1,4 +1,4 @@
-package main
+package golem
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 )
 
 // builtinsfor retrieves the builtin functions bound to a specific window.
-func builtinsFor(w *window) cmd.Builtins {
+func builtinsFor(w *Window) cmd.Builtins {
 	return cmd.Builtins{
 		"commandMode":    w.builtinCommandMode,
 		"editURI":        w.builtinEditURI,
@@ -65,13 +65,13 @@ func getWithDefault(ptr *int, def, minv, maxv int) int {
 }
 
 // builtinCommandMode initiates command mode.
-func (w *window) builtinCommandMode(_ *int) {
+func (w *Window) builtinCommandMode(_ *int) {
 	w.setState(cmd.NewCommandLineMode(w.State, cmd.SubstateNone, w.runCmd))
 }
 
 // builtinEditURI initiates command mode with the open command primed for
 // the current URI.
-func (w *window) builtinEditURI(_ *int) {
+func (w *Window) builtinEditURI(_ *int) {
 	w.setState(cmd.NewPartialCommandLineMode(
 		w.State,
 		cmd.SubstateNone,
@@ -80,63 +80,63 @@ func (w *window) builtinEditURI(_ *int) {
 }
 
 // builtinGoBack goes one step back in browser history.
-func (w *window) builtinGoBack(n *int) {
+func (w *Window) builtinGoBack(n *int) {
 	for num := getWithDefault(n, 1, 0, 50); num > 0 && w.getWebView().CanGoBack(); num-- {
 		w.getWebView().GoBack()
 	}
 }
 
 // builtinGoForward goes one step forward in browser history.
-func (w *window) builtinGoForward(n *int) {
+func (w *Window) builtinGoForward(n *int) {
 	for num := getWithDefault(n, 1, 0, 50); num > 0 && w.getWebView().CanGoForward(); num-- {
 		w.getWebView().GoForward()
 	}
 }
 
 // builtinInsertMode initiates insert mode.
-func (w *window) builtinInsertMode(_ *int) {
+func (w *Window) builtinInsertMode(_ *int) {
 	w.setState(cmd.NewInsertMode(w.State, cmd.SubstateNone))
 }
 
 // builtinNop does nothing. It is occasionally useful as a binding.
-func (w *window) builtinNop(_ *int) {}
+func (w *Window) builtinNop(_ *int) {}
 
 // builtinOpen initiates command mode, primed with an open command.
-func (w *window) builtinOpen(_ *int) {
+func (w *Window) builtinOpen(_ *int) {
 	w.setState(cmd.NewPartialCommandLineMode(w.State, cmd.SubstateNone, "open ", w.runCmd))
 }
 
-func (w *window) builtinPanic(_ *int) {
+func (w *Window) builtinPanic(_ *int) {
 	panic("Builtin 'panic' called.")
 }
 
 // builtinReload reloads the current page.
-func (w *window) builtinReload(_ *int) {
+func (w *Window) builtinReload(_ *int) {
 	w.getWebView().Reload()
 }
 
 // builtinReloadNoCache reloads the current page, bypassing the cache.
-func (w *window) builtinReloadNoCache(_ *int) {
+func (w *Window) builtinReloadNoCache(_ *int) {
 	w.getWebView().ReloadBypassCache()
 }
 
 // builtinScrollDown scrolls down.
-func (w *window) builtinScrollDown(n *int) {
+func (w *Window) builtinScrollDown(n *int) {
 	w.scrollDelta(w.parent.scrollDelta*getWithDefault(n, 1, 0, 1<<20), true)
 }
 
 // builtinScrollLeft scrolls left.
-func (w *window) builtinScrollLeft(n *int) {
+func (w *Window) builtinScrollLeft(n *int) {
 	w.scrollDelta(-w.parent.scrollDelta*getWithDefault(n, 1, 0, 1<<20), false)
 }
 
 // builtinScrollRight scrolls right.
-func (w *window) builtinScrollRight(n *int) {
+func (w *Window) builtinScrollRight(n *int) {
 	w.scrollDelta(w.parent.scrollDelta*getWithDefault(n, 1, 0, 1<<20), false)
 }
 
 // builtinScrollPageDown scrolls down 80% of the page.
-func (w *window) builtinScrollPageDown(n *int) {
+func (w *Window) builtinScrollPageDown(n *int) {
 	w.scrollDelta(
 		int(float64(w.Window.WebView.GetWebView().GetAllocatedHeight())*
 			0.8*
@@ -145,7 +145,7 @@ func (w *window) builtinScrollPageDown(n *int) {
 }
 
 // builtinScrollPageUp scrolls up 80% of the page.
-func (w *window) builtinScrollPageUp(n *int) {
+func (w *Window) builtinScrollPageUp(n *int) {
 	w.scrollDelta(
 		int(-float64(w.Window.WebView.GetWebView().GetAllocatedHeight())*
 			0.8*
@@ -154,7 +154,7 @@ func (w *window) builtinScrollPageUp(n *int) {
 }
 
 // builtinScrollToBottom scrolls to the bottom of the page.
-func (w *window) builtinScrollToBottom(_ *int) {
+func (w *Window) builtinScrollToBottom(_ *int) {
 	ext := w.getWebView()
 	height, err := ext.getScrollHeight()
 	if err != nil {
@@ -170,7 +170,7 @@ func (w *window) builtinScrollToBottom(_ *int) {
 }
 
 // builtinScrollTotop scrolls to the top of the page.
-func (w *window) builtinScrollToTop(_ *int) {
+func (w *Window) builtinScrollToTop(_ *int) {
 	err := w.getWebView().setScrollTop(0)
 	if err != nil {
 		w.setState(cmd.NewStatusMode(w.State, states.StatusSubstateError, fmt.Sprintf("Error scrolling: %v", err)))
@@ -179,12 +179,12 @@ func (w *window) builtinScrollToTop(_ *int) {
 }
 
 // builtinScrollUp scrolls up.
-func (w *window) builtinScrollUp(n *int) {
+func (w *Window) builtinScrollUp(n *int) {
 	w.scrollDelta(-w.parent.scrollDelta*getWithDefault(n, 1, 0, 1<<20), true)
 }
 
 // builtinTabClose closes the current tab.
-func (w *window) builtinTabClose(n *int) {
+func (w *Window) builtinTabClose(n *int) {
 	num := getWithDefault(n, 1, 0, len(w.webViews))
 	// For the first num - 1 closes, close the tab after the current one, if
 	// it exists. Then close the current one.
@@ -200,7 +200,7 @@ func (w *window) builtinTabClose(n *int) {
 
 // builtinTabEditURI initiates command mode with a tabopen command primed for
 // the current URI.
-func (w *window) builtinTabEditURI(_ *int) {
+func (w *Window) builtinTabEditURI(_ *int) {
 	w.setState(cmd.NewPartialCommandLineMode(
 		w.State,
 		cmd.SubstateNone,
@@ -209,13 +209,13 @@ func (w *window) builtinTabEditURI(_ *int) {
 }
 
 // builtinTabGo goes to the specified tab.
-func (w *window) builtinTabGo(n *int) {
+func (w *Window) builtinTabGo(n *int) {
 	num := getWithDefault(n, 1, 1, len(w.webViews))
 	w.tabGo(num - 1)
 }
 
 // builtinTabNext goes to the next tab.
-func (w *window) builtinTabNext(n *int) {
+func (w *Window) builtinTabNext(n *int) {
 	num := getWithDefault(n, 1, 0, 1<<20)
 	size := len(w.webViews)
 	newTab := (w.currentWebView + num) % size
@@ -227,12 +227,12 @@ func (w *window) builtinTabNext(n *int) {
 }
 
 // builtinTabOpen initiates command mode primed with a tabopen command.
-func (w *window) builtinTabOpen(_ *int) {
+func (w *Window) builtinTabOpen(_ *int) {
 	w.setState(cmd.NewPartialCommandLineMode(w.State, cmd.SubstateNone, "tabopen ", w.runCmd))
 }
 
 // builtinTabPrev goes to the previous tab.
-func (w *window) builtinTabPrev(n *int) {
+func (w *Window) builtinTabPrev(n *int) {
 	num := getWithDefault(n, 1, 0, 1<<20)
 	size := len(w.webViews)
 	newTab := (w.currentWebView - num) % size
@@ -245,7 +245,7 @@ func (w *window) builtinTabPrev(n *int) {
 
 // builtinWindowEditURI initiates command mode with a winopen command primed
 // for the current URI.
-func (w *window) builtinWindowEditURI(_ *int) {
+func (w *Window) builtinWindowEditURI(_ *int) {
 	w.setState(cmd.NewPartialCommandLineMode(
 		w.State,
 		cmd.SubstateNone,
@@ -254,13 +254,13 @@ func (w *window) builtinWindowEditURI(_ *int) {
 }
 
 // builtinWindowOpen initiates command mode primed with a winopen command.
-func (w *window) builtinWindowOpen(_ *int) {
+func (w *Window) builtinWindowOpen(_ *int) {
 	w.setState(cmd.NewPartialCommandLineMode(w.State, cmd.SubstateNone, "winopen ", w.runCmd))
 }
 
 // scrollDelta scrolls a given amount of pixes either vertically or
 // horizontally.
-func (w *window) scrollDelta(delta int, vertical bool) {
+func (w *Window) scrollDelta(delta int, vertical bool) {
 	var curr int64
 	var err error
 	wv := w.getWebView()

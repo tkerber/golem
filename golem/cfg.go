@@ -1,4 +1,4 @@
-package main
+package golem
 
 // cfg contains the configuration options for golem not already contained
 // elsewhere.

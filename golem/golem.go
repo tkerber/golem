@@ -1,4 +1,4 @@
-package main
+package golem
 
 import (
 	"fmt"
@@ -20,24 +20,24 @@ html::-webkit-scrollbar{
 	width:0px!important;
 }`
 
-// golem is golem's main instance.
-type golem struct {
+// Golem is golem's main instance.
+type Golem struct {
 	*cfg
-	windows            []*window
+	windows            []*Window
 	webViews           map[uint64]*webView
 	userContentManager *webkit.UserContentManager
-	closeChan          chan<- *window
-	quit               chan bool
+	closeChan          chan<- *Window
+	Quit               chan bool
 	sBus               *dbus.Conn
 	wMutex             *sync.Mutex
 	rawBindings        []cmd.RawBinding
-	defaultSettings    *webkit.Settings
+	DefaultSettings    *webkit.Settings
 	files              *files
 	extenDir           string
 }
 
-// newGolem creates a new instance of golem.
-func newGolem(sBus *dbus.Conn, profile string) (*golem, error) {
+// New creates a new instance of golem.
+func New(sBus *dbus.Conn, profile string) (*Golem, error) {
 	ucm, err := webkit.NewUserContentManager()
 	if err != nil {
 		return nil, err
@@ -53,12 +53,12 @@ func newGolem(sBus *dbus.Conn, profile string) (*golem, error) {
 	}
 	ucm.AddStyleSheet(css)
 
-	closeChan := make(chan *window)
+	closeChan := make(chan *Window)
 	quitChan := make(chan bool)
 
-	g := &golem{
+	g := &Golem{
 		defaultCfg,
-		make([]*window, 0, 10),
+		make([]*Window, 0, 10),
 		make(map[uint64]*webView, 500),
 		ucm,
 		closeChan,
@@ -95,7 +95,7 @@ func newGolem(sBus *dbus.Conn, profile string) (*golem, error) {
 }
 
 // bind creates a new key binding.
-func (g *golem) bind(from string, to string) {
+func (g *Golem) bind(from string, to string) {
 	// We check if the key has been bound before. If so, we replace the
 	// binding.
 	index := -1
@@ -121,7 +121,7 @@ func (g *golem) bind(from string, to string) {
 
 // watchSignals watches all DBus signals coming in through a channel, and
 // handles them appropriately.
-func (g *golem) watchSignals(c <-chan *dbus.Signal) {
+func (g *Golem) watchSignals(c <-chan *dbus.Signal) {
 	for sig := range c {
 		if !strings.HasPrefix(
 			string(sig.Path),
@@ -174,7 +174,7 @@ func (g *golem) watchSignals(c <-chan *dbus.Signal) {
 }
 
 // closeWindow updates bookkeeping after a window was closed.
-func (g *golem) closeWindow(w *window) {
+func (g *Golem) closeWindow(w *Window) {
 	g.wMutex.Lock()
 	defer g.wMutex.Unlock()
 	// w points to the window which was closed. It will be removed
@@ -200,10 +200,10 @@ func (g *golem) closeWindow(w *window) {
 	// If no windows are left, golem exits
 	if len(g.windows) == 0 {
 		gtk.MainQuit()
-		g.quit <- true
+		g.Quit <- true
 	}
 }
 
 // addDownload adds a new download to the tracked downloads.
-func (g *golem) addDownload(d *webkit.Download) {
+func (g *Golem) addDownload(d *webkit.Download) {
 }

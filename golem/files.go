@@ -1,4 +1,4 @@
-package main
+package golem
 
 import (
 	"fmt"
@@ -19,7 +19,7 @@ type files struct {
 }
 
 // newFiles initializes the files golem uses.
-func (g *golem) newFiles() (*files, error) {
+func (g *Golem) newFiles() (*files, error) {
 	home := os.Getenv("HOME")
 	if home == "" {
 		user, err := user.Current()

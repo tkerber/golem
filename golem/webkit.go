@@ -1,4 +1,4 @@
-package main
+package golem
 
 // #cgo pkg-config: webkit2gtk-4.0
 // #include <webkit2/webkit2.h>
@@ -21,7 +21,7 @@ import (
 var urlMatchRegex = regexp.MustCompile(`(http://|https://|file:///).*`)
 
 // webkitInit initializes webkit for golem's use.
-func (g *golem) webkitInit() {
+func (g *Golem) webkitInit() {
 	extenDir, err := ioutil.TempDir("", "golem-web-exten")
 	if err != nil {
 		panic("Failed to create temporary directory.")
@@ -67,7 +67,7 @@ func (g *golem) webkitInit() {
 		if err != nil {
 			return
 		}
-		var win *window
+		var win *Window
 	outer:
 		for _, w := range g.windows {
 			for _, wv2 := range w.webViews {
@@ -102,8 +102,8 @@ func (g *golem) webkitInit() {
 	c.GetSecurityManager().RegisterUriSchemeAsCorsEnabled("golem")
 }
 
-// webkitCleanup removes the temporary webkit extension directory.
-func (g *golem) webkitCleanup() {
+// WebkitCleanup removes the temporary webkit extension directory.
+func (g *Golem) WebkitCleanup() {
 	os.RemoveAll(g.extenDir)
 }
 

@@ -1,4 +1,4 @@
-package main
+package golem
 
 import (
 	"fmt"
@@ -6,10 +6,10 @@ import (
 	"github.com/tkerber/golem/webkit"
 )
 
-// newTab opens a new tab to a specified URI.
+// NewTab opens a new tab to a specified URI.
 //
 // If the URI is blank, the new tab page is used instead.
-func (w *window) newTab(uri string) (*webView, error) {
+func (w *Window) NewTab(uri string) (*webView, error) {
 	wv, err := w.newTabBlank()
 	if err != nil {
 		return nil, err
@@ -24,7 +24,7 @@ func (w *window) newTab(uri string) (*webView, error) {
 
 // newTabWithRequests opens a new tab and loads a specified uri request into
 // it.
-func (w *window) newTabWithRequest(req *webkit.UriRequest) (*webView, error) {
+func (w *Window) newTabWithRequest(req *webkit.UriRequest) (*webView, error) {
 	wv, err := w.newTabBlank()
 	if err != nil {
 		return nil, err
@@ -34,7 +34,7 @@ func (w *window) newTabWithRequest(req *webkit.UriRequest) (*webView, error) {
 }
 
 // newTabBlank opens a blank new tab.
-func (w *window) newTabBlank() (*webView, error) {
+func (w *Window) newTabBlank() (*webView, error) {
 	wv, err := w.newWebView(w.getWebView().settings)
 	if err != nil {
 		return nil, err
@@ -60,17 +60,17 @@ func (w *window) newTabBlank() (*webView, error) {
 }
 
 // tabNext goes to the next tab.
-func (w *window) tabNext() {
+func (w *Window) tabNext() {
 	w.tabGo((w.currentWebView + 1) % len(w.webViews))
 }
 
 // tabPrev goes to the previous tab.
-func (w *window) tabPrev() {
+func (w *Window) tabPrev() {
 	w.tabGo((w.currentWebView + len(w.webViews) - 1) % len(w.webViews))
 }
 
 // tabGo goes to a specified tab.
-func (w *window) tabGo(index int) error {
+func (w *Window) tabGo(index int) error {
 	if index >= len(w.webViews) || index < 0 {
 		return fmt.Errorf("Illegal tab index: %v", index)
 	}
@@ -87,7 +87,7 @@ func (w *window) tabGo(index int) error {
 }
 
 // tabClose closes the current tab.
-func (w *window) tabClose(i int) {
+func (w *Window) tabClose(i int) {
 	w.wMutex.Lock()
 	defer w.wMutex.Unlock()
 	wv := w.webViews[i]
@@ -124,7 +124,7 @@ func (w *window) tabClose(i int) {
 //
 // A return value of -1 indicates the tab is not contained in the current
 // window.
-func (w *window) tabIndex(wv *webView) int {
+func (w *Window) tabIndex(wv *webView) int {
 	for i, wv2 := range w.webViews {
 		if wv == wv2 {
 			return i

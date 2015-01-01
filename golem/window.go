@@ -1,4 +1,4 @@
-package main
+package golem
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ import (
 	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/debug"
 	"github.com/tkerber/golem/golem/states"
-	"github.com/tkerber/golem/ui"
+	"github.com/tkerber/golem/golem/ui"
 	"github.com/tkerber/golem/webkit"
 )
 
@@ -44,13 +44,13 @@ func (h *signalHandle) disconnect() {
 	}
 }
 
-// A window is one of golem's window.
-type window struct {
+// A Window is one of golem's window.
+type Window struct {
 	*ui.Window
 	cmd.State
 	webViews            []*webView
 	currentWebView      int
-	parent              *golem
+	parent              *Golem
 	builtins            cmd.Builtins
 	bindings            map[cmd.Substate]*cmd.BindingTree
 	activeSignalHandles []*signalHandle
@@ -67,7 +67,7 @@ type window struct {
 const keyTimeout = time.Millisecond * 10
 
 // setState sets the windows state.
-func (w *window) setState(state cmd.State) {
+func (w *Window) setState(state cmd.State) {
 	w.State = state
 	w.UpdateState(w.State)
 }
@@ -77,8 +77,8 @@ func (w *window) setState(state cmd.State) {
 //
 // A new web view is initialized and sent to a specified uri. If the URI is
 // empty, the new tab page is used instead.
-func (g *golem) newWindow(settings *webkit.Settings, uri string) (*window, error) {
-	win := &window{
+func (g *Golem) NewWindow(settings *webkit.Settings, uri string) (*Window, error) {
+	win := &Window{
 		nil,
 		nil,
 		make([]*webView, 1, 50),
@@ -168,7 +168,7 @@ func (g *golem) newWindow(settings *webkit.Settings, uri string) (*window, error
 }
 
 // handleKeyPress handles a gdk key press event.
-func (w *window) handleKeyPress(uiWin *gtk.Window, e *gdk.Event) bool {
+func (w *Window) handleKeyPress(uiWin *gtk.Window, e *gdk.Event) bool {
 	select {
 	case <-w.timeoutChan:
 		// Make sure that the timeout is properly applied.
@@ -206,7 +206,7 @@ func (w *window) handleKeyPress(uiWin *gtk.Window, e *gdk.Event) bool {
 }
 
 // rebuildBindings rebuilds the bindings for this window.
-func (w *window) rebuildBindings() {
+func (w *Window) rebuildBindings() {
 	bindings, errs := cmd.ParseRawBindings(w.parent.rawBindings, w.builtins, w.runCmd)
 	if errs != nil {
 		for _, err := range errs {
@@ -233,13 +233,13 @@ func (w *window) rebuildBindings() {
 }
 
 // getWebView retrieves the currently active webView.
-func (w *window) getWebView() *webView {
+func (w *Window) getWebView() *webView {
 	return w.webViews[w.currentWebView]
 }
 
 // reconnectWebViewSignals switches the connected signals from the old web
 // view (if any) to the currently connected one.
-func (w *window) reconnectWebViewSignals() {
+func (w *Window) reconnectWebViewSignals() {
 	for _, handle := range w.activeSignalHandles {
 		handle.disconnect()
 	}
@@ -291,12 +291,12 @@ func (w *window) reconnectWebViewSignals() {
 }
 
 // runCmd runs a command.
-func (w *window) runCmd(cmd string) {
+func (w *Window) runCmd(cmd string) {
 	runCmd(w, w.parent, cmd)
 }
 
 // runCmd runs a command.
-func runCmd(w *window, g *golem, command string) {
+func runCmd(w *Window, g *Golem, command string) {
 	// Space followed optionally by a line comment (starting with ")
 	if blankLineRegex.MatchString(command) {
 		return
@@ -330,7 +330,7 @@ func runCmd(w *window, g *golem, command string) {
 }
 
 // addDownload adds an active download.
-func (w *window) addDownload(d *webkit.Download) {
+func (w *Window) addDownload(d *webkit.Download) {
 	w.setState(cmd.NewStatusMode(
 		w.State,
 		states.StatusSubstateMajor,

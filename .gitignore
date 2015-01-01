@@ -3,10 +3,8 @@
 # C object files
 *.o
 *.so
-# The golem executable
-/golem
 # bindata
-/bindata.go
+/golem/bindata.go
 # pdf.js
 /data/srv/pdf.js
 /pdf.js

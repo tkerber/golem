@@ -10,12 +10,13 @@ import (
 	"github.com/guelfey/go.dbus"
 	"github.com/guelfey/go.dbus/introspect"
 	"github.com/mattn/go-shellwords"
+	"github.com/tkerber/golem/golem"
 )
 
 // Build web extension & pdf.js
 //go:generate make all
 // Pack data
-//go:generate go-bindata -nomemcopy -prefix data data/...
+//go:generate go-bindata -o golem/bindata.go -nomemcopy -prefix data data/...
 
 // main runs golem (yay!)
 func main() {
@@ -40,7 +41,7 @@ func main() {
 		panic(fmt.Sprintf("Failed to acquire session bus: %v", err))
 	}
 	repl, err := sBus.RequestName(
-		fmt.Sprintf(golemDBusName, profile),
+		fmt.Sprintf(golem.DBusName, profile),
 		dbus.NameFlagDoNotQueue)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to ascertain status of Golem's bus name."))
@@ -49,18 +50,18 @@ func main() {
 	// If we get it, this is the new golem. Hurrah!
 	case dbus.RequestNameReplyPrimaryOwner:
 		gtk.Init(&args)
-		g, err := newGolem(sBus, profile)
-		defer g.webkitCleanup()
+		g, err := golem.New(sBus, profile)
+		defer g.WebkitCleanup()
 		if err != nil {
 			panic(fmt.Sprintf("Error during golem initialization: %v", err))
 		}
 		sBus.Export(
-			&dbusGolem{g},
-			golemDBusPath,
-			golemDBusInterface)
+			g.CreateDBusWrapper(),
+			golem.DBusPath,
+			golem.DBusInterface)
 		sBus.Export(
-			introspect.Introspectable(golemDBusIntrospection),
-			golemDBusPath,
+			introspect.Introspectable(golem.DBusIntrospection),
+			golem.DBusPath,
 			"org.freedesktop.DBus.Introspectable")
 		// All arguments are taken as "open" commands for one tab each.
 		// They will load in reverse order; i.e. with the last as the top
@@ -74,46 +75,46 @@ func main() {
 			if err != nil {
 				parts = []string{arg}
 			}
-			uris[i] = g.openURI(parts)
+			uris[i] = g.OpenURI(parts)
 		}
 		if len(uris) == 0 {
-			_, err := g.newWindow(g.defaultSettings, "")
+			_, err := g.NewWindow(g.DefaultSettings, "")
 			if err != nil {
 				os.Exit(1)
 			}
 		} else {
 			// Open the last tab in the new window, then open all others in
 			// order in a new tab.
-			win, err := g.newWindow(g.defaultSettings, uris[len(uris)-1])
+			win, err := g.NewWindow(g.DefaultSettings, uris[len(uris)-1])
 			if err != nil {
 				os.Exit(1)
 			}
 			for _, uri := range uris[:len(uris)-1] {
-				win.newTab(uri)
+				win.NewTab(uri)
 			}
 		}
 		// This doesn't need to run in a goroutine, but as the gtk main
 		// loop can be stopped and restarted in a goroutine, this makes
 		// more sense.
 		go gtk.Main()
-		<-g.quit
-		sBus.ReleaseName(golemDBusName)
+		<-g.Quit
+		sBus.ReleaseName(golem.DBusName)
 	// If not, we attach to the existing one.
 	default:
 		o := sBus.Object(
-			fmt.Sprintf(golemDBusName, profile),
-			golemDBusPath)
+			fmt.Sprintf(golem.DBusName, profile),
+			golem.DBusPath)
 		// If there are no uris, instead create a new window.
 		if len(args) == 0 {
 			o.Call(
-				golemDBusInterface+".NewWindow",
+				golem.DBusInterface+".NewWindow",
 				0)
 		} else {
 			// Otherwise, create new tabs for each URI in order.
 			// The tabs will be created in the 'default' window, i.e. the first.
 			for _, arg := range args {
 				o.Call(
-					golemDBusInterface+".NewTab",
+					golem.DBusInterface+".NewTab",
 					0,
 					arg)
 			}

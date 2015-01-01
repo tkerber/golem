@@ -1,4 +1,4 @@
-package main
+package golem
 
 import (
 	"fmt"
@@ -21,7 +21,7 @@ var hasProtocolRegex = regexp.MustCompile(`\w+:.*`)
 var looksLikeURIRegex = regexp.MustCompile(`\S+\.\S+`)
 
 // commands maps a command name to the command's function.
-var commands map[string]func(*window, *golem, []string)
+var commands map[string]func(*Window, *Golem, []string)
 
 // init initializes commands;
 //
@@ -29,7 +29,7 @@ var commands map[string]func(*window, *golem, []string)
 // are used during initialization, it is fine for them to reside in init,
 // (which is executed after constant/variabel initialization.
 func init() {
-	commands = map[string]func(*window, *golem, []string){
+	commands = map[string]func(*Window, *Golem, []string){
 		"o":          cmdOpen,
 		"open":       cmdOpen,
 		"t":          cmdTabOpen,
@@ -50,7 +50,7 @@ func init() {
 
 // logInvalidArgs prints a log message indicating that the arguments given
 // where invalid.
-func (w *window) logInvalidArgs(args []string) {
+func (w *Window) logInvalidArgs(args []string) {
 	if w != nil {
 		w.setState(cmd.NewStatusMode(
 			w.State,
@@ -67,7 +67,7 @@ func logNonGlobalCommand() {
 }
 
 // cmdQuit quit closes the active window.
-func cmdQuit(w *window, g *golem, _ []string) {
+func cmdQuit(w *Window, g *Golem, _ []string) {
 	if w == nil {
 		logNonGlobalCommand()
 		return
@@ -82,12 +82,12 @@ func cmdQuit(w *window, g *golem, _ []string) {
 //
 // Searches prefixed with the name of the search engine will be run through
 // that search engine.
-func cmdOpen(w *window, g *golem, args []string) {
+func cmdOpen(w *Window, g *Golem, args []string) {
 	if w == nil {
 		logNonGlobalCommand()
 		return
 	}
-	uri := g.openURI(args[1:])
+	uri := g.OpenURI(args[1:])
 	if uri == "" {
 		w.logInvalidArgs(args)
 		return
@@ -97,24 +97,24 @@ func cmdOpen(w *window, g *golem, args []string) {
 
 // cmdTabOpen behaves like cmdOpen, but opens the uri in a new tab. If no
 // uri is given, it opens the new tab page instead.
-func cmdTabOpen(w *window, g *golem, args []string) {
+func cmdTabOpen(w *Window, g *Golem, args []string) {
 	if w == nil {
 		logNonGlobalCommand()
 		return
 	}
-	uri := g.openURI(args[1:])
-	w.newTab(uri)
+	uri := g.OpenURI(args[1:])
+	w.NewTab(uri)
 }
 
 // cmdWindowOpen behaves like cmdOpen, but opens the uri in a new window. If
 // no uri is given, it opens the new tab page instead.
-func cmdWindowOpen(w *window, g *golem, args []string) {
-	uri := g.openURI(args[1:])
-	g.newWindow(g.defaultSettings, uri)
+func cmdWindowOpen(w *Window, g *Golem, args []string) {
+	uri := g.OpenURI(args[1:])
+	g.NewWindow(g.DefaultSettings, uri)
 }
 
-// openURI gets the uri to go to for a command of the "open" class.
-func (g *golem) openURI(args []string) string {
+// OpenURI gets the uri to go to for a command of the "open" class.
+func (g *Golem) OpenURI(args []string) string {
 	if len(args) < 1 {
 		return ""
 	}
@@ -135,7 +135,7 @@ func (g *golem) openURI(args []string) string {
 }
 
 // cmdBind adds a binding, globally to golem.
-func cmdBind(w *window, g *golem, args []string) {
+func cmdBind(w *Window, g *Golem, args []string) {
 	if len(args) != 3 {
 		w.logInvalidArgs(args)
 		return
@@ -187,7 +187,7 @@ const (
 //
 // An error will be logged if parsing this fails, but execution will continue
 // normally.
-func cmdSet(w *window, g *golem, args []string) {
+func cmdSet(w *Window, g *Golem, args []string) {
 	for _, arg := range args[1:len(args)] {
 		op, keyParts, valueStr, err := cmdSetSplitOperator(arg)
 		if err != nil {
@@ -350,8 +350,8 @@ func cmdSetSplitOperator(arg string) (uint, []string, string, error) {
 // cmdSetWebkit retrieves getter and setter functions as well as an iterator
 // and the type of the value for specified key parts to access webkit settings.
 func cmdSetWebkit(
-	w *window,
-	g *golem,
+	w *Window,
+	g *Golem,
 	keyParts []string) (
 
 	func(obj interface{}, val interface{}),
@@ -407,7 +407,7 @@ func cmdSetWebkit(
 	go func() {
 		switch qualifier {
 		case qualifierGlobal:
-			iterChan <- g.defaultSettings
+			iterChan <- g.DefaultSettings
 			for _, wv := range g.webViews {
 				iterChan <- wv.GetSettings()
 			}

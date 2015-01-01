@@ -1,4 +1,4 @@
-package main
+package golem
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"github.com/guelfey/go.dbus"
 	"github.com/guelfey/go.dbus/introspect"
 	"github.com/mattn/go-shellwords"
-	"github.com/tkerber/golem/ui"
+	"github.com/tkerber/golem/golem/ui"
 	"github.com/tkerber/golem/webkit"
 )
 
@@ -33,18 +33,18 @@ const (
 		"',interface='" + webExtenDBusInterface +
 		"',sender='" + webExtenDBusName + "'"
 
-	// golemDBusInterface is the interface name of golem's main process.
-	golemDBusInterface = "com.github.tkerber.Golem"
-	// golemDBusName is a format string for the dbus name of golem's main
+	// DBusInterface is the interface name of golem's main process.
+	DBusInterface = "com.github.tkerber.Golem"
+	// DBusName is a format string for the dbus name of golem's main
 	// process, given the profile name as an argument.
-	golemDBusName = "com.github.tkerber.Golem.%s"
-	// golemDBusPath is the dbus path of golem's main process.
-	golemDBusPath = "/com/github/tkerber/Golem"
-	// golemDBusIntrospection is the introspection string of the interface of
+	DBusName = "com.github.tkerber.Golem.%s"
+	// DBusPath is the dbus path of golem's main process.
+	DBusPath = "/com/github/tkerber/Golem"
+	// DBusIntrospection is the introspection string of the interface of
 	// golem's main process.
-	golemDBusIntrospection = `
+	DBusIntrospection = `
 <node>
-	<interface name="` + golemDBusInterface + `">
+	<interface name="` + DBusInterface + `">
 		<method name="NewWindow" />
 		<method name="NewTab">
 			<arg direction="in" type="s" name="uri" />
@@ -52,26 +52,32 @@ const (
 	</interface>` + introspect.IntrospectDataString + `</node>`
 )
 
-// dbusGolem is golem's DBus object.
-type dbusGolem struct {
-	*golem
+// DBusGolem is golem's DBus object.
+type DBusGolem struct {
+	golem *Golem
+}
+
+// CreateDBusWrapper creates the DBusGolem object for a concrete Golem
+// instance.
+func (g *Golem) CreateDBusWrapper() *DBusGolem {
+	return &DBusGolem{g}
 }
 
 // NewWindow creates a new window in golem's main process.
-func (g *dbusGolem) NewWindow() *dbus.Error {
+func (g *DBusGolem) NewWindow() *dbus.Error {
 	var err error
 	ui.GlibMainContextInvoke(func() {
-		_, err = g.newWindow(g.defaultSettings, "")
+		_, err = g.golem.NewWindow(g.golem.DefaultSettings, "")
 	})
 	if err != nil {
 		return &dbus.Error{
-			fmt.Sprintf(golemDBusName+".Error", g.profile),
+			fmt.Sprintf(DBusName+".Error", g.golem.profile),
 			[]interface{}{err}}
 	}
 	return nil
 }
 
-func (g *dbusGolem) NewTab(uri string) *dbus.Error {
+func (g *DBusGolem) NewTab(uri string) *dbus.Error {
 	// we try to split it into parts to allow searches to be passed
 	// via command line. If this fails, we ignore the error and just
 	// pass the whole string instead.
@@ -80,8 +86,8 @@ func (g *dbusGolem) NewTab(uri string) *dbus.Error {
 		if err != nil {
 			parts = []string{uri}
 		}
-		uri = g.openURI(parts)
-		g.windows[0].newTab(uri)
+		uri = g.golem.OpenURI(parts)
+		g.golem.windows[0].NewTab(uri)
 	})
 	return nil
 }
@@ -92,7 +98,7 @@ type webExtension struct {
 }
 
 // webExtensionForWebView creates a webExtension for a particular WebView.
-func webExtensionForWebView(g *golem, wv *webkit.WebView) *webExtension {
+func webExtensionForWebView(g *Golem, wv *webkit.WebView) *webExtension {
 	page := wv.GetPageID()
 	return &webExtension{g.sBus.Object(
 		fmt.Sprintf(webExtenDBusName, g.profile, page),
