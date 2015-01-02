@@ -31,9 +31,13 @@ type Golem struct {
 	sBus               *dbus.Conn
 	wMutex             *sync.Mutex
 	rawBindings        []cmd.RawBinding
-	DefaultSettings    *webkit.Settings
-	files              *files
-	extenDir           string
+	// A map from sanitized keystring (i.e. parsed and stringified again) to
+	// uris.
+	quickmarks map[string]string
+
+	DefaultSettings *webkit.Settings
+	files           *files
+	extenDir        string
 }
 
 // New creates a new instance of golem.
@@ -66,6 +70,7 @@ func New(sBus *dbus.Conn, profile string) (*Golem, error) {
 		sBus,
 		new(sync.Mutex),
 		make([]cmd.RawBinding, 0, 100),
+		make(map[string]string, 20),
 		webkit.NewSettings(),
 		nil,
 		"",
@@ -119,6 +124,18 @@ func (g *Golem) bind(from string, to string) {
 	}
 }
 
+// quickmark adds a quickmark to golem.
+func (g *Golem) quickmark(from string, uri string) {
+	from = cmd.KeysString(cmd.ParseKeys(from))
+	g.wMutex.Lock()
+	g.quickmarks[from] = uri
+	g.wMutex.Unlock()
+
+	for _, w := range g.windows {
+		w.rebuildQuickmarks()
+	}
+}
+
 // watchSignals watches all DBus signals coming in through a channel, and
 // handles them appropriately.
 func (g *Golem) watchSignals(c <-chan *dbus.Signal) {
@@ -162,7 +179,7 @@ func (g *Golem) watchSignals(c <-chan *dbus.Signal) {
 			for _, w := range g.windows {
 				if wv == w.getWebView() {
 					if focused {
-						w.setState(cmd.NewInsertMode(w.State, cmd.SubstateNone))
+						w.setState(cmd.NewInsertMode(w.State, cmd.SubstateDefault))
 					} else if _, ok := w.State.(*cmd.InsertMode); ok {
 						w.setState(
 							cmd.NewNormalMode(w.State))

@@ -44,7 +44,9 @@ func init() {
 		"bind":       cmdBind,
 		"set":        cmdSet,
 		"q":          cmdQuit,
+		"qm":         cmdQuickmark,
 		"quit":       cmdQuit,
+		"quickmark":  cmdQuickmark,
 	}
 }
 
@@ -64,6 +66,15 @@ func (w *Window) logInvalidArgs(args []string) {
 // not have been executed in a global context (i.e. in golem's rc)
 func logNonGlobalCommand() {
 	log.Printf("Non global command executed in a global contex.")
+}
+
+// cmdQuickmark adds a new quickmark to golem.
+func cmdQuickmark(w *Window, g *Golem, args []string) {
+	if len(args) != 3 {
+		w.logInvalidArgs(args)
+		return
+	}
+	g.quickmark(args[1], args[2])
 }
 
 // cmdQuit quit closes the active window.
@@ -104,13 +115,14 @@ func cmdTabOpen(w *Window, g *Golem, args []string) {
 	}
 	uri := g.OpenURI(args[1:])
 	w.NewTab(uri)
+	w.tabNext()
 }
 
 // cmdWindowOpen behaves like cmdOpen, but opens the uri in a new window. If
 // no uri is given, it opens the new tab page instead.
 func cmdWindowOpen(w *Window, g *Golem, args []string) {
 	uri := g.OpenURI(args[1:])
-	g.NewWindow(g.DefaultSettings, uri)
+	g.NewWindow(uri)
 }
 
 // OpenURI gets the uri to go to for a command of the "open" class.

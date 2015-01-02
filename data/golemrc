@@ -40,7 +40,7 @@ bind gO      builtin:tabEditURI
 bind wo      builtin:windowOpen
 bind we      builtin:windowEditURI
 
-bind by      "cmd:open youtube.com"
+bind b       builtin:quickmarks
 
 " Mediasource isn't supported enough for YouTube yet :(
 set webkit:enable-mediasource=true

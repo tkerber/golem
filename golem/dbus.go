@@ -67,7 +67,7 @@ func (g *Golem) CreateDBusWrapper() *DBusGolem {
 func (g *DBusGolem) NewWindow() *dbus.Error {
 	var err error
 	ui.GlibMainContextInvoke(func() {
-		_, err = g.golem.NewWindow(g.golem.DefaultSettings, "")
+		_, err = g.golem.NewWindow("")
 	})
 	if err != nil {
 		return &dbus.Error{

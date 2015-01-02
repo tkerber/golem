@@ -20,7 +20,7 @@ type Window struct {
 	WebView
 	*gtk.Window
 	*ColorScheme
-	webViewBox *gtk.Box
+	webViewStack *gtk.Stack
 	// The number of the active tab.
 	TabNumber int
 	// The number of total tabs in this window.
@@ -123,19 +123,19 @@ func NewWindow(webView WebView) (*Window, error) {
 		return nil, err
 	}
 
-	webViewBox, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 0)
+	webViewStack, err := gtk.StackNew()
 	if err != nil {
 		return nil, err
 	}
-	w.webViewBox = webViewBox
-	webViewBox.PackStart(webView.GetWebView(), true, true, 0)
+	w.webViewStack = webViewStack
+	webViewStack.Add(webView.GetWebView())
 
 	contentBox, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
 	if err != nil {
 		return nil, err
 	}
 	contentBox.PackStart(tabBar, false, false, 0)
-	contentBox.PackStart(webViewBox, true, true, 0)
+	contentBox.PackStart(webViewStack, true, true, 0)
 
 	box.PackStart(contentBox, true, true, 0)
 	box.PackStart(statusBar, false, false, 0)
@@ -169,24 +169,21 @@ func (w *Window) SetTitle(title string) {
 	GlibMainContextInvoke(w.Window.SetTitle, title)
 }
 
-// ReplaceWebView replaces the web view being shown by the UI.
-//
-// This replacing occurs in the glib main context.
-func (w *Window) ReplaceWebView(wv WebView) {
-	GlibMainContextInvoke(w.replaceWebView, wv)
+// SwitchToWebView switches the shown web view.
+func (w *Window) SwitchToWebView(wv WebView) {
+	GlibMainContextInvoke(func() {
+		wvWidget := wv.GetWebView()
+		w.webViewStack.SetVisibleChild(wvWidget)
+		w.WebView = wv
+		wvWidget.GrabFocus()
+	})
 }
 
-// replaceWebView replaces the web view being shown by the UI.
-//
-// MUST ONLY BE INVOKED THROUGH GlibMainContextInvoke!
-func (w *Window) replaceWebView(wv WebView) {
-	wvWidget := wv.GetWebView()
-	w.GetWebView().Hide()
-	if p, _ := wvWidget.GetParent(); p == nil {
-		w.webViewBox.PackStart(wvWidget, true, true, 0)
-	}
-	wvWidget.Show()
-	w.WebView = wv
-	wvWidget.QueueDraw()
-	wvWidget.GrabFocus()
+// AttachWebView connects a web view to the window, but doesn't show it yet.
+func (w *Window) AttachWebView(wv WebView) {
+	GlibMainContextInvoke(func() {
+		wv := wv.GetWebView()
+		w.webViewStack.Add(wv)
+		wv.Show()
+	})
 }

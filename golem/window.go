@@ -77,7 +77,7 @@ func (w *Window) setState(state cmd.State) {
 //
 // A new web view is initialized and sent to a specified uri. If the URI is
 // empty, the new tab page is used instead.
-func (g *Golem) NewWindow(settings *webkit.Settings, uri string) (*Window, error) {
+func (g *Golem) NewWindow(uri string) (*Window, error) {
 	win := &Window{
 		nil,
 		nil,
@@ -94,7 +94,7 @@ func (g *Golem) NewWindow(settings *webkit.Settings, uri string) (*Window, error
 
 	var err error
 
-	win.webViews[0], err = win.newWebView(settings)
+	win.webViews[0], err = win.newWebView(g.DefaultSettings)
 	if err != nil {
 		log.Printf("Error: Failed to open new window: %v\n", err)
 		return nil, err
@@ -119,6 +119,7 @@ func (g *Golem) NewWindow(settings *webkit.Settings, uri string) (*Window, error
 	win.setState(cmd.NewState(win.bindings, win.setState))
 
 	win.rebuildBindings()
+	win.rebuildQuickmarks()
 
 	g.wMutex.Lock()
 	g.windows = append(g.windows, win)
@@ -229,7 +230,70 @@ func (w *Window) rebuildBindings() {
 		}
 		log.Printf("Faulty bindings have been dropped.")
 	}
-	w.bindings[cmd.SubstateNone] = bindingTree
+	w.bindings[states.NormalSubstateNormal] = bindingTree
+}
+
+// rebuildQuickmarks rebuild the quickmark bindings for this window.
+func (w *Window) rebuildQuickmarks() {
+	bindings := make([]*cmd.Binding, 0, len(w.parent.quickmarks))
+	for keyStr, _ := range w.parent.quickmarks {
+		bindings = append(
+			bindings,
+			&cmd.Binding{cmd.ParseKeys(keyStr), w.quickmarkCallback})
+	}
+	bindingTree, errs := cmd.NewBindingTree(bindings)
+	if errs != nil {
+		for _, err := range errs {
+			w.setState(cmd.NewStatusMode(
+				w.State,
+				states.StatusSubstateError,
+				fmt.Sprintf("Error: Failed to parse quickmarks: %v", err)))
+			log.Printf("Error: Failed to parse quickmarks: %v\n", err)
+		}
+		log.Printf("Faulty quickmarks have been dropped.")
+	}
+	w.bindings[states.NormalSubstateQuickmark] = bindingTree
+	w.bindings[states.NormalSubstateQuickmarkTab] = bindingTree
+	w.bindings[states.NormalSubstateQuickmarkWindow] = bindingTree
+	w.bindings[states.NormalSubstateQuickmarksRapid] = bindingTree
+}
+
+// quickmarkCallback opens a quickmark as a callback from a binding execution.
+func (w *Window) quickmarkCallback(keys []cmd.Key, _ *int, s cmd.Substate) {
+	uri, ok := w.parent.quickmarks[cmd.KeysString(keys)]
+	if !ok {
+		w.setState(cmd.NewStatusMode(
+			w.State,
+			states.StatusSubstateError,
+			fmt.Sprintf("Unknown quickmark: %s", cmd.KeysString(keys))))
+		log.Printf("Unknown quickmark: %s", cmd.KeysString(keys))
+		return
+	}
+	switch s {
+	case states.NormalSubstateQuickmark:
+		w.getWebView().LoadURI(uri)
+	case states.NormalSubstateQuickmarkTab:
+		ui.GlibMainContextInvoke(func() {
+			w.NewTab(uri)
+			w.tabNext()
+		})
+	case states.NormalSubstateQuickmarkWindow:
+		ui.GlibMainContextInvoke(w.parent.NewWindow, uri)
+	case states.NormalSubstateQuickmarksRapid:
+		ui.GlibMainContextInvoke(w.NewTab, uri)
+		w.setState(cmd.NewNormalModeWithSubstate(
+			w.State,
+			states.NormalSubstateQuickmarksRapid))
+	default:
+		w.setState(cmd.NewStatusMode(
+			w.State,
+			states.StatusSubstateError,
+			fmt.Sprintf(
+				"Quickmark opened from non-quickmark substate: %d",
+				s)))
+		log.Printf("Unknown quickmark: %s", cmd.KeysString(keys))
+		return
+	}
 }
 
 // getWebView retrieves the currently active webView.

@@ -11,32 +11,36 @@ import (
 // builtinsfor retrieves the builtin functions bound to a specific window.
 func builtinsFor(w *Window) cmd.Builtins {
 	return cmd.Builtins{
-		"commandMode":    w.builtinCommandMode,
-		"editURI":        w.builtinEditURI,
-		"goBack":         w.builtinGoBack,
-		"goForward":      w.builtinGoForward,
-		"insertMode":     w.builtinInsertMode,
-		"nop":            w.builtinNop,
-		"open":           w.builtinOpen,
-		"panic":          w.builtinPanic,
-		"reload":         w.builtinReload,
-		"reloadNoCache":  w.builtinReloadNoCache,
-		"scrollDown":     w.builtinScrollDown,
-		"scrollLeft":     w.builtinScrollLeft,
-		"scrollRight":    w.builtinScrollRight,
-		"scrollPageDown": w.builtinScrollPageDown,
-		"scrollPageUp":   w.builtinScrollPageUp,
-		"scrollToBottom": w.builtinScrollToBottom,
-		"scrollToTop":    w.builtinScrollToTop,
-		"scrollUp":       w.builtinScrollUp,
-		"tabClose":       w.builtinTabClose,
-		"tabEditURI":     w.builtinTabEditURI,
-		"tabGo":          w.builtinTabGo,
-		"tabNext":        w.builtinTabNext,
-		"tabOpen":        w.builtinTabOpen,
-		"tabPrev":        w.builtinTabPrev,
-		"windowEditURI":  w.builtinWindowEditURI,
-		"windowOpen":     w.builtinWindowOpen,
+		"commandMode":      w.builtinCommandMode,
+		"editURI":          w.builtinEditURI,
+		"goBack":           w.builtinGoBack,
+		"goForward":        w.builtinGoForward,
+		"insertMode":       w.builtinInsertMode,
+		"nop":              w.builtinNop,
+		"open":             w.builtinOpen,
+		"panic":            w.builtinPanic,
+		"quickmarks":       w.builtinQuickmarks,
+		"quickmarksTab":    w.builtinQuickmarksTab,
+		"quickmarksWindow": w.builtinQuickmarksWindow,
+		"quickmarksRapid":  w.builtinQuickmarksRapid,
+		"reload":           w.builtinReload,
+		"reloadNoCache":    w.builtinReloadNoCache,
+		"scrollDown":       w.builtinScrollDown,
+		"scrollLeft":       w.builtinScrollLeft,
+		"scrollRight":      w.builtinScrollRight,
+		"scrollPageDown":   w.builtinScrollPageDown,
+		"scrollPageUp":     w.builtinScrollPageUp,
+		"scrollToBottom":   w.builtinScrollToBottom,
+		"scrollToTop":      w.builtinScrollToTop,
+		"scrollUp":         w.builtinScrollUp,
+		"tabClose":         w.builtinTabClose,
+		"tabEditURI":       w.builtinTabEditURI,
+		"tabGo":            w.builtinTabGo,
+		"tabNext":          w.builtinTabNext,
+		"tabOpen":          w.builtinTabOpen,
+		"tabPrev":          w.builtinTabPrev,
+		"windowEditURI":    w.builtinWindowEditURI,
+		"windowOpen":       w.builtinWindowOpen,
 	}
 }
 
@@ -66,7 +70,7 @@ func getWithDefault(ptr *int, def, minv, maxv int) int {
 
 // builtinCommandMode initiates command mode.
 func (w *Window) builtinCommandMode(_ *int) {
-	w.setState(cmd.NewCommandLineMode(w.State, cmd.SubstateNone, w.runCmd))
+	w.setState(cmd.NewCommandLineMode(w.State, states.CommandLineSubstateCommand, w.runCmd))
 }
 
 // builtinEditURI initiates command mode with the open command primed for
@@ -74,7 +78,7 @@ func (w *Window) builtinCommandMode(_ *int) {
 func (w *Window) builtinEditURI(_ *int) {
 	w.setState(cmd.NewPartialCommandLineMode(
 		w.State,
-		cmd.SubstateNone,
+		states.CommandLineSubstateCommand,
 		fmt.Sprintf("open %v", w.getWebView().GetURI()),
 		w.runCmd))
 }
@@ -95,7 +99,7 @@ func (w *Window) builtinGoForward(n *int) {
 
 // builtinInsertMode initiates insert mode.
 func (w *Window) builtinInsertMode(_ *int) {
-	w.setState(cmd.NewInsertMode(w.State, cmd.SubstateNone))
+	w.setState(cmd.NewInsertMode(w.State, cmd.SubstateDefault))
 }
 
 // builtinNop does nothing. It is occasionally useful as a binding.
@@ -103,11 +107,37 @@ func (w *Window) builtinNop(_ *int) {}
 
 // builtinOpen initiates command mode, primed with an open command.
 func (w *Window) builtinOpen(_ *int) {
-	w.setState(cmd.NewPartialCommandLineMode(w.State, cmd.SubstateNone, "open ", w.runCmd))
+	w.setState(cmd.NewPartialCommandLineMode(w.State, states.CommandLineSubstateCommand, "open ", w.runCmd))
 }
 
+// builtinPanic causes a panic. You probably don't want to use this.
 func (w *Window) builtinPanic(_ *int) {
 	panic("Builtin 'panic' called.")
+}
+
+// builtinQuickmarks enters quickmark mode (i.e. a binding mode for launching
+// quickmarks)
+func (w *Window) builtinQuickmarks(_ *int) {
+	w.setState(cmd.NewNormalModeWithSubstate(w.State, states.NormalSubstateQuickmark))
+}
+
+// builtinQuickmarksTab enters quickmark mode (i.e. a binding mode for
+// launching quickmarks), opening in a new tab.
+func (w *Window) builtinQuickmarksTab(_ *int) {
+	w.setState(cmd.NewNormalModeWithSubstate(w.State, states.NormalSubstateQuickmarkTab))
+}
+
+// builtinQuickmarksWindow enters quickmark mode (i.e. a binding mode for
+// launching quickmarks), opening in a new window.
+func (w *Window) builtinQuickmarksWindow(_ *int) {
+	w.setState(cmd.NewNormalModeWithSubstate(w.State, states.NormalSubstateQuickmarkWindow))
+}
+
+// builtinQuickmarksRapid enters quickmark mode (i.e. a binding mode for
+// launching quickmarks), opening in a new tab, and remaining in quickmarks
+// rapid mode.
+func (w *Window) builtinQuickmarksRapid(_ *int) {
+	w.setState(cmd.NewNormalModeWithSubstate(w.State, states.NormalSubstateQuickmarksRapid))
 }
 
 // builtinReload reloads the current page.
@@ -203,7 +233,7 @@ func (w *Window) builtinTabClose(n *int) {
 func (w *Window) builtinTabEditURI(_ *int) {
 	w.setState(cmd.NewPartialCommandLineMode(
 		w.State,
-		cmd.SubstateNone,
+		states.CommandLineSubstateCommand,
 		fmt.Sprintf("tabopen %v", w.getWebView().GetURI()),
 		w.runCmd))
 }
@@ -228,7 +258,7 @@ func (w *Window) builtinTabNext(n *int) {
 
 // builtinTabOpen initiates command mode primed with a tabopen command.
 func (w *Window) builtinTabOpen(_ *int) {
-	w.setState(cmd.NewPartialCommandLineMode(w.State, cmd.SubstateNone, "tabopen ", w.runCmd))
+	w.setState(cmd.NewPartialCommandLineMode(w.State, states.CommandLineSubstateCommand, "tabopen ", w.runCmd))
 }
 
 // builtinTabPrev goes to the previous tab.
@@ -248,14 +278,14 @@ func (w *Window) builtinTabPrev(n *int) {
 func (w *Window) builtinWindowEditURI(_ *int) {
 	w.setState(cmd.NewPartialCommandLineMode(
 		w.State,
-		cmd.SubstateNone,
+		states.CommandLineSubstateCommand,
 		fmt.Sprintf("winopen %v", w.getWebView().GetURI()),
 		w.runCmd))
 }
 
 // builtinWindowOpen initiates command mode primed with a winopen command.
 func (w *Window) builtinWindowOpen(_ *int) {
-	w.setState(cmd.NewPartialCommandLineMode(w.State, cmd.SubstateNone, "winopen ", w.runCmd))
+	w.setState(cmd.NewPartialCommandLineMode(w.State, states.CommandLineSubstateCommand, "winopen ", w.runCmd))
 }
 
 // scrollDelta scrolls a given amount of pixes either vertically or

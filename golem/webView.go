@@ -216,7 +216,7 @@ func (wv *webView) close() {
 	wv.window = nil
 	if p, _ := wv.WebView.GetParent(); p != nil {
 		cont := &gtk.Container{*p}
-		cont.Remove(wv.WebView)
+		ui.GlibMainContextInvoke(cont.Remove, wv.WebView)
 	}
 	schedGc()
 }

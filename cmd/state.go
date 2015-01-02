@@ -43,20 +43,22 @@ type State interface {
 // A Substate allows using the same state for several different purposes.
 //
 // Substates are not defined in this module, with the exception of the
-// SubstateNone, and left for the main program to define.
+// SubstateDefault, and left for the main program to define.
 type Substate uint
 
-// SubstateNone is a substate marking that the "default" substate is being
-// used.
-const SubstateNone Substate = 0
+// SubstateDefault is a substate marking that the "default" substate is being
+// used. It is not defined more specifically (that is up to the application
+// to decide), except that NormalMode's SubstateDefault should be the single
+// state which the application has as its default "resting" state.
+const SubstateDefault Substate = 0
 
 // NewState creates a new state, in its original setting.
 func NewState(bindings map[Substate]*BindingTree, setState func(State)) State {
 	return &NormalMode{
 		&StateIndependant{bindings, setState},
-		SubstateNone,
+		SubstateDefault,
 		make([]Key, 0),
-		bindings[SubstateNone],
+		bindings[SubstateDefault],
 		make(chan bool),
 		0,
 		false,
@@ -100,7 +102,7 @@ type NormalMode struct {
 
 // NewNormalMode creates a baseline NormalMode state from a base state.
 func NewNormalMode(s State) *NormalMode {
-	return NewNormalModeWithSubstate(s, SubstateNone)
+	return NewNormalModeWithSubstate(s, SubstateDefault)
 }
 
 func NewNormalModeWithSubstate(s State, st Substate) *NormalMode {
@@ -124,7 +126,7 @@ func NewNormalModeWithSubstate(s State, st Substate) *NormalMode {
 // binding is executed, to reset the state to a blank normal mode.
 func executeAfterTimeout(
 	timeoutChan <-chan bool,
-	binding func(*int),
+	binding func([]Key, *int, Substate),
 	nump *int,
 	s State,
 	keys []Key) {
@@ -138,7 +140,7 @@ func executeAfterTimeout(
 	case <-time.After(timeout):
 		// Continue
 	}
-	go binding(nump)
+	go binding(keys, nump, s.GetSubstate())
 	// Somewhat ugly. We have to tell the owner of the state to reset it.
 	if debug.PrintBindings {
 		log.Printf(
@@ -198,7 +200,7 @@ func (s *NormalMode) ProcessKeyPress(key RealKey) (State, bool) {
 			s.cancelTimeout <- false
 		}
 		// If we are already in an empty normal mode, stay that way.
-		if len(s.CurrentKeys) == 0 {
+		if len(s.CurrentKeys) == 0 && s.Substate == SubstateDefault {
 			return s, false
 		}
 
@@ -231,7 +233,7 @@ func (s *NormalMode) ProcessKeyPress(key RealKey) (State, bool) {
 				log.Printf("Executing binding for %v...",
 					KeysString(append(s.CurrentKeys, key)))
 			}
-			go subtree.Binding(nump)
+			go subtree.Binding(append(s.CurrentKeys, key), nump, s.Substate)
 			return NewNormalMode(s), true
 		}
 		// Otherwise, we wait for another keypress.

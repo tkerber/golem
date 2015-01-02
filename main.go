@@ -78,14 +78,14 @@ func main() {
 			uris[i] = g.OpenURI(parts)
 		}
 		if len(uris) == 0 {
-			_, err := g.NewWindow(g.DefaultSettings, "")
+			_, err := g.NewWindow("")
 			if err != nil {
 				os.Exit(1)
 			}
 		} else {
 			// Open the last tab in the new window, then open all others in
 			// order in a new tab.
-			win, err := g.NewWindow(g.DefaultSettings, uris[len(uris)-1])
+			win, err := g.NewWindow(uris[len(uris)-1])
 			if err != nil {
 				os.Exit(1)
 			}

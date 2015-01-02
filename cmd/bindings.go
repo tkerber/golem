@@ -71,10 +71,10 @@ func (b RawBinding) ParseBinding(
 		if !ok {
 			return nil, fmt.Errorf("Unknown builtin function: %v", builtinName)
 		}
-		return &Binding{keys, func(i *int) { builtin(i) }}, nil
+		return &Binding{keys, func(_ []Key, i *int, _ Substate) { builtin(i) }}, nil
 	} else if hasPrefixes(b.To, "command:", "cmd:", "c:") {
 		cmd := stripPrefixes(b.To, "command:", "cmd:", "c:")
-		return &Binding{keys, func(_ *int) {
+		return &Binding{keys, func(_ []Key, _ *int, _ Substate) {
 			runCmd(cmd)
 		}}, nil
 	}
@@ -109,17 +109,19 @@ func ParseRawBindings(
 }
 
 // A Binding maps a sequence of keys to a function to be executed when they
-// are pressed.
+// are pressed. The executer function will be passed the exact key sequence
+// pressed, as well as a pointer to the (potentially) extracted <num> virtual
+// key.
 type Binding struct {
 	From []Key
-	To   func(*int)
+	To   func([]Key, *int, Substate)
 }
 
 // A BindingTree is a tree structure for a set of bindings. Each key sequence
 // corresponds to a node in the tree, (the empty sequence being the root),
 // with a binding function optionally attached to any node.
 type BindingTree struct {
-	Binding  func(*int)
+	Binding  func([]Key, *int, Substate)
 	Subtrees map[Key]*BindingTree
 }
 

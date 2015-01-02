@@ -53,6 +53,7 @@ func (w *Window) newTabBlank() (*webView, error) {
 		newWebViews[w.currentWebView+1:len(newWebViews)-1])
 	newWebViews[w.currentWebView+1] = wv
 	w.webViews = newWebViews
+	w.Window.AttachWebView(wv)
 	w.Window.TabCount = len(w.webViews)
 	go w.UpdateLocation()
 	// Note that we do *not* switch tabs here.
@@ -80,7 +81,7 @@ func (w *Window) tabGo(index int) error {
 	w.Window.TabNumber = index + 1
 	wv := w.getWebView()
 	w.reconnectWebViewSignals()
-	w.ReplaceWebView(wv)
+	w.SwitchToWebView(wv)
 	w.Window.TabBar.FocusTab(index)
 	go w.UpdateLocation()
 	return nil
@@ -114,7 +115,7 @@ func (w *Window) tabClose(i int) {
 		wv := w.getWebView()
 		w.Window.FocusTab(j)
 		w.reconnectWebViewSignals()
-		w.ReplaceWebView(wv)
+		w.SwitchToWebView(wv)
 		w.Window.TabCount = len(w.webViews)
 		go w.UpdateLocation()
 	}

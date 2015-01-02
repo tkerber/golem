@@ -55,14 +55,26 @@ func (w *Window) UpdateState(state cmd.State) {
 	var newStatus string
 	switch s := state.(type) {
 	case *cmd.NormalMode:
-		// The status is either empty, or [current_binding] if it exists.
-		if len(s.CurrentKeys) == 0 {
-			newStatus = ""
-		} else {
-			newStatus = fmt.Sprintf(
-				"[<em>%v</em>]",
-				keysToMarkupString(s.CurrentKeys, true, true))
+		var fmtStr string
+		switch s.Substate {
+		case states.NormalSubstateNormal:
+			// The status is either empty, or [current_binding] if it exists.
+			if len(s.CurrentKeys) == 0 {
+				fmtStr = "%v"
+			} else {
+				fmtStr = "[<em>%v</em>]"
+			}
+		case states.NormalSubstateQuickmark:
+			fmtStr = "Open quickmark: <em>%v</em>"
+		case states.NormalSubstateQuickmarkTab:
+			fmtStr = "Open quickmark in new tab: <em>%v</em>"
+		case states.NormalSubstateQuickmarkWindow:
+			fmtStr = "Open quickmark in new window: <em>%v</em>"
+		case states.NormalSubstateQuickmarksRapid:
+			fmtStr = "Open quickmarks in background: <em>%v</em>"
 		}
+		newStatus = fmt.Sprintf(fmtStr,
+			keysToMarkupString(s.CurrentKeys, true, true))
 	case *cmd.InsertMode:
 		newStatus = "-- <em>insert</em> --"
 	case *cmd.CommandLineMode:
