@@ -2,7 +2,6 @@ package golem
 
 import (
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -19,6 +18,7 @@ type files struct {
 	downloadDir string
 }
 
+// configFiles is an array of all of golems config files.
 var configFiles = []string{
 	"golemrc",
 	"quickmarks",

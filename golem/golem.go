@@ -140,10 +140,9 @@ func (g *Golem) bind(from string, to string) {
 
 // quickmark adds a quickmark to golem.
 func (g *Golem) quickmark(from string, uri string) {
-	from = cmd.KeysString(cmd.ParseKeys(from))
 	g.wMutex.Lock()
+	defer g.wMutex.Unlock()
 	g.quickmarks[from] = uri
-	g.wMutex.Unlock()
 
 	for _, w := range g.windows {
 		w.rebuildQuickmarks()

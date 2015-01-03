@@ -2,12 +2,15 @@ package golem
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
+	"os"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/mattn/go-shellwords"
 	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/golem/states"
 	"github.com/tkerber/golem/webkit"
@@ -30,29 +33,29 @@ var commands map[string]func(*Window, *Golem, []string)
 // (which is executed after constant/variabel initialization.
 func init() {
 	commands = map[string]func(*Window, *Golem, []string){
-		//"aqm":             cmdAddQuickmark,
-		//"addquickmark":    cmdAddQuickmark,
-		"o":          cmdOpen,
-		"open":       cmdOpen,
-		"t":          cmdTabOpen,
-		"topen":      cmdTabOpen,
-		"tabopen":    cmdTabOpen,
-		"newtab":     cmdTabOpen,
-		"w":          cmdWindowOpen,
-		"wopen":      cmdWindowOpen,
-		"winopen":    cmdWindowOpen,
-		"windowopen": cmdWindowOpen,
-		"newwindow":  cmdWindowOpen,
-		"bind":       cmdBind,
-		"set":        cmdSet,
-		//"rmqm":            cmdRemoveQuickmark,
-		//"removequickmark": cmdRemoveQuickmark,
-		"q":         cmdQuit,
-		"quit":      cmdQuit,
-		"qall":      cmdQuitAll,
-		"quitall":   cmdQuitAll,
-		"qm":        cmdQuickmark,
-		"quickmark": cmdQuickmark,
+		"aqm":             cmdAddQuickmark,
+		"addquickmark":    cmdAddQuickmark,
+		"o":               cmdOpen,
+		"open":            cmdOpen,
+		"t":               cmdTabOpen,
+		"topen":           cmdTabOpen,
+		"tabopen":         cmdTabOpen,
+		"newtab":          cmdTabOpen,
+		"w":               cmdWindowOpen,
+		"wopen":           cmdWindowOpen,
+		"winopen":         cmdWindowOpen,
+		"windowopen":      cmdWindowOpen,
+		"newwindow":       cmdWindowOpen,
+		"bind":            cmdBind,
+		"set":             cmdSet,
+		"rmqm":            cmdRemoveQuickmark,
+		"removequickmark": cmdRemoveQuickmark,
+		"q":               cmdQuit,
+		"quit":            cmdQuit,
+		"qall":            cmdQuitAll,
+		"quitall":         cmdQuitAll,
+		"qm":              cmdQuickmark,
+		"quickmark":       cmdQuickmark,
 	}
 }
 
@@ -74,13 +77,105 @@ func logNonGlobalCommand() {
 	log.Printf("Non global command executed in a global contex.")
 }
 
+// cmdAddQuickmark adds a new quickmark and records it in the quickmarks file.
+func cmdAddQuickmark(w *Window, g *Golem, args []string) {
+	if len(args) != 3 {
+		w.logInvalidArgs(args)
+		return
+	}
+	sanitizedKeys := cmd.KeysString(cmd.ParseKeys(args[1]))
+	if _, ok := g.quickmarks[sanitizedKeys]; ok {
+		w.logError(fmt.Errorf(
+			"A quickmark with the keybinding '%[1]s' already exists. "+
+				"Remove it with 'rmqm %[1]s' first.", sanitizedKeys))
+		return
+	}
+	// Add quickmark to current session
+	g.quickmark(sanitizedKeys, args[2])
+	// Append quickmark to quickmarks config file.
+	f, err := os.OpenFile(g.files.quickmarks, os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		w.logError(err)
+		return
+	}
+	defer f.Close()
+	fmt.Fprintf(f, "qm\t%s\t%s\n", sanitizedKeys, args[2])
+}
+
+// cmdRemoveQuickmark removes a quickmark from golem and (if found) from the
+// quickmarks file.
+func cmdRemoveQuickmark(w *Window, g *Golem, args []string) {
+	if len(args) != 2 {
+		w.logInvalidArgs(args)
+		return
+	}
+	g.wMutex.Lock()
+	// First we guess that a key sequence is given, and try to delete that.
+	keyStr := cmd.KeysString(cmd.ParseKeys(args[1]))
+	if _, ok := g.quickmarks[args[1]]; ok {
+		delete(g.quickmarks, keyStr)
+	} else {
+		// We assume a uri is given and try to delete that.
+		found := false
+		for k, v := range g.quickmarks {
+			if v == args[1] {
+				delete(g.quickmarks, k)
+				found = true
+				break
+			}
+		}
+		if !found {
+			g.wMutex.Unlock()
+			w.logError(fmt.Errorf(
+				"Failed to delete quickmark '%s': Not found.", args[1]))
+			return
+		}
+	}
+	g.wMutex.Unlock()
+	// We also run through the quickmarks file and delete matching lines.
+	data, err := ioutil.ReadFile(g.files.quickmarks)
+	if err != nil {
+		w.logError(fmt.Errorf("Failed to read quickmarks file."))
+		return
+	}
+	lines := strings.Split(string(data), "\n")
+	for i := 0; i < len(lines); i++ {
+		parts, err := shellwords.Parse(lines[i])
+		if err != nil || len(parts) != 3 {
+			continue
+		}
+		if parts[0] != "qm" && parts[0] != "quickmark" {
+			continue
+		}
+		if parts[1] == keyStr || parts[2] == args[1] {
+			copy(lines[i:len(lines)-1], lines[i+1:])
+			lines = lines[:len(lines)-1]
+			i--
+		}
+	}
+	err = ioutil.WriteFile(
+		g.files.quickmarks,
+		[]byte(strings.Join(lines, "\n")),
+		0600)
+	if err != nil {
+		w.logError(fmt.Errorf("Failed to write to quickmarks file."))
+	}
+}
+
 // cmdQuickmark adds a new quickmark to golem.
 func cmdQuickmark(w *Window, g *Golem, args []string) {
 	if len(args) != 3 {
 		w.logInvalidArgs(args)
 		return
 	}
-	g.quickmark(args[1], args[2])
+	sanitizedKeys := cmd.KeysString(cmd.ParseKeys(args[1]))
+	if _, ok := g.quickmarks[sanitizedKeys]; ok {
+		w.logError(fmt.Errorf(
+			"A quickmark with the keybinding '%[1]s' already exists. "+
+				"Remove it with 'rmqm %[1]s' first.", sanitizedKeys))
+		return
+	}
+	g.quickmark(sanitizedKeys, args[2])
 }
 
 // cmdQuit quit closes the active window.

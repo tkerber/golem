@@ -403,3 +403,14 @@ func (w *Window) addDownload(d *webkit.Download) {
 		states.StatusSubstateMajor,
 		"Download started..."))
 }
+
+// logError logs (and displays) an error message.
+func (w *Window) logError(err error) {
+	if w != nil {
+		w.setState(cmd.NewStatusMode(
+			w.State,
+			states.StatusSubstateError,
+			err.Error()))
+	}
+	log.Printf(err.Error())
+}
