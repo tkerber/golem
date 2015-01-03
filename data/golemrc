@@ -45,5 +45,7 @@ bind B       builtin:quickmarksTab
 bind wb      builtin:quickmarksWindow
 bind ,b      builtin:quickmarksRapid
 
+bind m       builtin:toggleQuickmarks
+
 " Mediasource isn't supported enough for YouTube yet :(
 set webkit:enable-mediasource=true

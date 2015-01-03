@@ -197,6 +197,11 @@ func (wv *webView) GetWebView() *webkit.WebView {
 	return wv.WebView
 }
 
+// IsQuickmarked checks if the current uri is quickmarked.
+func (wv *webView) IsQuickmarked() bool {
+	return wv.parent.hasQuickmark[wv.GetURI()]
+}
+
 // setTabUI sets the tab display for the tab.
 func (wv *webView) setTabUI(t *ui.TabBarTab) {
 	handle, err := wv.WebView.Connect("notify::title", func(wv *webkit.WebView) {

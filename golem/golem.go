@@ -35,7 +35,8 @@ type Golem struct {
 	rawBindings        []cmd.RawBinding
 	// A map from sanitized keystring (i.e. parsed and stringified again) to
 	// uris.
-	quickmarks map[string]string
+	quickmarks   map[string]string
+	hasQuickmark map[string]bool
 
 	DefaultSettings *webkit.Settings
 	files           *files
@@ -73,6 +74,7 @@ func New(sBus *dbus.Conn, profile string) (*Golem, error) {
 		new(sync.Mutex),
 		make([]cmd.RawBinding, 0, 100),
 		make(map[string]string, 20),
+		make(map[string]bool, 20),
 		webkit.NewSettings(),
 		nil,
 		"",
@@ -143,6 +145,7 @@ func (g *Golem) quickmark(from string, uri string) {
 	g.wMutex.Lock()
 	defer g.wMutex.Unlock()
 	g.quickmarks[from] = uri
+	g.hasQuickmark[uri] = true
 
 	for _, w := range g.windows {
 		w.rebuildQuickmarks()

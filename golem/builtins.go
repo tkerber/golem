@@ -39,6 +39,7 @@ func builtinsFor(w *Window) cmd.Builtins {
 		"tabNext":          w.builtinTabNext,
 		"tabOpen":          w.builtinTabOpen,
 		"tabPrev":          w.builtinTabPrev,
+		"toggleQuickmark":  w.builtinToggleQuickmark,
 		"windowEditURI":    w.builtinWindowEditURI,
 		"windowOpen":       w.builtinWindowOpen,
 	}
@@ -80,6 +81,7 @@ func (w *Window) builtinEditURI(_ *int) {
 		w.State,
 		states.CommandLineSubstateCommand,
 		fmt.Sprintf("open %v", w.getWebView().GetURI()),
+		"",
 		w.runCmd))
 }
 
@@ -107,7 +109,7 @@ func (w *Window) builtinNop(_ *int) {}
 
 // builtinOpen initiates command mode, primed with an open command.
 func (w *Window) builtinOpen(_ *int) {
-	w.setState(cmd.NewPartialCommandLineMode(w.State, states.CommandLineSubstateCommand, "open ", w.runCmd))
+	w.setState(cmd.NewPartialCommandLineMode(w.State, states.CommandLineSubstateCommand, "open ", "", w.runCmd))
 }
 
 // builtinPanic causes a panic. You probably don't want to use this.
@@ -233,6 +235,7 @@ func (w *Window) builtinTabEditURI(_ *int) {
 		w.State,
 		states.CommandLineSubstateCommand,
 		fmt.Sprintf("tabopen %v", w.getWebView().GetURI()),
+		"",
 		w.runCmd))
 }
 
@@ -256,7 +259,7 @@ func (w *Window) builtinTabNext(n *int) {
 
 // builtinTabOpen initiates command mode primed with a tabopen command.
 func (w *Window) builtinTabOpen(_ *int) {
-	w.setState(cmd.NewPartialCommandLineMode(w.State, states.CommandLineSubstateCommand, "tabopen ", w.runCmd))
+	w.setState(cmd.NewPartialCommandLineMode(w.State, states.CommandLineSubstateCommand, "tabopen ", "", w.runCmd))
 }
 
 // builtinTabPrev goes to the previous tab.
@@ -271,6 +274,22 @@ func (w *Window) builtinTabPrev(n *int) {
 	w.tabGo(newTab)
 }
 
+// builtinToggleQuickmark toggles the quickmark state of the current site.
+func (w *Window) builtinToggleQuickmark(_ *int) {
+	// TODO confirm on delete.
+	uri := w.getWebView().GetURI()
+	if _, ok := w.parent.hasQuickmark[uri]; ok {
+		cmdRemoveQuickmark(w, w.parent, []string{"", uri})
+	} else {
+		w.setState(cmd.NewPartialCommandLineMode(
+			w.State,
+			states.CommandLineSubstateCommand,
+			"addquickmark ",
+			" "+uri,
+			w.runCmd))
+	}
+}
+
 // builtinWindowEditURI initiates command mode with a winopen command primed
 // for the current URI.
 func (w *Window) builtinWindowEditURI(_ *int) {
@@ -278,12 +297,13 @@ func (w *Window) builtinWindowEditURI(_ *int) {
 		w.State,
 		states.CommandLineSubstateCommand,
 		fmt.Sprintf("winopen %v", w.getWebView().GetURI()),
+		"",
 		w.runCmd))
 }
 
 // builtinWindowOpen initiates command mode primed with a winopen command.
 func (w *Window) builtinWindowOpen(_ *int) {
-	w.setState(cmd.NewPartialCommandLineMode(w.State, states.CommandLineSubstateCommand, "winopen ", w.runCmd))
+	w.setState(cmd.NewPartialCommandLineMode(w.State, states.CommandLineSubstateCommand, "winopen ", "", w.runCmd))
 }
 
 // scrollDelta scrolls a given amount of pixes either vertically or

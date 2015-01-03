@@ -332,17 +332,24 @@ func NewCommandLineMode(s State, st Substate, f func(string)) *CommandLineMode {
 // NewPartialCommandLineMode acts like NewCommandLineMode, except that it
 // defaults to a provided string as the command line instead of an empty one.
 //
-// Note that the string is parsed into it's Key components; if this fails,
-// it defaults back to an empty string.
+// Note that the strings are parsed into their Key components.
 func NewPartialCommandLineMode(
-	s State, st Substate, part string, f func(string)) *CommandLineMode {
+	s State,
+	st Substate,
+	beforeCursor,
+	afterCursor string,
+	f func(string)) *CommandLineMode {
 
-	keys := ParseKeys(part)
+	keysBC := ParseKeys(beforeCursor)
+	keysAC := ParseKeys(afterCursor)
+	keys := make([]Key, len(keysBC)+len(keysAC))
+	copy(keys[:len(keysBC)], keysBC)
+	copy(keys[len(keysBC):], keysAC)
 	return &CommandLineMode{
 		s.GetStateIndependant(),
 		st,
 		keys,
-		len(keys),
+		len(keysBC),
 		f}
 }
 

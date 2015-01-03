@@ -92,6 +92,9 @@ func cmdAddQuickmark(w *Window, g *Golem, args []string) {
 	}
 	// Add quickmark to current session
 	g.quickmark(sanitizedKeys, args[2])
+	if w != nil {
+		go w.UpdateLocation()
+	}
 	// Append quickmark to quickmarks config file.
 	f, err := os.OpenFile(g.files.quickmarks, os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
@@ -113,6 +116,7 @@ func cmdRemoveQuickmark(w *Window, g *Golem, args []string) {
 	// First we guess that a key sequence is given, and try to delete that.
 	keyStr := cmd.KeysString(cmd.ParseKeys(args[1]))
 	if _, ok := g.quickmarks[args[1]]; ok {
+		delete(g.hasQuickmark, g.quickmarks[keyStr])
 		delete(g.quickmarks, keyStr)
 	} else {
 		// We assume a uri is given and try to delete that.
@@ -120,6 +124,7 @@ func cmdRemoveQuickmark(w *Window, g *Golem, args []string) {
 		for k, v := range g.quickmarks {
 			if v == args[1] {
 				delete(g.quickmarks, k)
+				delete(g.hasQuickmark, v)
 				found = true
 				break
 			}
@@ -132,6 +137,9 @@ func cmdRemoveQuickmark(w *Window, g *Golem, args []string) {
 		}
 	}
 	g.wMutex.Unlock()
+	if w != nil {
+		go w.UpdateLocation()
+	}
 	// We also run through the quickmarks file and delete matching lines.
 	data, err := ioutil.ReadFile(g.files.quickmarks)
 	if err != nil {
@@ -176,6 +184,9 @@ func cmdQuickmark(w *Window, g *Golem, args []string) {
 		return
 	}
 	g.quickmark(sanitizedKeys, args[2])
+	if w != nil {
+		go w.UpdateLocation()
+	}
 }
 
 // cmdQuit quit closes the active window.

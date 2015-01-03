@@ -7,4 +7,5 @@ type WebView interface {
 	GetTop() int64
 	GetHeight() int64
 	GetWebView() *webkit.WebView
+	IsQuickmarked() bool
 }

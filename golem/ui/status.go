@@ -142,6 +142,14 @@ func (w *Window) UpdateLocation() {
 		loadStr = fmt.Sprintf("[<load>%02d%%</load>]", int(load*100))
 	}
 
+	markStr := ""
+	if w.IsQuickmarked() {
+		markStr += "q"
+	}
+	if markStr != "" {
+		markStr = "[<em>" + markStr + "</em>]"
+	}
+
 	var pos string
 	visible := int64(wv.GetAllocatedHeight())
 	if int64(visible) >= w.GetHeight() {
@@ -156,10 +164,11 @@ func (w *Window) UpdateLocation() {
 	}
 
 	locStr := fmt.Sprintf(
-		"%s %s%s[<em>%d</em>/<em>%d</em>][<em>%s</em>]",
+		"%s %s%s%s[<em>%d</em>/<em>%d</em>][<em>%s</em>]",
 		uriStr,
 		backForward,
 		loadStr,
+		markStr,
 		w.TabNumber,
 		w.TabCount,
 		pos,
