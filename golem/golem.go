@@ -204,6 +204,13 @@ func (g *Golem) watchSignals(c <-chan *dbus.Signal) {
 	}
 }
 
+// Close closes golem.
+func (g *Golem) Close() {
+	for _, w := range g.windows {
+		w.Close()
+	}
+}
+
 // closeWindow updates bookkeeping after a window was closed.
 func (g *Golem) closeWindow(w *Window) {
 	g.wMutex.Lock()

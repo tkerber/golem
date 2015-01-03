@@ -20,6 +20,7 @@ import (
 
 // main runs golem (yay!)
 func main() {
+	defer func() { os.Exit(exitCode) }()
 	// Init command line flags.
 	var profile string
 	flag.StringVar(
@@ -97,6 +98,7 @@ func main() {
 		// loop can be stopped and restarted in a goroutine, this makes
 		// more sense.
 		go gtk.Main()
+		handleSignals(g)
 		<-g.Quit
 		sBus.ReleaseName(golem.DBusName)
 	// If not, we attach to the existing one.

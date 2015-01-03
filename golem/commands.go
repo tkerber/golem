@@ -94,9 +94,7 @@ func cmdQuit(w *Window, g *Golem, _ []string) {
 
 // cmdQuitAll closes all of golems windows.
 func cmdQuitAll(w *Window, g *Golem, _ []string) {
-	for _, w := range g.windows {
-		w.Close()
-	}
+	g.Close()
 }
 
 // cmdOpen opens a uri in the current tab.
