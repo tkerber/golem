@@ -216,16 +216,14 @@ func (w *Window) builtinScrollUp(n *int) {
 // builtinTabClose closes the current tab.
 func (w *Window) builtinTabClose(n *int) {
 	num := getWithDefault(n, 1, 0, len(w.webViews))
-	// For the first num - 1 closes, close the tab after the current one, if
-	// it exists. Then close the current one.
-	for i := 0; i < num-1; i++ {
-		if w.currentWebView+1 < len(w.webViews) {
-			w.tabClose(w.currentWebView + 1)
-		} else {
-			w.tabClose(w.currentWebView)
-		}
+	i := w.currentWebView
+	j := i + num
+	if j > len(w.webViews) {
+		diff := j - len(w.webViews)
+		i -= diff
+		j -= diff
 	}
-	w.tabClose(w.currentWebView)
+	w.tabsClose(i, j)
 }
 
 // builtinTabEditURI initiates command mode with a tabopen command primed for

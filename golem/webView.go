@@ -14,6 +14,7 @@ import (
 	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/golem/states"
 	"github.com/tkerber/golem/golem/ui"
+	ggtk "github.com/tkerber/golem/gtk"
 	"github.com/tkerber/golem/webkit"
 )
 
@@ -33,11 +34,13 @@ type webView struct {
 
 // newWebView creates a new webView using given settings as a template.
 func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
-	wv, err := webkit.NewWebViewWithUserContentManager(
+	rets := ggtk.GlibMainContextInvoke(
+		webkit.NewWebViewWithUserContentManager,
 		w.parent.userContentManager)
-	if err != nil {
-		return nil, err
+	if rets[1] != nil {
+		return nil, rets[1].(error)
 	}
+	wv := rets[0].(*webkit.WebView)
 
 	// Each WebView gets it's own settings, to allow toggling settings on a
 	// per tab and/or per window basis.
@@ -196,12 +199,18 @@ func (wv *webView) GetWebView() *webkit.WebView {
 
 // setTabUI sets the tab display for the tab.
 func (wv *webView) setTabUI(t *ui.TabBarTab) {
-	wv.WebView.Connect("notify::title", func(wv *webkit.WebView) {
+	handle, err := wv.WebView.Connect("notify::title", func(wv *webkit.WebView) {
 		t.SetTitle(wv.GetTitle())
 	})
-	wv.WebView.Connect("notify::estimated-load-progress", func(wv *webkit.WebView) {
+	if err == nil {
+		wv.handles = append(wv.handles, handle)
+	}
+	handle, err = wv.WebView.Connect("notify::estimated-load-progress", func(wv *webkit.WebView) {
 		t.SetLoadProgress(wv.GetEstimatedLoadProgress())
 	})
+	if err == nil {
+		wv.handles = append(wv.handles, handle)
+	}
 	wv.tabUI = t
 }
 
@@ -211,12 +220,12 @@ func (wv *webView) close() {
 		wv.WebView.HandlerDisconnect(handle)
 	}
 	wv.parent.wMutex.Lock()
-	defer wv.parent.wMutex.Unlock()
 	delete(wv.parent.webViews, wv.id)
 	wv.window = nil
+	wv.parent.wMutex.Unlock()
 	if p, _ := wv.WebView.GetParent(); p != nil {
 		cont := &gtk.Container{*p}
-		ui.GlibMainContextInvoke(cont.Remove, wv.WebView)
+		ggtk.GlibMainContextInvoke(cont.Remove, wv.WebView)
 	}
 	schedGc()
 }

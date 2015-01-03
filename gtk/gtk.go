@@ -1,4 +1,4 @@
-package ui
+package gtk
 
 // #cgo pkg-config: glib-2.0
 // #include <glib.h>

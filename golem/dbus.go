@@ -6,7 +6,6 @@ import (
 	"github.com/guelfey/go.dbus"
 	"github.com/guelfey/go.dbus/introspect"
 	"github.com/mattn/go-shellwords"
-	"github.com/tkerber/golem/golem/ui"
 	"github.com/tkerber/golem/webkit"
 )
 
@@ -65,10 +64,7 @@ func (g *Golem) CreateDBusWrapper() *DBusGolem {
 
 // NewWindow creates a new window in golem's main process.
 func (g *DBusGolem) NewWindow() *dbus.Error {
-	var err error
-	ui.GlibMainContextInvoke(func() {
-		_, err = g.golem.NewWindow("")
-	})
+	_, err := g.golem.NewWindow("")
 	if err != nil {
 		return &dbus.Error{
 			fmt.Sprintf(DBusName+".Error", g.golem.profile),
@@ -81,14 +77,14 @@ func (g *DBusGolem) NewTab(uri string) *dbus.Error {
 	// we try to split it into parts to allow searches to be passed
 	// via command line. If this fails, we ignore the error and just
 	// pass the whole string instead.
-	ui.GlibMainContextInvoke(func() {
-		parts, err := shellwords.Parse(uri)
-		if err != nil {
-			parts = []string{uri}
-		}
-		uri = g.golem.OpenURI(parts)
-		g.golem.windows[0].NewTab(uri)
-	})
+	parts, err := shellwords.Parse(uri)
+	if err != nil {
+		parts = []string{uri}
+	}
+	uri = g.golem.OpenURI(parts)
+	w := g.golem.windows[0]
+	w.NewTab(uri)
+	w.tabNext()
 	return nil
 }
 

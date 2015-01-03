@@ -8,6 +8,7 @@ import (
 
 	"github.com/conformal/gotk3/gtk"
 	"github.com/conformal/gotk3/pango"
+	ggtk "github.com/tkerber/golem/gtk"
 )
 
 // A TabBar is a bar containing tab displays.
@@ -35,37 +36,64 @@ func NewTabBar(parent *Window) (*TabBar, error) {
 	return tabBar, nil
 }
 
-// AppendTab creates a new TabBarTab and appends it to the TabBar.
+// AppendTab is a wrapper around appendTabs which appends a single TabBarTab
+// to the TabBar.
 func (tb *TabBar) AppendTab() (*TabBarTab, error) {
-	tab, err := newTabBarTab(tb, len(tb.tabs))
+	tabs, err := tb.appendTabs(1)
 	if err != nil {
 		return nil, err
 	}
-	GlibMainContextInvoke(func() {
-		tb.tabs = append(tb.tabs, tab)
-		tb.PackStart(tab.Label, false, false, 0)
-		tab.Label.Show()
-		tab.redraw()
+	return tabs[0], nil
+}
+
+// appendTabs creates a new sequence of TabBarTabs and appends them to the
+// TabBar.
+func (tb *TabBar) appendTabs(n int) ([]*TabBarTab, error) {
+	tabs := make([]*TabBarTab, n)
+	for i := 0; i < n; i++ {
+		tab, err := newTabBarTab(tb, len(tb.tabs)+i)
+		if err != nil {
+			return nil, err
+		}
+		tabs[i] = tab
+	}
+	ggtk.GlibMainContextInvoke(func() {
+		for _, tab := range tabs {
+			tb.tabs = append(tb.tabs, tab)
+			tb.PackStart(tab.Label, false, false, 0)
+			tab.Label.Show()
+			tab.redraw()
+		}
 	})
 
 	tb.UpdateFormatString()
-	return tab, nil
+	return tabs, nil
 }
 
-// AddTab creates a new TabBarTab and adds it into a specified position.
-func (tb *TabBar) AddTab(pos int) (*TabBarTab, error) {
-	tab, err := tb.AppendTab()
+// AddTab is a wrapper around AddTabs which inserts a single tab at the
+// specified index.
+func (tb *TabBar) AddTab(i int) (*TabBarTab, error) {
+	tabs, err := tb.AddTabs(i, i+1)
 	if err != nil {
 		return nil, err
 	}
-	tb.MoveTab(pos, len(tb.tabs)-1)
-	return tab, nil
+	return tabs[0], nil
+}
+
+// AddTabs creates a new sequence of tabs between two indicies.
+func (tb *TabBar) AddTabs(i, j int) ([]*TabBarTab, error) {
+	tabs, err := tb.appendTabs(j - i)
+	if err != nil {
+		return nil, err
+	}
+	tb.moveTabs(i, len(tb.tabs)-(j-i), len(tb.tabs))
+	return tabs, nil
 }
 
 // UpdateFormatString checks if the format string is still valid, and if not,
 // updates it and redraws all tabs.
 func (tb *TabBar) UpdateFormatString() {
-	GlibMainContextInvoke(func() {
+	ggtk.GlibMainContextInvoke(func() {
 		var numLen int
 		numLen = int(math.Floor(math.Log10(float64(len(tb.tabs))))) + 1
 		fmtString := fmt.Sprintf("<num>%%0%dd</num> %%s", numLen)
@@ -85,33 +113,40 @@ func (tb *TabBar) UpdateFormatString() {
 	})
 }
 
-// MoveTab moves a tab from a specified index to another.
-func (tb *TabBar) MoveTab(to, from int) {
-	GlibMainContextInvoke(func() {
-		tab := tb.tabs[from]
-		tb.ReorderChild(tab.Label, to)
-		if from > to {
-			// move tabs further along tabs array.
-			copy(
-				tb.tabs[to+1:from+1],
-				tb.tabs[to:from])
-			// insert tab
-			tb.tabs[to] = tab
-			// redraw all affected tabs
-			for i, t := range tb.tabs[to : from+1] {
-				t.index = to + i
-				t.redraw()
+// moveTabs moves a block of tabs from one space to another.
+func (tb *TabBar) moveTabs(toStart, fromStart, fromEnd int) {
+	ggtk.GlibMainContextInvoke(func() {
+		toEnd := toStart + (fromEnd - fromStart)
+		tabs := make([]*TabBarTab, fromEnd-fromStart)
+		copy(tabs, tb.tabs[fromStart:fromEnd])
+		if toStart > fromStart {
+			for i := len(tabs) - 1; i >= 0; i-- {
+				tb.ReorderChild(tabs[i].Label, i+toStart)
 			}
-		} else if to > from {
 			// move tabs back along tabs array.
 			copy(
-				tb.tabs[from:to],
-				tb.tabs[from+1:to+1])
-			// insert tab
-			tb.tabs[to] = tab
+				tb.tabs[fromStart:toStart],
+				tb.tabs[fromEnd:toEnd])
+			// insert tabs
+			copy(tb.tabs[toStart:toEnd], tabs)
 			// redraw all affected tabs
-			for i, t := range tb.tabs[from : to+1] {
-				t.index = from + i
+			for i, t := range tb.tabs[fromStart:toEnd] {
+				t.index = fromStart + i
+				t.redraw()
+			}
+		} else if toStart < fromStart {
+			for i, tab := range tabs {
+				tb.ReorderChild(tab.Label, i+toStart)
+			}
+			// move tas further along tabs array.
+			copy(
+				tb.tabs[toEnd:fromEnd],
+				tb.tabs[toStart:fromStart])
+			// insert tabs
+			copy(tb.tabs[toStart:toEnd], tabs)
+			// redraw all affected tabs
+			for i, t := range tb.tabs[toStart:fromEnd] {
+				t.index = toStart + i
 				t.redraw()
 			}
 		}
@@ -122,7 +157,7 @@ func (tb *TabBar) MoveTab(to, from int) {
 //
 // Any currently focused tab is unfocused.
 func (tb *TabBar) FocusTab(i int) {
-	GlibMainContextInvoke(func() {
+	ggtk.GlibMainContextInvoke(func() {
 		if tb.focused != nil {
 			tb.focused.focused = false
 			tb.focused.redraw()
@@ -133,24 +168,25 @@ func (tb *TabBar) FocusTab(i int) {
 	})
 }
 
-// PopTab removes the last tab.
-func (tb *TabBar) PopTab() {
-	GlibMainContextInvoke(func() {
-		tab := tb.tabs[len(tb.tabs)-1]
-		tb.Remove(tab)
-		tb.tabs = tb.tabs[:len(tb.tabs)-1]
-		if tab == tb.focused {
-			tb.focused = nil
+// popTabs removes the n tabs
+func (tb *TabBar) popTabs(n int) {
+	ggtk.GlibMainContextInvoke(func() {
+		for _, tab := range tb.tabs[len(tb.tabs)-n:] {
+			tb.Remove(tab)
+			if tab == tb.focused {
+				tb.focused = nil
+			}
 		}
+		tb.tabs = tb.tabs[:len(tb.tabs)-n]
 	})
 
 	tb.UpdateFormatString()
 }
 
-// CloseTab removes the tab at the given index.
-func (tb *TabBar) CloseTab(i int) {
-	tb.MoveTab(len(tb.tabs)-1, i)
-	tb.PopTab()
+// CloseTabs removes the tabs between the given indicies (slice indexes)
+func (tb *TabBar) CloseTabs(i, j int) {
+	tb.moveTabs(len(tb.tabs)-(j-i), i, j)
+	tb.popTabs(j - i)
 }
 
 // A TabBarTab is the display of a single tab name.
@@ -181,13 +217,13 @@ func newTabBarTab(parent *TabBar, index int) (*TabBarTab, error) {
 // SetTitle sets the tabs title.
 func (t *TabBarTab) SetTitle(title string) {
 	t.title = title
-	GlibMainContextInvoke(t.redraw)
+	ggtk.GlibMainContextInvoke(t.redraw)
 }
 
 // SetLoadProgress sets the load progress to be displayed for this tab.
 func (t *TabBarTab) SetLoadProgress(to float64) {
 	t.loadProgress = to
-	GlibMainContextInvoke(t.redraw)
+	ggtk.GlibMainContextInvoke(t.redraw)
 }
 
 // redraw redraws the tab.

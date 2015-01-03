@@ -1,0 +1,8 @@
+" This file contains registered quickmarks.
+"
+" This file is automatically updated, and while inserting other commands into
+" it should work fine, that's what the rc file is for.
+"
+" Similarly, the qm/quickmark command can easily be used in the rc file.
+" Doing so has the effect that the quickmark cannot be removed by golem itself,
+" and must be manually removed from the rc file.

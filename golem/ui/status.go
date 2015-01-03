@@ -8,6 +8,7 @@ import (
 	"github.com/conformal/gotk3/gtk"
 	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/golem/states"
+	ggtk "github.com/tkerber/golem/gtk"
 )
 
 // keyMatcher matches a single already escaped "key" (i.e. value in angular
@@ -42,12 +43,12 @@ type StatusBar struct {
 
 // SetLocationMarkup sets the text markup of the location.
 func (s *StatusBar) SetLocationMarkup(label string) {
-	GlibMainContextInvoke(s.LocationStatus.SetMarkup, label)
+	ggtk.GlibMainContextInvoke(s.LocationStatus.SetMarkup, label)
 }
 
 // SetCmdMarkup sets the text markup of the command status.
 func (s *StatusBar) SetCmdMarkup(label string) {
-	GlibMainContextInvoke(s.CmdStatus.SetMarkup, label)
+	ggtk.GlibMainContextInvoke(s.CmdStatus.SetMarkup, label)
 }
 
 // UpdateState updates the (command) state display of the window.

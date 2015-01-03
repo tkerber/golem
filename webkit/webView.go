@@ -17,6 +17,7 @@ import (
 
 	"github.com/conformal/gotk3/glib"
 	"github.com/conformal/gotk3/gtk"
+	ggtk "github.com/tkerber/golem/gtk"
 )
 
 // init registers the WebView type marshaler to glib.
@@ -51,7 +52,9 @@ func NewWebView() (*WebView, error) {
 	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(w))}
 	webView := wrapWebView(obj)
 	obj.RefSink()
-	runtime.SetFinalizer(obj, (*glib.Object).Unref)
+	runtime.SetFinalizer(obj, func(o *glib.Object) {
+		ggtk.GlibMainContextInvoke((*glib.Object).Unref, o)
+	})
 	return webView, nil
 }
 
@@ -66,7 +69,9 @@ func NewWebViewWithUserContentManager(ucm *UserContentManager) (*WebView, error)
 	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(w))}
 	webView := wrapWebView(obj)
 	obj.RefSink()
-	runtime.SetFinalizer(obj, (*glib.Object).Unref)
+	runtime.SetFinalizer(obj, func(o *glib.Object) {
+		ggtk.GlibMainContextInvoke((*glib.Object).Unref, o)
+	})
 	return webView, nil
 }
 

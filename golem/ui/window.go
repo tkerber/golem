@@ -11,6 +11,7 @@ import (
 
 	"github.com/conformal/gotk3/gtk"
 	"github.com/conformal/gotk3/pango"
+	ggtk "github.com/tkerber/golem/gtk"
 )
 
 // A Window is one of golem's windows.
@@ -29,6 +30,17 @@ type Window struct {
 
 // NewWindow creates a new window containing the given WebView.
 func NewWindow(webView WebView) (*Window, error) {
+	rets := ggtk.GlibMainContextInvoke(newWindow, webView)
+	if rets[1] != nil {
+		return nil, rets[1].(error)
+	}
+	return rets[0].(*Window), nil
+}
+
+// newWindow creates a new window containing the given WebView.
+//
+// MUST BE CALLED IN GLIB'S MAIN CONTEXT.
+func newWindow(webView WebView) (*Window, error) {
 	colors := NewColorScheme(
 		0xffffff,
 		0x888888,
@@ -149,29 +161,33 @@ func NewWindow(webView WebView) (*Window, error) {
 
 // Show shows the window.
 func (w *Window) Show() {
-	w.Window.ShowAll()
+	ggtk.GlibMainContextInvoke(w.Window.ShowAll)
 }
 
 // HideUI hides all UI (non-webkit) elements.
 func (w *Window) HideUI() {
-	w.StatusBar.container.Hide()
-	w.TabBar.Box.Hide()
+	ggtk.GlibMainContextInvoke(func() {
+		w.StatusBar.container.Hide()
+		w.TabBar.Box.Hide()
+	})
 }
 
 // ShowUI shows all UI elements.
 func (w *Window) ShowUI() {
-	w.StatusBar.container.Show()
-	w.TabBar.Box.Show()
+	ggtk.GlibMainContextInvoke(func() {
+		w.StatusBar.container.Show()
+		w.TabBar.Box.Show()
+	})
 }
 
 // SetTitle wraps gtk.Window.SetTitle in glib's main context.
 func (w *Window) SetTitle(title string) {
-	GlibMainContextInvoke(w.Window.SetTitle, title)
+	ggtk.GlibMainContextInvoke(w.Window.SetTitle, title)
 }
 
 // SwitchToWebView switches the shown web view.
 func (w *Window) SwitchToWebView(wv WebView) {
-	GlibMainContextInvoke(func() {
+	ggtk.GlibMainContextInvoke(func() {
 		wvWidget := wv.GetWebView()
 		w.webViewStack.SetVisibleChild(wvWidget)
 		w.WebView = wv
@@ -181,7 +197,7 @@ func (w *Window) SwitchToWebView(wv WebView) {
 
 // AttachWebView connects a web view to the window, but doesn't show it yet.
 func (w *Window) AttachWebView(wv WebView) {
-	GlibMainContextInvoke(func() {
+	ggtk.GlibMainContextInvoke(func() {
 		wv := wv.GetWebView()
 		w.webViewStack.Add(wv)
 		wv.Show()

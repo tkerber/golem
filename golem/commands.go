@@ -30,6 +30,8 @@ var commands map[string]func(*Window, *Golem, []string)
 // (which is executed after constant/variabel initialization.
 func init() {
 	commands = map[string]func(*Window, *Golem, []string){
+		//"aqm":             cmdAddQuickmark,
+		//"addquickmark":    cmdAddQuickmark,
 		"o":          cmdOpen,
 		"open":       cmdOpen,
 		"t":          cmdTabOpen,
@@ -43,10 +45,14 @@ func init() {
 		"newwindow":  cmdWindowOpen,
 		"bind":       cmdBind,
 		"set":        cmdSet,
-		"q":          cmdQuit,
-		"qm":         cmdQuickmark,
-		"quit":       cmdQuit,
-		"quickmark":  cmdQuickmark,
+		//"rmqm":            cmdRemoveQuickmark,
+		//"removequickmark": cmdRemoveQuickmark,
+		"q":         cmdQuit,
+		"quit":      cmdQuit,
+		"qall":      cmdQuitAll,
+		"quitall":   cmdQuitAll,
+		"qm":        cmdQuickmark,
+		"quickmark": cmdQuickmark,
 	}
 }
 
@@ -84,6 +90,13 @@ func cmdQuit(w *Window, g *Golem, _ []string) {
 		return
 	}
 	w.Close()
+}
+
+// cmdQuitAll closes all of golems windows.
+func cmdQuitAll(w *Window, g *Golem, _ []string) {
+	for _, w := range g.windows {
+		w.Close()
+	}
 }
 
 // cmdOpen opens a uri in the current tab.

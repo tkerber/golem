@@ -16,7 +16,7 @@ import (
 // Build web extension & pdf.js
 //go:generate make all
 // Pack data
-//go:generate go-bindata -o golem/bindata.go -nomemcopy -prefix data data/...
+//go:generate go-bindata -o golem/bindata.go -pkg golem -nomemcopy -prefix data data/...
 
 // main runs golem (yay!)
 func main() {

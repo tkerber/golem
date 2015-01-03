@@ -87,37 +87,45 @@ func (w *Window) tabGo(index int) error {
 	return nil
 }
 
-// tabClose closes the current tab.
-func (w *Window) tabClose(i int) {
+// tabsClose closes the tabs from index i to j (slice indexes)
+func (w *Window) tabsClose(i, j int) {
+	if len(w.webViews) == j-i {
+		w.Window.Close()
+		return
+	}
 	w.wMutex.Lock()
 	defer w.wMutex.Unlock()
-	wv := w.webViews[i]
+	k := len(w.webViews) - (j - i)
+	wvs := make([]*webView, j-i)
+	copy(wvs, w.webViews[i:j])
 	copy(
-		w.webViews[i:len(w.webViews)-1],
-		w.webViews[i+1:])
-	activeWebView := w.currentWebView == i
-	if w.currentWebView > i {
-		w.currentWebView--
+		w.webViews[i:k],
+		w.webViews[j:])
+	for i, _ := range w.webViews[k:] {
+		w.webViews[i+k] = nil
 	}
-	w.webViews[len(w.webViews)-1] = nil
-	w.webViews = w.webViews[:len(w.webViews)-1]
-	w.Window.CloseTab(i)
-	wv.close()
-	if len(w.webViews) == 0 {
-		w.Window.Close()
-	} else if activeWebView {
-		j := w.currentWebView - 1
-		if j < 0 {
-			j = 0
+	if w.currentWebView > j {
+		w.currentWebView -= (j - i)
+	}
+	w.webViews = w.webViews[:len(w.webViews)-(j-i)]
+	w.Window.CloseTabs(i, j)
+	for _, wv := range wvs {
+		wv.close()
+	}
+	activeWebView := w.currentWebView >= i && w.currentWebView <= j
+	if activeWebView {
+		k := i - 1
+		if k < 0 {
+			k = 0
 		}
-		w.currentWebView = j
-		w.Window.TabNumber = j + 1
+		w.currentWebView = k
+		w.Window.TabNumber = k + 1
 		wv := w.getWebView()
-		w.Window.FocusTab(j)
 		w.reconnectWebViewSignals()
-		w.SwitchToWebView(wv)
+		w.Window.FocusTab(k)
+		w.Window.SwitchToWebView(wv)
 		w.Window.TabCount = len(w.webViews)
-		go w.UpdateLocation()
+		go w.Window.UpdateLocation()
 	}
 }
 

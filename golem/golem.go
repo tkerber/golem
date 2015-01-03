@@ -1,8 +1,10 @@
 package golem
 
 import (
+	"bufio"
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -88,15 +90,27 @@ func New(sBus *dbus.Conn, profile string) (*Golem, error) {
 	sBus.Signal(sigChan)
 	go g.watchSignals(sigChan)
 
-	rc, err := g.files.readRC()
-	if err != nil {
-		return nil, err
-	}
-	for _, rcLine := range strings.Split(rc, "\n") {
-		runCmd(nil, g, rcLine)
+	for _, rcfile := range g.files.rcFiles() {
+		err := g.useRcFile(rcfile)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return g, nil
+}
+
+func (g *Golem) useRcFile(file string) error {
+	f, err := os.Open(file)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		runCmd(nil, g, scanner.Text())
+	}
+	return nil
 }
 
 // bind creates a new key binding.

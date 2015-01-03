@@ -273,14 +273,12 @@ func (w *Window) quickmarkCallback(keys []cmd.Key, _ *int, s cmd.Substate) {
 	case states.NormalSubstateQuickmark:
 		w.getWebView().LoadURI(uri)
 	case states.NormalSubstateQuickmarkTab:
-		ui.GlibMainContextInvoke(func() {
-			w.NewTab(uri)
-			w.tabNext()
-		})
+		w.NewTab(uri)
+		w.tabNext()
 	case states.NormalSubstateQuickmarkWindow:
-		ui.GlibMainContextInvoke(w.parent.NewWindow, uri)
+		w.parent.NewWindow(uri)
 	case states.NormalSubstateQuickmarksRapid:
-		ui.GlibMainContextInvoke(w.NewTab, uri)
+		w.NewTab(uri)
 		w.setState(cmd.NewNormalModeWithSubstate(
 			w.State,
 			states.NormalSubstateQuickmarksRapid))

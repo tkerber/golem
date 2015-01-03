@@ -41,6 +41,9 @@ bind wo      builtin:windowOpen
 bind we      builtin:windowEditURI
 
 bind b       builtin:quickmarks
+bind B       builtin:quickmarksTab
+bind wb      builtin:quickmarksWindow
+bind ,b      builtin:quickmarksRapid
 
 " Mediasource isn't supported enough for YouTube yet :(
 set webkit:enable-mediasource=true

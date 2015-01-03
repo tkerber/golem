@@ -15,7 +15,13 @@ type files struct {
 	cacheDir    string
 	cookies     string
 	rc          string
+	quickmarks  string
 	downloadDir string
+}
+
+var configFiles = []string{
+	"golemrc",
+	"quickmarks",
 }
 
 // newFiles initializes the files golem uses.
@@ -58,28 +64,46 @@ func (g *Golem) newFiles() (*files, error) {
 
 	cookies := filepath.Join(configDir, "cookies")
 
-	rc := filepath.Join(configDir, "golemrc")
-	// If the rc file does not exist, we create it with defaultRc as its
-	// content.
-	_, err = os.Stat(rc)
-	if err != nil && os.IsNotExist(err) {
-		defaultRc, err := Asset("golemrc")
-		if err != nil {
-			return nil, err
-		}
-		err = ioutil.WriteFile(rc, defaultRc, 0600)
-		if err != nil {
-			return nil, err
-		}
-	} else if err != nil {
+	configFiles, err := initConfigFiles(configDir)
+	if err != nil {
 		return nil, err
 	}
 
-	return &files{configDir, cacheDir, cookies, rc, downloads}, nil
+	return &files{
+		configDir,
+		cacheDir,
+		cookies,
+		configFiles[0],
+		configFiles[1],
+		downloads}, nil
 }
 
-// readRC reades the RC file.
-func (fs *files) readRC() (string, error) {
-	data, err := ioutil.ReadFile(fs.rc)
-	return string(data), err
+// rcFiles returns a list of all files golem should use as rc files.
+func (fs *files) rcFiles() []string {
+	return []string{fs.rc, fs.quickmarks}
+}
+
+// initConfigFiles ensures all config files exist in the specified config
+// dir.
+func initConfigFiles(configDir string) ([]string, error) {
+	locations := make([]string, len(configFiles))
+	for i, file := range configFiles {
+		locations[i] = filepath.Join(configDir, file)
+		// If the config file does not exist, we create it with the default
+		// content.
+		_, err := os.Stat(locations[i])
+		if err != nil && os.IsNotExist(err) {
+			defaultCont, err := Asset(file)
+			if err != nil {
+				return nil, err
+			}
+			err = ioutil.WriteFile(locations[i], defaultCont, 0600)
+			if err != nil {
+				return nil, err
+			}
+		} else if err != nil {
+			return nil, err
+		}
+	}
+	return locations, nil
 }
