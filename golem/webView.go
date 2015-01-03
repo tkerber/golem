@@ -221,8 +221,8 @@ func (wv *webView) close() {
 	}
 	wv.parent.wMutex.Lock()
 	delete(wv.parent.webViews, wv.id)
-	wv.window = nil
 	wv.parent.wMutex.Unlock()
+	wv.window = nil
 	if p, _ := wv.WebView.GetParent(); p != nil {
 		cont := &gtk.Container{*p}
 		ggtk.GlibMainContextInvoke(cont.Remove, wv.WebView)

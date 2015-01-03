@@ -3,6 +3,7 @@ package golem
 import (
 	"fmt"
 
+	"github.com/tkerber/golem/gtk"
 	"github.com/tkerber/golem/webkit"
 )
 
@@ -95,38 +96,44 @@ func (w *Window) tabsClose(i, j int) {
 	}
 	w.wMutex.Lock()
 	defer w.wMutex.Unlock()
-	k := len(w.webViews) - (j - i)
-	wvs := make([]*webView, j-i)
-	copy(wvs, w.webViews[i:j])
-	copy(
-		w.webViews[i:k],
-		w.webViews[j:])
-	for i, _ := range w.webViews[k:] {
-		w.webViews[i+k] = nil
-	}
-	if w.currentWebView > j {
-		w.currentWebView -= (j - i)
-	}
-	w.webViews = w.webViews[:len(w.webViews)-(j-i)]
-	w.Window.CloseTabs(i, j)
-	for _, wv := range wvs {
-		wv.close()
-	}
-	activeWebView := w.currentWebView >= i && w.currentWebView <= j
-	if activeWebView {
-		k := i - 1
-		if k < 0 {
-			k = 0
+	// I'm not entirely sure why this is necessary. Without it however, closing
+	// tabs will occasionally freeze and sometimes crash golem.
+	// Probably the closing has to happen between two frame updates. Why?
+	// I don't know.
+	gtk.GlibMainContextInvoke(func() {
+		k := len(w.webViews) - (j - i)
+		wvs := make([]*webView, j-i)
+		copy(wvs, w.webViews[i:j])
+		copy(
+			w.webViews[i:k],
+			w.webViews[j:])
+		for i, _ := range w.webViews[k:] {
+			w.webViews[i+k] = nil
 		}
-		w.currentWebView = k
-		w.Window.TabNumber = k + 1
-		wv := w.getWebView()
-		w.reconnectWebViewSignals()
-		w.Window.FocusTab(k)
-		w.Window.SwitchToWebView(wv)
-		w.Window.TabCount = len(w.webViews)
-		go w.Window.UpdateLocation()
-	}
+		if w.currentWebView > j {
+			w.currentWebView -= (j - i)
+		}
+		w.webViews = w.webViews[:len(w.webViews)-(j-i)]
+		w.Window.CloseTabs(i, j)
+		for _, wv := range wvs {
+			wv.close()
+		}
+		activeWebView := w.currentWebView >= i && w.currentWebView <= j
+		if activeWebView {
+			k := i - 1
+			if k < 0 {
+				k = 0
+			}
+			w.currentWebView = k
+			w.Window.TabNumber = k + 1
+			wv := w.getWebView()
+			w.reconnectWebViewSignals()
+			w.Window.FocusTab(k)
+			w.Window.SwitchToWebView(wv)
+			w.Window.TabCount = len(w.webViews)
+			go w.Window.UpdateLocation()
+		}
+	})
 }
 
 // tabIndex retrieves the index of a particular webView.
