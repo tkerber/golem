@@ -12,7 +12,7 @@ all: data/libgolem.so data/srv/pdf.js/
 %.o: %.c
 	$(CC) -c -fPIC -o $@ $< $(CFLAGS)
 
-data/libgolem.so: web_extension/libgolem.o
+data/libgolem.so: exten/libgolem.o
 	mkdir -p ../data
 	$(CC) -shared -o $@ $^ $(LFLAGS)
 
@@ -27,5 +27,5 @@ pdf.js/:
 	git clone git://github.com/mozilla/pdf.js.git $@
 
 clean:
-	rm web_extension/*.o
+	rm exten/*.o
 	rm -rf pdf.js

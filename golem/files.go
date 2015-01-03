@@ -1,12 +1,12 @@
 package golem
 
 import (
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
-	"os/user"
 	"path/filepath"
+
+	"github.com/tkerber/golem/xdg"
 )
 
 // files keeps track of all files golem uses.
@@ -26,36 +26,20 @@ var configFiles = []string{
 
 // newFiles initializes the files golem uses.
 func (g *Golem) newFiles() (*files, error) {
-	home := os.Getenv("HOME")
-	if home == "" {
-		user, err := user.Current()
-		if err != nil {
-			return nil, fmt.Errorf("Failed to find $HOME!")
-		}
-		home = user.HomeDir
+	downloads := xdg.GetUserDownloadDir()
+	// Default to "$HOME/Downloads"
+	if downloads == "" {
+		downloads = filepath.Join(xdg.GetHomeDir(), "Downloads")
 	}
 
-	downloads := filepath.Join(home, "Downloads")
-	stat, err := os.Stat(downloads)
-	if err != nil || !stat.IsDir() {
-		log.Printf("Failed to stat download dir, falling back to $HOME.")
-		downloads = home
-	}
-
-	configDir := os.Getenv("XDG_CONFIG_HOME")
-	if configDir == "" {
-		configDir = filepath.Join(home, ".config")
-	}
+	configDir := xdg.GetUserConfigDir()
 	configDir = filepath.Join(configDir, "golem", g.profile)
-	err = os.MkdirAll(configDir, 0700)
+	err := os.MkdirAll(configDir, 0700)
 	if err != nil {
 		return nil, err
 	}
 
-	cacheDir := os.Getenv("XDG_CACHE_HOME")
-	if cacheDir == "" {
-		cacheDir = filepath.Join(home, ".cache")
-	}
+	cacheDir := xdg.GetUserCacheDir()
 	cacheDir = filepath.Join(cacheDir, "golem", g.profile)
 	err = os.MkdirAll(cacheDir, 0700)
 	if err != nil {
