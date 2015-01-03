@@ -12,11 +12,16 @@ import (
 	"github.com/conformal/gotk3/gtk"
 	"github.com/mattn/go-shellwords"
 	"github.com/tkerber/golem/cmd"
-	"github.com/tkerber/golem/debug"
 	"github.com/tkerber/golem/golem/states"
 	"github.com/tkerber/golem/golem/ui"
 	"github.com/tkerber/golem/webkit"
 )
+
+// PrintKeys specifies whether each keypress should be printed.
+var PrintKeys bool = false
+
+// PrintCommands specifies whether all commands should be printed.
+var PrintCommands bool = false
 
 // blankLineRegex matches a blank or comment line for commands.
 var blankLineRegex = regexp.MustCompile(`^\s*(".*|)$`)
@@ -183,7 +188,7 @@ func (w *Window) handleKeyPress(uiWin *gtk.Window, e *gdk.Event) bool {
 		// crashes here. TODO
 		ek := gdk.EventKey{e}
 		key := cmd.NewKeyFromEventKey(ek)
-		if debug.PrintKeys {
+		if PrintKeys {
 			log.Printf("%v", key)
 		}
 		// We ignore modifier keys.
@@ -378,7 +383,7 @@ func runCmd(w *Window, g *Golem, command string) {
 	}
 	f, ok := commands[parts[0]]
 	if ok {
-		if debug.PrintCommands {
+		if PrintCommands {
 			log.Printf("Running command '%v'.", command)
 		}
 		f(w, g, parts)

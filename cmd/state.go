@@ -4,8 +4,6 @@ package cmd
 import (
 	"log"
 	"time"
-
-	"github.com/tkerber/golem/debug"
 )
 
 // max returns the greater of two integers.
@@ -23,6 +21,10 @@ func min(a, b int) int {
 	}
 	return a
 }
+
+// PrintBindings specifies whether or not to print bindings as and when they
+// run.
+var PrintBindings bool = false
 
 // timeout is the time waited in normal mode before an ambiguous binding is
 // executed.
@@ -142,7 +144,7 @@ func executeAfterTimeout(
 	}
 	go binding(keys, nump, s.GetSubstate())
 	// Somewhat ugly. We have to tell the owner of the state to reset it.
-	if debug.PrintBindings {
+	if PrintBindings {
 		log.Printf(
 			"Executing binding for %v after delay...",
 			KeysString(keys))
@@ -229,7 +231,7 @@ func (s *NormalMode) ProcessKeyPress(key RealKey) (State, bool) {
 		if soleBinding {
 			// We have a difinite match for a binding. Execute it and reset the
 			// state.
-			if debug.PrintBindings {
+			if PrintBindings {
 				log.Printf("Executing binding for %v...",
 					KeysString(append(s.CurrentKeys, key)))
 			}
