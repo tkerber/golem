@@ -96,6 +96,10 @@ func (w *Window) UpdateState(state cmd.State) {
 			fmtString = "<error>%s</error>"
 		}
 		newStatus = fmt.Sprintf(fmtString, html.EscapeString(s.Status))
+	case *cmd.ConfirmMode:
+		newStatus = fmt.Sprintf(
+			"%s <cursor>_</cursor>",
+			html.EscapeString(s.Prompt))
 	}
 	w.SetCmdMarkup(w.MarkupReplacer.Replace(newStatus))
 }

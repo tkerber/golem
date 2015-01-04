@@ -279,7 +279,17 @@ func (w *Window) builtinToggleQuickmark(_ *int) {
 	// TODO confirm on delete.
 	uri := w.getWebView().GetURI()
 	if _, ok := w.parent.hasQuickmark[uri]; ok {
-		cmdRemoveQuickmark(w, w.parent, []string{"", uri})
+		b := false
+		w.setState(cmd.NewYesNoConfirmMode(
+			w.State,
+			cmd.SubstateDefault,
+			"Are you sure you want to remove the quickmark for this page?",
+			&b,
+			func(b bool) {
+				if b {
+					cmdRemoveQuickmark(w, w.parent, []string{"", uri})
+				}
+			}))
 	} else {
 		w.setState(cmd.NewPartialCommandLineMode(
 			w.State,

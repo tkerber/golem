@@ -1,0 +1,15 @@
+- Adblocking
+  - element hider
+  - site-restricted exception regex's (applied to source)
+- Tab completion
+  - History
+- Command history
+  - Command history completion
+- Bookmarks
+  - flat or hierarchical?
+- hints mode
+- proper tab bar
+- plugin blocking
+- scrolling w/ frames and other scrollable containers
+  - use hints to focus scrollable containers
+- search

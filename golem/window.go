@@ -204,6 +204,16 @@ func (w *Window) handleKeyPress(uiWin *gtk.Window, e *gdk.Event) bool {
 			w.setState(newState)
 		} else if statusM, ok := w.State.(*cmd.StatusMode); ok && statusM.State == oldState {
 			w.setState(cmd.NewStatusMode(newState, statusM.Substate, statusM.Status))
+		} else if confM, ok := w.State.(*cmd.ConfirmMode); ok && confM.State == oldState {
+			w.setState(&cmd.ConfirmMode{
+				newState,
+				confM.Substate,
+				confM.Prompt,
+				confM.ConfirmKeys,
+				confM.CancelKeys,
+				confM.Default,
+				confM.Callback,
+			})
 		}
 		return ret
 	default:

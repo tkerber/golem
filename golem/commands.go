@@ -84,10 +84,23 @@ func cmdAddQuickmark(w *Window, g *Golem, args []string) {
 		return
 	}
 	sanitizedKeys := cmd.KeysString(cmd.ParseKeys(args[1]))
-	if _, ok := g.quickmarks[sanitizedKeys]; ok {
-		w.logError(fmt.Errorf(
-			"A quickmark with the keybinding '%[1]s' already exists. "+
-				"Remove it with 'rmqm %[1]s' first.", sanitizedKeys))
+	if uri, ok := g.quickmarks[sanitizedKeys]; ok {
+		b := false
+		w.setState(cmd.NewYesNoConfirmMode(
+			w.State,
+			cmd.SubstateDefault,
+			fmt.Sprintf(
+				"Do you want to replace the existing keybinding with "+
+					"quickmark '%s' (%s)?",
+				sanitizedKeys,
+				uri),
+			&b,
+			func(b bool) {
+				if b {
+					cmdRemoveQuickmark(w, g, []string{"", args[1]})
+					cmdAddQuickmark(w, g, args)
+				}
+			}))
 		return
 	}
 	// Add quickmark to current session
@@ -177,10 +190,23 @@ func cmdQuickmark(w *Window, g *Golem, args []string) {
 		return
 	}
 	sanitizedKeys := cmd.KeysString(cmd.ParseKeys(args[1]))
-	if _, ok := g.quickmarks[sanitizedKeys]; ok {
-		w.logError(fmt.Errorf(
-			"A quickmark with the keybinding '%[1]s' already exists. "+
-				"Remove it with 'rmqm %[1]s' first.", sanitizedKeys))
+	if uri, ok := g.quickmarks[sanitizedKeys]; ok {
+		b := false
+		w.setState(cmd.NewYesNoConfirmMode(
+			w.State,
+			cmd.SubstateDefault,
+			fmt.Sprintf(
+				"Do you want to replace the existing keybinding with "+
+					"quickmark '%s' (%s)?",
+				sanitizedKeys,
+				uri),
+			&b,
+			func(b bool) {
+				if b {
+					cmdRemoveQuickmark(w, g, []string{"", args[1]})
+					cmdQuickmark(w, g, args)
+				}
+			}))
 		return
 	}
 	g.quickmark(sanitizedKeys, args[2])

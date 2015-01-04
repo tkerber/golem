@@ -506,3 +506,82 @@ func NewStatusMode(s State, st Substate, status string) *StatusMode {
 func (s *StatusMode) GetSubstate() Substate {
 	return s.Substate
 }
+
+// ConfirmMode tries to confirm an action with the user.
+//
+// If a key in ConfirmKeys is pressed, the action is confirmed (callback called
+// w/ true)
+// If a key in CancelKeys is pressed, the action is cancelled (callback called
+// w/ false)
+// If Escape is pressed, the callback is not called at all.
+// If Enter is pressed, and Default is not nil, the default is taken.
+type ConfirmMode struct {
+	State
+	Substate
+	Prompt      string
+	ConfirmKeys []Key
+	CancelKeys  []Key
+	Default     *bool
+	Callback    func(bool)
+}
+
+// NewYesNoConfirmMode creates a new ConfirmMode for a yes/no confirmation.
+func NewYesNoConfirmMode(
+	s State,
+	st Substate,
+	prompt string,
+	def *bool,
+	callback func(bool)) *ConfirmMode {
+
+	if def == nil {
+		prompt = prompt + " (y/n):"
+	} else if *def {
+		prompt = prompt + " (Y/n):"
+	} else {
+		prompt = prompt + " (y/N):"
+	}
+	return &ConfirmMode{
+		s,
+		st,
+		prompt,
+		[]Key{NewKeyFromRune('y'), NewKeyFromRune('Y')},
+		[]Key{NewKeyFromRune('n'), NewKeyFromRune('N')},
+		def,
+		callback}
+}
+
+// ProcessKeyPress processes a key, and check if the confirmation was
+// handled.
+func (s *ConfirmMode) ProcessKeyPress(k RealKey) (State, bool) {
+	k = k.Normalize()
+	for _, k2 := range s.ConfirmKeys {
+		if k == k2 {
+			s.Callback(true)
+			return s.State, true
+		}
+	}
+	for _, k2 := range s.CancelKeys {
+		if k == k2 {
+			s.Callback(false)
+			return s.State, true
+		}
+	}
+	switch k.Keyval {
+	case KeyReturn:
+		fallthrough
+	case KeyKPEnter:
+		if s.Default != nil {
+			s.Callback(*s.Default)
+		}
+		fallthrough
+	case KeyEscape:
+		return s.State, true
+	default:
+		return s, false
+	}
+}
+
+// Get substate gets the substate of the current state.
+func (s *ConfirmMode) GetSubstate() Substate {
+	return s.Substate
+}

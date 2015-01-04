@@ -266,6 +266,12 @@ func (k VirtualKey) StringSelective(selective bool) string {
 	return string(k)
 }
 
+// NewKeyFromRune creates a new key object from a rune.
+func NewKeyFromRune(r rune) Key {
+	keyval := uint(C.gdk_unicode_to_keyval(C.guint32(r)))
+	return RealKey{keyval, 0, false}
+}
+
 // NewKeyFromString creates a new key object from a string.
 //
 // Note that Key objects created for modifier keys will be incorrectly
