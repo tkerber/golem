@@ -87,6 +87,10 @@ const (
 	KeyBackSpace = C.GDK_KEY_BackSpace
 	KeyDelete    = C.GDK_KEY_Delete
 	KeyKPDelete  = C.GDK_KEY_KP_Delete
+	KeyHome      = C.GDK_KEY_Home
+	KeyKPHome    = C.GDK_KEY_KP_Home
+	KeyEnd       = C.GDK_KEY_End
+	KeyKPEnd     = C.GDK_KEY_KP_End
 )
 
 // isNonPrintRune checks in a rune is a member of nonPrintRunes.

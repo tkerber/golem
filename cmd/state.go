@@ -410,6 +410,33 @@ func (s *CommandLineMode) ProcessKeyPress(key RealKey) (State, bool) {
 		return s.Paste(str), true
 	}
 	switch key.Keyval {
+	// Move cursor to start
+	case KeyKPHome:
+		fallthrough
+	case KeyHome:
+		if s.CursorPos == 0 {
+			return s, false
+		} else {
+			return &CommandLineMode{
+				s.StateIndependant,
+				s.Substate,
+				s.CurrentKeys,
+				0,
+				s.Finalizer}, true
+		}
+	case KeyKPEnd:
+		fallthrough
+	case KeyEnd:
+		if s.CursorPos == len(s.CurrentKeys) {
+			return s, false
+		} else {
+			return &CommandLineMode{
+				s.StateIndependant,
+				s.Substate,
+				s.CurrentKeys,
+				len(s.CurrentKeys),
+				s.Finalizer}, true
+		}
 	// Execute command line
 	case KeyKPEnter:
 		fallthrough
