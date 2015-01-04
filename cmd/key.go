@@ -331,7 +331,7 @@ func KeysStringSelective(keys []Key, selective bool) string {
 	str := ""
 	for _, key := range keys {
 		keyStr := key.StringSelective(selective)
-		if len(keyStr) == 1 {
+		if utf8.RuneCountInString(keyStr) == 1 {
 			str += keyStr
 		} else {
 			str += "<" + keyStr + ">"
