@@ -3,7 +3,6 @@ package golem
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -228,7 +227,8 @@ func (g *Golem) closeWindow(w *Window) {
 		}
 	}
 	if !found {
-		log.Printf("Close signal recieved for non-existant window. Dropping.")
+		(*Window)(nil).logError("Close signal recieved for non-existant " +
+			"window. Dropping.")
 	}
 
 	// Delete item at index i from the slice.

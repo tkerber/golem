@@ -18,6 +18,9 @@ import (
 // Pack data
 //go:generate go-bindata -o golem/bindata.go -pkg golem -nomemcopy -prefix data data/...
 
+// exitCode contains the exit code that golem should exit with.
+var exitCode = 0
+
 // main runs golem (yay!)
 func main() {
 	defer func() { os.Exit(exitCode) }()
@@ -32,7 +35,8 @@ func main() {
 	flag.Parse()
 	if !regexp.MustCompile(`^[a-zA-Z]\w*$`).MatchString(profile) {
 		fmt.Println("Please use a alphanumeric profile name starting with a letter.")
-		os.Exit(1)
+		exitCode = 1
+		return
 	}
 	args := flag.Args()
 
@@ -81,14 +85,18 @@ func main() {
 		if len(uris) == 0 {
 			_, err := g.NewWindow("")
 			if err != nil {
-				os.Exit(1)
+				golem.Errlog.Printf("Failed to open window: %v", err)
+				exitCode = 1
+				return
 			}
 		} else {
 			// Open the last tab in the new window, then open all others in
 			// order in a new tab.
 			win, err := g.NewWindow(uris[len(uris)-1])
 			if err != nil {
-				os.Exit(1)
+				golem.Errlog.Printf("Failed to open window: %v", err)
+				exitCode = 1
+				return
 			}
 			for _, uri := range uris[:len(uris)-1] {
 				win.NewTab(uri)
@@ -108,17 +116,25 @@ func main() {
 			golem.DBusPath)
 		// If there are no uris, instead create a new window.
 		if len(args) == 0 {
-			o.Call(
+			call := o.Call(
 				golem.DBusInterface+".NewWindow",
 				0)
+			if call.Err != nil {
+				golem.Errlog.Printf("Failed to open window: %v", call.Err)
+				exitCode = 1
+				return
+			}
 		} else {
 			// Otherwise, create new tabs for each URI in order.
 			// The tabs will be created in the 'default' window, i.e. the first.
 			for _, arg := range args {
-				o.Call(
+				call := o.Call(
 					golem.DBusInterface+".NewTab",
 					0,
 					arg)
+				if call.Err != nil {
+					golem.Errlog.Printf("Failed to open tab: %v", call.Err)
+				}
 			}
 		}
 	}

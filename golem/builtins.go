@@ -2,7 +2,6 @@ package golem
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/golem/states"
@@ -190,14 +189,11 @@ func (w *Window) builtinScrollToBottom(_ *int) {
 	ext := w.getWebView()
 	height, err := ext.getScrollHeight()
 	if err != nil {
-		w.setState(cmd.NewStatusMode(w.State,
-			states.StatusSubstateError,
-			fmt.Sprintf("Error scrolling: %v", err)))
-		log.Printf("Error scrolling: %v", err)
+		w.logErrorf("Error scrolling: %v", err)
 	}
 	err = ext.setScrollTop(height)
 	if err != nil {
-		log.Printf("Error scrolling: %v", err)
+		w.logErrorf("Error scrolling: %v", err)
 	}
 }
 
@@ -205,8 +201,7 @@ func (w *Window) builtinScrollToBottom(_ *int) {
 func (w *Window) builtinScrollToTop(_ *int) {
 	err := w.getWebView().setScrollTop(0)
 	if err != nil {
-		w.setState(cmd.NewStatusMode(w.State, states.StatusSubstateError, fmt.Sprintf("Error scrolling: %v", err)))
-		log.Printf("Error scrolling: %v", err)
+		w.logErrorf("Error scrolling %v", err)
 	}
 }
 
@@ -328,8 +323,7 @@ func (w *Window) scrollDelta(delta int, vertical bool) {
 		curr, err = wv.getScrollLeft()
 	}
 	if err != nil {
-		w.setState(cmd.NewStatusMode(w.State, states.StatusSubstateError, fmt.Sprintf("Error scrolling: %v", err)))
-		log.Printf("Error scrolling: %v", err)
+		w.logErrorf("Error scrolling: %v", err)
 		return
 	}
 	curr += int64(delta)
@@ -339,8 +333,7 @@ func (w *Window) scrollDelta(delta int, vertical bool) {
 		err = wv.setScrollLeft(curr)
 	}
 	if err != nil {
-		w.setState(cmd.NewStatusMode(w.State, states.StatusSubstateError, fmt.Sprintf("Error scrolling: %v", err)))
-		log.Printf("Error scrolling: %v", err)
+		w.logErrorf("Error scrolling: %v", err)
 		return
 	}
 }

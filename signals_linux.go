@@ -8,9 +8,6 @@ import (
 	"github.com/tkerber/golem/golem"
 )
 
-// exitCode contains the exit code that golem should exit with.
-var exitCode = 0
-
 // handleSignals handles os signals for golem.
 func handleSignals(g *golem.Golem) {
 	c := make(chan os.Signal, 1)

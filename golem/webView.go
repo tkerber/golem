@@ -6,13 +6,11 @@ import "C"
 import (
 	"fmt"
 	"html"
-	"log"
 	"unsafe"
 
 	"github.com/conformal/gotk3/glib"
 	"github.com/conformal/gotk3/gtk"
 	"github.com/tkerber/golem/cmd"
-	"github.com/tkerber/golem/golem/states"
 	"github.com/tkerber/golem/golem/ui"
 	ggtk "github.com/tkerber/golem/gtk"
 	"github.com/tkerber/golem/webkit"
@@ -71,16 +69,12 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 		req := C.webkit_navigation_action_get_request(boxed)
 		cStr := (*C.char)(C.webkit_uri_request_get_uri(req))
 		if ret.window == nil {
-			log.Printf("A tab currently not associated to a window " +
-				"attempted to open a new tab. The request was dropped.")
+			ret.window.logError("A tab currently not associated to a " +
+				"window attempted to open a new tab. The request was dropped.")
 		} else {
 			wv, err := ret.window.NewTab(C.GoString(cStr))
 			if err != nil {
-				ret.window.setState(cmd.NewStatusMode(
-					ret.window.State,
-					states.StatusSubstateError,
-					"Failed creation of new tab..."))
-				log.Printf("Failed creation of new tab...")
+				ret.window.logError("Failed creation of new tab...")
 			} else {
 				// Focus our new tab.
 				ret.window.tabGo(ret.window.tabIndex(wv))
@@ -112,8 +106,8 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 					// we want it in a new tab.
 					decision.Ignore()
 					if ret.window == nil {
-						log.Printf("A tab currently not associated to a " +
-							"window attempted to open a new tab. The " +
+						ret.window.logError("A tab currently not associated " +
+							"to a window attempted to open a new tab. The " +
 							"request was dropped.")
 						return true
 					}
@@ -121,11 +115,7 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 
 					_, err := ret.window.newTabWithRequest(req)
 					if err != nil {
-						ret.window.setState(cmd.NewStatusMode(
-							ret.window.State,
-							states.StatusSubstateError,
-							"Failed creation of new tab..."))
-						log.Printf("Failed creation of new tab...")
+						ret.window.logError("Failed creation of new tab...")
 					}
 					return true
 				}

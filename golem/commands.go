@@ -3,7 +3,6 @@ package golem
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"reflect"
 	"regexp"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/mattn/go-shellwords"
 	"github.com/tkerber/golem/cmd"
-	"github.com/tkerber/golem/golem/states"
 	"github.com/tkerber/golem/webkit"
 )
 
@@ -62,19 +60,13 @@ func init() {
 // logInvalidArgs prints a log message indicating that the arguments given
 // where invalid.
 func (w *Window) logInvalidArgs(args []string) {
-	if w != nil {
-		w.setState(cmd.NewStatusMode(
-			w.State,
-			states.StatusSubstateError,
-			fmt.Sprintf("Invalid arguments recieved for command %v.", args[0])))
-	}
-	log.Printf("Invalid arguments recieved for command %v.", args[0])
+	w.logErrorf("Invalid arguments recieved for command %v.", args[0])
 }
 
 // logNonGlobalCommand prints a log message indicating that a command should
 // not have been executed in a global context (i.e. in golem's rc)
 func logNonGlobalCommand() {
-	log.Printf("Non global command executed in a global contex.")
+	(*Window)(nil).logError("Non global command executed in a global context.")
 }
 
 // cmdAddQuickmark adds a new quickmark and records it in the quickmarks file.
@@ -111,7 +103,7 @@ func cmdAddQuickmark(w *Window, g *Golem, args []string) {
 	// Append quickmark to quickmarks config file.
 	f, err := os.OpenFile(g.files.quickmarks, os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
-		w.logError(err)
+		w.logError(err.Error())
 		return
 	}
 	defer f.Close()
@@ -144,8 +136,7 @@ func cmdRemoveQuickmark(w *Window, g *Golem, args []string) {
 		}
 		if !found {
 			g.wMutex.Unlock()
-			w.logError(fmt.Errorf(
-				"Failed to delete quickmark '%s': Not found.", args[1]))
+			w.logErrorf("Failed to delete quickmark '%s': Not found.", args[1])
 			return
 		}
 	}
@@ -156,7 +147,7 @@ func cmdRemoveQuickmark(w *Window, g *Golem, args []string) {
 	// We also run through the quickmarks file and delete matching lines.
 	data, err := ioutil.ReadFile(g.files.quickmarks)
 	if err != nil {
-		w.logError(fmt.Errorf("Failed to read quickmarks file."))
+		w.logErrorf("Failed to read quickmarks file.")
 		return
 	}
 	lines := strings.Split(string(data), "\n")
@@ -179,7 +170,7 @@ func cmdRemoveQuickmark(w *Window, g *Golem, args []string) {
 		[]byte(strings.Join(lines, "\n")),
 		0600)
 	if err != nil {
-		w.logError(fmt.Errorf("Failed to write to quickmarks file."))
+		w.logErrorf("Failed to write to quickmarks file.")
 	}
 }
 
@@ -346,8 +337,7 @@ func cmdSet(w *Window, g *Golem, args []string) {
 	for _, arg := range args[1:len(args)] {
 		op, keyParts, valueStr, err := cmdSetSplitOperator(arg)
 		if err != nil {
-			w.setState(cmd.NewStatusMode(w.State, states.StatusSubstateError, fmt.Sprintf("%v: '%v'", err, arg)))
-			log.Printf("%v: '%v'", err, arg)
+			w.logErrorf("%v: '%v'", err, arg)
 			continue
 		}
 		namespace := keyParts[0]
@@ -362,31 +352,27 @@ func cmdSet(w *Window, g *Golem, args []string) {
 			setFunc, getFunc, iterChan, valueType, err =
 				cmdSetWebkit(w, g, keyParts)
 			if err != nil {
-				w.setState(cmd.NewStatusMode(w.State, states.StatusSubstateError, fmt.Sprintf("%v: '%v'", err, arg)))
-				log.Printf("%v: '%v'", err, arg)
+				w.logErrorf("%v: '%v'", err, arg)
 				continue
 			}
 		case "golem", "g":
 			// TODO Not yet implemented.
 			fallthrough
 		default:
-			w.setState(cmd.NewStatusMode(w.State, states.StatusSubstateError, fmt.Sprintf("Failed to parse set instruction: '%v'", arg)))
-			log.Printf("Failed to parse set instruction: '%v'", arg)
+			w.logErrorf("Failed to parse set instruction: '%v'", arg)
 			continue
 		}
 
 		operatorFunc, err := cmdSetOperatorFunc(op, setFunc, getFunc, valueType)
 		if err != nil {
-			w.setState(cmd.NewStatusMode(w.State, states.StatusSubstateError, fmt.Sprintf("%v: '%v'", err, arg)))
-			log.Printf("%v: '%v'", err, arg)
+			w.logErrorf("%v: '%v'", err, arg)
 			continue
 		}
 
 		// Parse value according to the type and apply.
 		value, err := cmdSetParseValueString(valueStr, valueType)
 		if err != nil {
-			w.setState(cmd.NewStatusMode(w.State, states.StatusSubstateError, err.Error()))
-			log.Printf(err.Error())
+			w.logError(err.Error())
 			continue
 		}
 		for obj := range iterChan {

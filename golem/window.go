@@ -3,6 +3,7 @@ package golem
 import (
 	"fmt"
 	"log"
+	"os"
 	"regexp"
 	"sync"
 	"time"
@@ -16,6 +17,9 @@ import (
 	"github.com/tkerber/golem/golem/ui"
 	"github.com/tkerber/golem/webkit"
 )
+
+// Errlog is a log pointed to stderr.
+var Errlog = log.New(os.Stderr, "(E) ", log.LstdFlags)
 
 // PrintKeys specifies whether each keypress should be printed.
 var PrintKeys bool = false
@@ -38,7 +42,7 @@ func newSignalHandle(obj *glib.Object, handle glib.SignalHandle, err error) *sig
 	if obj != nil && err == nil {
 		return &signalHandle{obj, handle}
 	}
-	log.Printf("Broken signal handle dropped...")
+	(*Window)(nil).logError("Broken signal handle dropped...")
 	return nil
 }
 
@@ -101,19 +105,16 @@ func (g *Golem) NewWindow(uri string) (*Window, error) {
 
 	win.webViews[0], err = win.newWebView(g.DefaultSettings)
 	if err != nil {
-		log.Printf("Error: Failed to open new window: %v\n", err)
 		return nil, err
 	}
 
 	win.Window, err = ui.NewWindow(win.webViews[0])
 	if err != nil {
-		log.Printf("Error: Failed to open new window: %v\n", err)
 		return nil, err
 	}
 
 	tabUI, err := win.Window.AppendTab()
 	if err != nil {
-		log.Printf("Error: Failed to open new window: %v\n", err)
 		return nil, err
 	}
 	win.webViews[0].setTabUI(tabUI)
@@ -226,24 +227,16 @@ func (w *Window) rebuildBindings() {
 	bindings, errs := cmd.ParseRawBindings(w.parent.rawBindings, w.builtins, w.runCmd)
 	if errs != nil {
 		for _, err := range errs {
-			w.setState(cmd.NewStatusMode(
-				w.State,
-				states.StatusSubstateError,
-				fmt.Sprintf("Error: Failed to parse key bindings: %v", err)))
-			log.Printf("Error: Failed to parse key bindings: %v\n", err)
+			w.logErrorf("Error: Failed to parse key bindings: %v", err)
 		}
-		log.Printf("Faulty bindings have been dropped.")
+		(*Window)(nil).logError("Faulty bindings have been dropped.")
 	}
 	bindingTree, errs := cmd.NewBindingTree(bindings)
 	if errs != nil {
 		for _, err := range errs {
-			w.setState(cmd.NewStatusMode(
-				w.State,
-				states.StatusSubstateError,
-				fmt.Sprintf("Error: Failed to parse key bindings: %v", err)))
-			log.Printf("Error: Failed to parse key bindings: %v\n", err)
+			w.logErrorf("Error: Failed to parse key bindings: %v", err)
 		}
-		log.Printf("Faulty bindings have been dropped.")
+		(*Window)(nil).logError("Faulty bindings have been dropped.")
 	}
 	w.bindings[states.NormalSubstateNormal] = bindingTree
 }
@@ -259,13 +252,9 @@ func (w *Window) rebuildQuickmarks() {
 	bindingTree, errs := cmd.NewBindingTree(bindings)
 	if errs != nil {
 		for _, err := range errs {
-			w.setState(cmd.NewStatusMode(
-				w.State,
-				states.StatusSubstateError,
-				fmt.Sprintf("Error: Failed to parse quickmarks: %v", err)))
-			log.Printf("Error: Failed to parse quickmarks: %v\n", err)
+			w.logErrorf("Error: Failed to parse quickmarks: %v", err)
 		}
-		log.Printf("Faulty quickmarks have been dropped.")
+		(*Window)(nil).logError("Faulty quickmarks have been dropped.")
 	}
 	w.bindings[states.NormalSubstateQuickmark] = bindingTree
 	w.bindings[states.NormalSubstateQuickmarkTab] = bindingTree
@@ -277,11 +266,7 @@ func (w *Window) rebuildQuickmarks() {
 func (w *Window) quickmarkCallback(keys []cmd.Key, _ *int, s cmd.Substate) {
 	uri, ok := w.parent.quickmarks[cmd.KeysString(keys)]
 	if !ok {
-		w.setState(cmd.NewStatusMode(
-			w.State,
-			states.StatusSubstateError,
-			fmt.Sprintf("Unknown quickmark: %s", cmd.KeysString(keys))))
-		log.Printf("Unknown quickmark: %s", cmd.KeysString(keys))
+		w.logErrorf("Unknown quickmark: %s", cmd.KeysString(keys))
 		return
 	}
 	switch s {
@@ -298,13 +283,7 @@ func (w *Window) quickmarkCallback(keys []cmd.Key, _ *int, s cmd.Substate) {
 			w.State,
 			states.NormalSubstateQuickmarksRapid))
 	default:
-		w.setState(cmd.NewStatusMode(
-			w.State,
-			states.StatusSubstateError,
-			fmt.Sprintf(
-				"Quickmark opened from non-quickmark substate: %d",
-				s)))
-		log.Printf("Unknown quickmark: %s", cmd.KeysString(keys))
+		w.logErrorf("Quickmark opened from non-quickmark substate: %d", s)
 		return
 	}
 }
@@ -381,11 +360,7 @@ func runCmd(w *Window, g *Golem, command string) {
 
 	parts, err := shellwords.Parse(command)
 	if err != nil {
-		w.setState(cmd.NewStatusMode(
-			w.State,
-			states.StatusSubstateError,
-			fmt.Sprintf("Error: Failed to parse command '%v': %v", command, err)))
-		log.Printf("Failed to parse command '%v': %v", command, err)
+		w.logErrorf("Error: Failed to parse command '%v': %v", command, err)
 		return
 	}
 	if len(parts[0]) == 0 {
@@ -398,11 +373,7 @@ func runCmd(w *Window, g *Golem, command string) {
 		}
 		f(w, g, parts)
 	} else {
-		w.setState(cmd.NewStatusMode(
-			w.State,
-			states.StatusSubstateError,
-			fmt.Sprintf("Error: Failed to run command '%v': No such command.", command)))
-		log.Printf("Failed to run command '%v': No such command.", command)
+		w.logErrorf("Error: Failed to run command '%v': No such command.", command)
 	}
 }
 
@@ -415,12 +386,19 @@ func (w *Window) addDownload(d *webkit.Download) {
 }
 
 // logError logs (and displays) an error message.
-func (w *Window) logError(err error) {
+func (w *Window) logError(err string) {
 	if w != nil {
 		w.setState(cmd.NewStatusMode(
 			w.State,
 			states.StatusSubstateError,
-			err.Error()))
+			err))
 	}
-	log.Printf(err.Error())
+	Errlog.Println(err)
+}
+
+// logErrorf logs (and displays) an errormessage, supplies as a format string
+// with arguments.
+func (w *Window) logErrorf(fmtStr string, args ...interface{}) {
+	str := fmt.Sprintf(fmtStr, args...)
+	w.logError(str)
 }
