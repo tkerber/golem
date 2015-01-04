@@ -4,6 +4,9 @@ package cmd
 import (
 	"log"
 	"time"
+
+	"github.com/conformal/gotk3/gdk"
+	"github.com/conformal/gotk3/gtk"
 )
 
 // max returns the greater of two integers.
@@ -21,6 +24,9 @@ func min(a, b int) int {
 	}
 	return a
 }
+
+var pasteKey = NewKeyFromString("C-v")
+var primarySelectionPasteKey = NewKeyFromString("C-V")
 
 // PrintBindings specifies whether or not to print bindings as and when they
 // run.
@@ -353,6 +359,24 @@ func NewPartialCommandLineMode(
 		f}
 }
 
+// Paste pastes a string into the command line.
+func (s *CommandLineMode) Paste(str string) State {
+	insertKeys := ParseKeys(str)
+	// Grow keys
+	newKeys := make([]Key, len(s.CurrentKeys)+len(insertKeys))
+	// Copy data over
+	copy(newKeys[:s.CursorPos], s.CurrentKeys[:s.CursorPos])
+	copy(newKeys[s.CursorPos:s.CursorPos+len(insertKeys)], insertKeys)
+	copy(newKeys[s.CursorPos+len(insertKeys):], s.CurrentKeys[s.CursorPos:])
+	// Return
+	return &CommandLineMode{
+		s.StateIndependant,
+		s.Substate,
+		newKeys,
+		s.CursorPos + len(insertKeys),
+		s.Finalizer}
+}
+
 // ProcessKeyPress processes the press of a single Key in CommandLineMode.
 //
 // Typically the Key is added to the current command line, with a few
@@ -366,6 +390,25 @@ func NewPartialCommandLineMode(
 //
 // Escape returns to NormalMode.
 func (s *CommandLineMode) ProcessKeyPress(key RealKey) (State, bool) {
+	key = key.Normalize()
+	if key == pasteKey || key == primarySelectionPasteKey {
+		var clip *gtk.Clipboard
+		var err error
+		if key == pasteKey {
+			clip, err = gtk.ClipboardGet(gdk.SELECTION_CLIPBOARD)
+		} else {
+			clip, err = gtk.ClipboardGet(gdk.SELECTION_PRIMARY)
+		}
+		if err != nil {
+			log.Printf("Failed to acquire clipboard: %v", err)
+			return s, false
+		}
+		str, err := clip.WaitForText()
+		if err != nil {
+			return s, true
+		}
+		return s.Paste(str), true
+	}
 	switch key.Keyval {
 	// Execute command line
 	case KeyKPEnter:

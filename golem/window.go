@@ -67,7 +67,7 @@ type Window struct {
 	builtins            cmd.Builtins
 	bindings            map[cmd.Substate]*cmd.BindingTree
 	activeSignalHandles []*signalHandle
-	windowSignalHandles []glib.SignalHandle
+	windowSignalHandles []*signalHandle
 	timeoutChan         chan bool
 	wMutex              *sync.Mutex
 }
@@ -100,7 +100,7 @@ func (g *Golem) NewWindow(uri string) (*Window, error) {
 		nil,
 		make(map[cmd.Substate]*cmd.BindingTree),
 		make([]*signalHandle, 0),
-		make([]glib.SignalHandle, 0, 2),
+		make([]*signalHandle, 0, 5),
 		make(chan bool, 1),
 		new(sync.Mutex),
 	}
@@ -150,13 +150,45 @@ func (g *Golem) NewWindow(uri string) (*Window, error) {
 
 	handle, err := win.Window.Window.Connect("key-press-event", win.handleKeyPress)
 	if err == nil {
-		win.windowSignalHandles = append(win.windowSignalHandles, handle)
+		win.windowSignalHandles = append(
+			win.windowSignalHandles,
+			&signalHandle{win.Window.Window.Object, handle})
 	}
 	handle, err = win.Window.Window.Connect(
 		"button-press-event",
 		win.handleBackForwardButtons)
 	if err == nil {
-		win.windowSignalHandles = append(win.windowSignalHandles, handle)
+		win.windowSignalHandles = append(
+			win.windowSignalHandles,
+			&signalHandle{win.Window.Window.Object, handle})
+	}
+	// handle middle click primary selection paste.
+	handle, err = win.Window.StatusBar.Container.Connect("button-press-event",
+		func(_ interface{}, e *gdk.Event) bool {
+			bpe := (*C.GdkEventButton)(unsafe.Pointer(e.Native()))
+			if bpe.button != 2 {
+				return false
+			}
+			cmdState, ok := win.State.(*cmd.CommandLineMode)
+			if !ok {
+				return false
+			}
+			clip, err := gtk.ClipboardGet(gdk.SELECTION_PRIMARY)
+			if err != nil {
+				win.logErrorf("Failed to acquire clipboard: %v", err)
+				return false
+			}
+			str, err := clip.WaitForText()
+			if err != nil {
+				return true
+			}
+			win.setState(cmdState.Paste(str))
+			return true
+		})
+	if err == nil {
+		win.windowSignalHandles = append(
+			win.windowSignalHandles,
+			&signalHandle{win.Window.StatusBar.Container.Object, handle})
 	}
 	handle, err = win.Window.Window.Connect("destroy", func() {
 		for _, wv := range win.webViews {
@@ -166,7 +198,7 @@ func (g *Golem) NewWindow(uri string) (*Window, error) {
 			h.disconnect()
 		}
 		for _, h := range win.windowSignalHandles {
-			win.Window.Window.HandlerDisconnect(h)
+			h.disconnect()
 		}
 		g.closeWindow(win)
 		// Ensure garbage collection
@@ -177,7 +209,9 @@ func (g *Golem) NewWindow(uri string) (*Window, error) {
 		schedGc()
 	})
 	if err == nil {
-		win.windowSignalHandles = append(win.windowSignalHandles, handle)
+		win.windowSignalHandles = append(
+			win.windowSignalHandles,
+			&signalHandle{win.Window.Window.Object, handle})
 	}
 
 	win.Show()

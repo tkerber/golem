@@ -122,7 +122,13 @@ func newWindow(webView WebView) (*Window, error) {
 
 	statusBar.PackStart(cmdStatus, false, false, 0)
 	statusBar.PackEnd(locationStatus, false, false, 0)
-	w.StatusBar = &StatusBar{cmdStatus, locationStatus, statusBar.Container}
+
+	statusBarEventBox, err := gtk.EventBoxNew()
+	if err != nil {
+		return nil, err
+	}
+	statusBarEventBox.Add(statusBar)
+	w.StatusBar = &StatusBar{cmdStatus, locationStatus, statusBarEventBox.Container}
 
 	tabBar, err := NewTabBar(w)
 	if err != nil {
@@ -150,7 +156,7 @@ func newWindow(webView WebView) (*Window, error) {
 	contentBox.PackStart(webViewStack, true, true, 0)
 
 	box.PackStart(contentBox, true, true, 0)
-	box.PackStart(statusBar, false, false, 0)
+	box.PackStart(statusBarEventBox, false, false, 0)
 	win.Add(box)
 
 	// TODO sensible default size. (Default to screen size?)
@@ -167,7 +173,7 @@ func (w *Window) Show() {
 // HideUI hides all UI (non-webkit) elements.
 func (w *Window) HideUI() {
 	ggtk.GlibMainContextInvoke(func() {
-		w.StatusBar.container.Hide()
+		w.StatusBar.Container.Hide()
 		w.TabBar.Box.Hide()
 	})
 }
@@ -175,7 +181,7 @@ func (w *Window) HideUI() {
 // ShowUI shows all UI elements.
 func (w *Window) ShowUI() {
 	ggtk.GlibMainContextInvoke(func() {
-		w.StatusBar.container.Show()
+		w.StatusBar.Container.Show()
 		w.TabBar.Box.Show()
 	})
 }

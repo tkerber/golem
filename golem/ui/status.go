@@ -38,7 +38,7 @@ func keysToMarkupString(keys []cmd.Key, selective, highlightNums bool) string {
 type StatusBar struct {
 	CmdStatus      *gtk.Label
 	LocationStatus *gtk.Label
-	container      gtk.Container
+	Container      gtk.Container
 }
 
 // SetLocationMarkup sets the text markup of the location.
