@@ -1,5 +1,8 @@
 package golem
 
+// #cgo pkg-config: gdk-3.0
+// #include <gdk/gdk.h>
+import "C"
 import (
 	"fmt"
 	"log"
@@ -7,6 +10,7 @@ import (
 	"regexp"
 	"sync"
 	"time"
+	"unsafe"
 
 	"github.com/conformal/gotk3/gdk"
 	"github.com/conformal/gotk3/glib"
@@ -148,6 +152,12 @@ func (g *Golem) NewWindow(uri string) (*Window, error) {
 	if err == nil {
 		win.windowSignalHandles = append(win.windowSignalHandles, handle)
 	}
+	handle, err = win.Window.Window.Connect(
+		"button-press-event",
+		win.handleBackForwardButtons)
+	if err == nil {
+		win.windowSignalHandles = append(win.windowSignalHandles, handle)
+	}
 	handle, err = win.Window.Window.Connect("destroy", func() {
 		for _, wv := range win.webViews {
 			wv.close()
@@ -172,6 +182,32 @@ func (g *Golem) NewWindow(uri string) (*Window, error) {
 
 	win.Show()
 	return win, nil
+}
+
+// handleBackForwardButtons handles the back / forward mouse button presses.
+func (w *Window) handleBackForwardButtons(_ interface{}, e *gdk.Event) bool {
+	bpe := (*C.GdkEventButton)(unsafe.Pointer(e.Native()))
+	wv := w.getWebView()
+	switch bpe.button {
+	// Back button
+	case 8:
+		if wv.CanGoBack() {
+			wv.GoBack()
+			return true
+		} else {
+			return false
+		}
+	// Forward button
+	case 9:
+		if wv.CanGoForward() {
+			wv.GoForward()
+			return true
+		} else {
+			return false
+		}
+	default:
+		return false
+	}
 }
 
 // handleKeyPress handles a gdk key press event.

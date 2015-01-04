@@ -8,6 +8,7 @@ import (
 	"html"
 	"unsafe"
 
+	"github.com/conformal/gotk3/gdk"
 	"github.com/conformal/gotk3/glib"
 	"github.com/conformal/gotk3/gtk"
 	"github.com/tkerber/golem/cmd"
@@ -146,6 +147,20 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 				}
 			}
 			return false
+		})
+	if err != nil {
+		return nil, err
+	}
+	ret.handles = append(ret.handles, handle)
+	handle, err = ret.WebView.Connect(
+		"button-press-event",
+		func(_ interface{}, e *gdk.Event) bool {
+			if ret.window == nil {
+				(*Window)(nil).logError("Button press registered on non-" +
+					"visible webview. Dropping.")
+				return false
+			}
+			return ret.window.handleBackForwardButtons(nil, e)
 		})
 	if err != nil {
 		return nil, err
