@@ -86,15 +86,19 @@ func (w *Window) builtinEditURI(_ *int) {
 
 // builtinGoBack goes one step back in browser history.
 func (w *Window) builtinGoBack(n *int) {
-	for num := getWithDefault(n, 1, 0, 50); num > 0 && w.getWebView().CanGoBack(); num-- {
-		w.getWebView().GoBack()
+	wv := w.getWebView()
+	item, ok := wv.GetBackForwardList().GetNthItemWeak(-getWithDefault(n, 1, 0, 50))
+	if ok {
+		wv.GoToBackForwardListItem(item)
 	}
 }
 
 // builtinGoForward goes one step forward in browser history.
 func (w *Window) builtinGoForward(n *int) {
-	for num := getWithDefault(n, 1, 0, 50); num > 0 && w.getWebView().CanGoForward(); num-- {
-		w.getWebView().GoForward()
+	wv := w.getWebView()
+	item, ok := wv.GetBackForwardList().GetNthItemWeak(getWithDefault(n, 1, 0, 50))
+	if ok {
+		wv.GoToBackForwardListItem(item)
 	}
 }
 

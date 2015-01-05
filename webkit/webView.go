@@ -41,6 +41,9 @@ type WebView struct {
 	// The settings of the WebView, may be nil if they were never set or
 	// retrieved.
 	settings *Settings
+	// The back forward list of the WebView, may be nil if it was never
+	// accessed.
+	bfl *BackForwardList
 }
 
 // NewWebView creates and returns a new webkit webview.
@@ -77,7 +80,7 @@ func NewWebViewWithUserContentManager(ucm *UserContentManager) (*WebView, error)
 
 // wrapWebView wraps a creates web view object in the appropriate classes.
 func wrapWebView(obj *glib.Object) *WebView {
-	return &WebView{gtk.Container{gtk.Widget{glib.InitiallyUnowned{obj}}}, nil}
+	return &WebView{gtk.Container{gtk.Widget{glib.InitiallyUnowned{obj}}}, nil, nil}
 }
 
 // native retrieves (a properly casted) pointer the native C WebKitWebView.
@@ -157,14 +160,27 @@ func (w *WebView) GoForward() {
 	C.webkit_web_view_go_forward(w.native())
 }
 
+// GoToBackForwardListItem goes to a specified item in the web views BFL.
+func (w *WebView) GoToBackForwardListItem(i *BackForwardListItem) {
+	C.webkit_web_view_go_to_back_forward_list_item(
+		w.native(),
+		(*C.WebKitBackForwardListItem)(unsafe.Pointer(i.Native())))
+}
+
 // GetBackForwardList gets the views list of back/forward steps in history.
 //
 // Note that this call is fairly expensive and takes several conversions.
 // Keep a reference if you use it more often.
 func (w *WebView) GetBackForwardList() *BackForwardList {
+	if w.bfl != nil {
+		return w.bfl
+	}
 	bfl := C.webkit_web_view_get_back_forward_list(w.native())
 	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(bfl))}
-	return &BackForwardList{obj}
+	obj.RefSink()
+	runtime.SetFinalizer(obj, (*glib.Object).Unref)
+	w.bfl = &BackForwardList{obj}
+	return w.bfl
 }
 
 // SetSettings sets the settings used for this WebView.
