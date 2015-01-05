@@ -19,7 +19,8 @@ data/libgolem.so: exten/libgolem.o
 data/srv/pdf.js/: pdf.js/
 	cd $< && CLOSURE_COMPILER=$(CLOSURE_COMPILER) node make minified
 	mkdir -p data/srv
-	mv pdf.js/build/minified -T $@
+	mv pdf.js/build/minified/web -T $@/web
+	mv pdf.js/build/minified/build -T $@/build
 
 all:
 
