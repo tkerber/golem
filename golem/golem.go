@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/conformal/gotk3/gtk"
 	"github.com/guelfey/go.dbus"
@@ -40,6 +41,9 @@ type Golem struct {
 	DefaultSettings *webkit.Settings
 	files           *files
 	extenDir        string
+
+	webViewCache     []*webView
+	webViewCacheFree chan bool
 }
 
 // New creates a new instance of golem.
@@ -77,6 +81,8 @@ func New(sBus *dbus.Conn, profile string) (*Golem, error) {
 		webkit.NewSettings(),
 		nil,
 		"",
+		make([]*webView, 0),
+		make(chan bool, 1),
 	}
 	g.profile = profile
 
@@ -101,6 +107,46 @@ func New(sBus *dbus.Conn, profile string) (*Golem, error) {
 	return g, nil
 }
 
+// cutWebViews moves the supplied web views to an internal buffer, and keeps
+// them there for at most 1 minute.
+func (g *Golem) cutWebViews(wvs []*webView) {
+	g.wMutex.Lock()
+	defer g.wMutex.Unlock()
+	g.webViewCacheFree <- true
+	g.webViewCacheFree = make(chan bool, 1)
+	g.webViewCache = wvs
+	cp := make([]*webView, len(g.webViewCache))
+	copy(cp, g.webViewCache)
+	go func() {
+		select {
+		case <-time.After(time.Minute):
+			g.wMutex.Lock()
+			g.webViewCache = make([]*webView, 0)
+			g.wMutex.Unlock()
+		case free := <-g.webViewCacheFree:
+			if !free {
+				return
+			}
+		}
+		for _, wv := range cp {
+			wv.close()
+		}
+	}()
+}
+
+// pasteWebViews retrieves the contents of the web view cache and resets it
+// safely.
+func (g *Golem) pasteWebViews() (wvs []*webView) {
+	g.wMutex.Lock()
+	defer g.wMutex.Unlock()
+	g.webViewCacheFree <- false
+	g.webViewCacheFree = make(chan bool, 1)
+	wvs = g.webViewCache
+	g.webViewCache = make([]*webView, 0)
+	return wvs
+}
+
+// useRcFile reads and executes an rc file.
 func (g *Golem) useRcFile(file string) error {
 	f, err := os.Open(file)
 	if err != nil {

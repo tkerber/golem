@@ -73,12 +73,12 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 			ret.window.logError("A tab currently not associated to a " +
 				"window attempted to open a new tab. The request was dropped.")
 		} else {
-			wv, err := ret.window.NewTab(C.GoString(cStr))
+			wvs, err := ret.window.NewTabs(C.GoString(cStr))
 			if err != nil {
 				ret.window.logError("Failed creation of new tab...")
 			} else {
 				// Focus our new tab.
-				ret.window.tabGo(ret.window.tabIndex(wv))
+				ret.window.tabGo(ret.window.tabIndex(wvs[0]))
 			}
 		}
 	})
@@ -166,6 +166,23 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 		return nil, err
 	}
 	ret.handles = append(ret.handles, handle)
+	// tab ui handles.
+	handle, err = ret.WebView.Connect("notify::title", func(wv *webkit.WebView) {
+		if ret.tabUI != nil {
+			ret.tabUI.SetTitle(wv.GetTitle())
+		}
+	})
+	if err == nil {
+		ret.handles = append(ret.handles, handle)
+	}
+	handle, err = ret.WebView.Connect("notify::estimated-load-progress", func(wv *webkit.WebView) {
+		if ret.tabUI != nil {
+			ret.tabUI.SetLoadProgress(wv.GetEstimatedLoadProgress())
+		}
+	})
+	if err == nil {
+		ret.handles = append(ret.handles, handle)
+	}
 
 	// Attach dbus to watch for signals from this extension.
 	// There is no real need to disconnect this, dbus disconnects it for us
@@ -207,35 +224,24 @@ func (wv *webView) IsQuickmarked() bool {
 	return wv.parent.hasQuickmark[wv.GetURI()]
 }
 
-// setTabUI sets the tab display for the tab.
-func (wv *webView) setTabUI(t *ui.TabBarTab) {
-	handle, err := wv.WebView.Connect("notify::title", func(wv *webkit.WebView) {
-		t.SetTitle(wv.GetTitle())
-	})
-	if err == nil {
-		wv.handles = append(wv.handles, handle)
+// detach detaches the webview from the ui.
+func (wv *webView) detach() {
+	wv.window = nil
+	wv.tabUI = nil
+	if p, _ := wv.WebView.GetParent(); p != nil {
+		cont := &gtk.Container{*p}
+		ggtk.GlibMainContextInvoke(cont.Remove, wv.WebView)
 	}
-	handle, err = wv.WebView.Connect("notify::estimated-load-progress", func(wv *webkit.WebView) {
-		t.SetLoadProgress(wv.GetEstimatedLoadProgress())
-	})
-	if err == nil {
-		wv.handles = append(wv.handles, handle)
-	}
-	wv.tabUI = t
 }
 
 // close updates bookkeeping after the web view is closed.
 func (wv *webView) close() {
 	for _, handle := range wv.handles {
-		wv.WebView.HandlerDisconnect(handle)
+		ggtk.GlibMainContextInvoke(wv.WebView.HandlerDisconnect, handle)
 	}
 	wv.parent.wMutex.Lock()
 	delete(wv.parent.webViews, wv.id)
 	wv.parent.wMutex.Unlock()
-	wv.window = nil
-	if p, _ := wv.WebView.GetParent(); p != nil {
-		cont := &gtk.Container{*p}
-		ggtk.GlibMainContextInvoke(cont.Remove, wv.WebView)
-	}
+	wv.detach()
 	schedGc()
 }

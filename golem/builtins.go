@@ -2,45 +2,61 @@ package golem
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/conformal/gotk3/gdk"
+	"github.com/conformal/gotk3/gtk"
 	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/golem/states"
+	ggtk "github.com/tkerber/golem/gtk"
 )
 
 // builtinsfor retrieves the builtin functions bound to a specific window.
 func builtinsFor(w *Window) cmd.Builtins {
 	return cmd.Builtins{
-		"commandMode":      w.builtinCommandMode,
-		"editURI":          w.builtinEditURI,
-		"goBack":           w.builtinGoBack,
-		"goForward":        w.builtinGoForward,
-		"insertMode":       w.builtinInsertMode,
-		"nop":              w.builtinNop,
-		"open":             w.builtinOpen,
-		"panic":            w.builtinPanic,
-		"quickmarks":       w.builtinQuickmarks,
-		"quickmarksTab":    w.builtinQuickmarksTab,
-		"quickmarksWindow": w.builtinQuickmarksWindow,
-		"quickmarksRapid":  w.builtinQuickmarksRapid,
-		"reload":           w.builtinReload,
-		"reloadNoCache":    w.builtinReloadNoCache,
-		"scrollDown":       w.builtinScrollDown,
-		"scrollLeft":       w.builtinScrollLeft,
-		"scrollRight":      w.builtinScrollRight,
-		"scrollPageDown":   w.builtinScrollPageDown,
-		"scrollPageUp":     w.builtinScrollPageUp,
-		"scrollToBottom":   w.builtinScrollToBottom,
-		"scrollToTop":      w.builtinScrollToTop,
-		"scrollUp":         w.builtinScrollUp,
-		"tabClose":         w.builtinTabClose,
-		"tabEditURI":       w.builtinTabEditURI,
-		"tabGo":            w.builtinTabGo,
-		"tabNext":          w.builtinTabNext,
-		"tabOpen":          w.builtinTabOpen,
-		"tabPrev":          w.builtinTabPrev,
-		"toggleQuickmark":  w.builtinToggleQuickmark,
-		"windowEditURI":    w.builtinWindowEditURI,
-		"windowOpen":       w.builtinWindowOpen,
+		"backgroundEditURI": w.builtinBackgroundEditURI,
+		"backgroundOpen":    w.builtinBackgroundOpen,
+		"commandMode":       w.builtinCommandMode,
+		"cutClipboard":      w.builtinCutClipboard,
+		"cutPrimary":        w.builtinCutPrimary,
+		"editURI":           w.builtinEditURI,
+		"goBack":            w.builtinGoBack,
+		"goForward":         w.builtinGoForward,
+		"insertMode":        w.builtinInsertMode,
+		"nop":               w.builtinNop,
+		"open":              w.builtinOpen,
+		"panic":             w.builtinPanic,
+		"pasteClipboard":    w.builtinPasteClipboard,
+		"pastePrimary":      w.builtinPastePrimary,
+		"quickmarks":        w.builtinQuickmarks,
+		"quickmarksTab":     w.builtinQuickmarksTab,
+		"quickmarksWindow":  w.builtinQuickmarksWindow,
+		"quickmarksRapid":   w.builtinQuickmarksRapid,
+		"reload":            w.builtinReload,
+		"reloadNoCache":     w.builtinReloadNoCache,
+		"scrollDown":        w.builtinScrollDown,
+		"scrollLeft":        w.builtinScrollLeft,
+		"scrollRight":       w.builtinScrollRight,
+		"scrollPageDown":    w.builtinScrollPageDown,
+		"scrollPageUp":      w.builtinScrollPageUp,
+		"scrollToBottom":    w.builtinScrollToBottom,
+		"scrollToTop":       w.builtinScrollToTop,
+		"scrollUp":          w.builtinScrollUp,
+		"tabClose":          w.builtinTabClose,
+		"tabEditURI":        w.builtinTabEditURI,
+		"tabGo":             w.builtinTabGo,
+		"tabNext":           w.builtinTabNext,
+		"tabOpen":           w.builtinTabOpen,
+		"tabPasteClipboard": w.builtinTabPasteClipboard,
+		"tabPastePrimary":   w.builtinTabPastePrimary,
+		"tabPrev":           w.builtinTabPrev,
+		"toggleQuickmark":   w.builtinToggleQuickmark,
+		"windowEditURI":     w.builtinWindowEditURI,
+		"windowOpen":        w.builtinWindowOpen,
+		//"windowPasteClipboard": w.builtinWindowPasteClipboard,
+		//"windowPastePrimary":   w.builtinWindowPastePrimary,
+		"yankClipboard": w.builtinYankClipboard,
+		"yankPrimary":   w.builtinYankPrimary,
 	}
 }
 
@@ -68,9 +84,48 @@ func getWithDefault(ptr *int, def, minv, maxv int) int {
 	return max(min(*ptr, maxv), minv)
 }
 
+// builtinBackgroundEditURI initiates command mode with a bgopen command
+// primed for the current URI.
+func (w *Window) builtinBackgroundEditURI(_ *int) {
+	w.setState(cmd.NewPartialCommandLineMode(
+		w.State,
+		states.CommandLineSubstateCommand,
+		fmt.Sprintf("bgopen %v", w.getWebView().GetURI()),
+		"",
+		w.runCmd))
+}
+
+// builtinBackgroundOpen initiates command mode primed with a bgopen command.
+func (w *Window) builtinBackgroundOpen(_ *int) {
+	w.setState(cmd.NewPartialCommandLineMode(
+		w.State,
+		states.CommandLineSubstateCommand,
+		"bgopen ",
+		"",
+		w.runCmd))
+}
+
 // builtinCommandMode initiates command mode.
 func (w *Window) builtinCommandMode(_ *int) {
 	w.setState(cmd.NewCommandLineMode(w.State, states.CommandLineSubstateCommand, w.runCmd))
+}
+
+// builtinCutClipboard cuts n tabs after and including the current, adding the
+// uris to the clipboard and keeping the tabs in temporary storage for 1
+// minute.
+func (w *Window) builtinCutClipboard(n *int) {
+	w.builtinYankClipboard(n)
+	i, j := w.numTabsToIndicies(getWithDefault(n, 1, 0, len(w.webViews)))
+	w.tabsClose(i, j, true)
+}
+
+// builtinCutPrimary cuts n tabs after and including the current, adding the
+// uris to the primary selection and keeping the tabs in temporary storage
+// for 1 minute.
+func (w *Window) builtinCutPrimary(n *int) {
+	w.builtinYankPrimary(n)
+	i, j := w.numTabsToIndicies(getWithDefault(n, 1, 0, len(w.webViews)))
+	w.tabsClose(i, j, true)
 }
 
 // builtinEditURI initiates command mode with the open command primed for
@@ -118,6 +173,59 @@ func (w *Window) builtinOpen(_ *int) {
 // builtinPanic causes a panic. You probably don't want to use this.
 func (w *Window) builtinPanic(_ *int) {
 	panic("Builtin 'panic' called.")
+}
+
+// builtinPasteClipboard pastes uris stored in the clipboard into the current
+// tab (any more than one into new tabs).
+//
+// Pastes the tab cache if it isn't empty instead.
+// If the tab cache is pasted behaves the same of builtinTabPasteClipboard.
+func (w *Window) builtinPasteClipboard(_ *int) {
+	if len(w.parent.webViewCache) != 0 {
+		wvs := w.parent.pasteWebViews()
+		_, err := w.newTabsWithWebViews(wvs...)
+		if err != nil {
+			w.logErrorf("Failed to paste in web views: %v", err)
+		}
+		return
+	}
+	uris, err := w.urisFromClipboard(gdk.SELECTION_CLIPBOARD)
+	if err != nil {
+		return
+	}
+	w.getWebView().LoadURI(uris[0])
+	if len(uris) > 1 {
+		_, err := w.NewTabs(uris[1:]...)
+		if err != nil {
+			w.logErrorf("Failed to paste in web views: %v", err)
+		}
+	}
+}
+
+// builtinPastePrimary pastes uris stored in the primary selection into the
+// current tab (any more than one into new tabs).
+//
+// Pastes the tab cache if it isn't empty instead.
+func (w *Window) builtinPastePrimary(_ *int) {
+	if len(w.parent.webViewCache) != 0 {
+		wvs := w.parent.pasteWebViews()
+		_, err := w.newTabsWithWebViews(wvs...)
+		if err != nil {
+			w.logErrorf("Failed to paste in web views: %v", err)
+		}
+		return
+	}
+	uris, err := w.urisFromClipboard(gdk.SELECTION_PRIMARY)
+	if err != nil {
+		return
+	}
+	w.getWebView().LoadURI(uris[0])
+	if len(uris) > 1 {
+		_, err := w.NewTabs(uris[1:]...)
+		if err != nil {
+			w.logErrorf("Failed to paste in web views: %v", err)
+		}
+	}
 }
 
 // builtinQuickmarks enters quickmark mode (i.e. a binding mode for launching
@@ -216,15 +324,8 @@ func (w *Window) builtinScrollUp(n *int) {
 
 // builtinTabClose closes the current tab.
 func (w *Window) builtinTabClose(n *int) {
-	num := getWithDefault(n, 1, 0, len(w.webViews))
-	i := w.currentWebView
-	j := i + num
-	if j > len(w.webViews) {
-		diff := j - len(w.webViews)
-		i -= diff
-		j -= diff
-	}
-	w.tabsClose(i, j)
+	i, j := w.numTabsToIndicies(getWithDefault(n, 1, 0, len(w.webViews)))
+	w.tabsClose(i, j, false)
 }
 
 // builtinTabEditURI initiates command mode with a tabopen command primed for
@@ -259,6 +360,51 @@ func (w *Window) builtinTabNext(n *int) {
 // builtinTabOpen initiates command mode primed with a tabopen command.
 func (w *Window) builtinTabOpen(_ *int) {
 	w.setState(cmd.NewPartialCommandLineMode(w.State, states.CommandLineSubstateCommand, "tabopen ", "", w.runCmd))
+}
+
+// builtinTabPasteClipboard pastes uris stored in the clipboard into new tabs.
+//
+// Pastes the tab cache if it isn't empty instead.
+func (w *Window) builtinTabPasteClipboard(_ *int) {
+	if len(w.parent.webViewCache) != 0 {
+		wvs := w.parent.pasteWebViews()
+		_, err := w.newTabsWithWebViews(wvs...)
+		if err != nil {
+			w.logErrorf("Failed to paste in web views: %v", err)
+		}
+		return
+	}
+	uris, err := w.urisFromClipboard(gdk.SELECTION_CLIPBOARD)
+	if err != nil {
+		return
+	}
+	_, err = w.NewTabs(uris...)
+	if err != nil {
+		w.logErrorf("Failed to paste in web views: %v", err)
+	}
+}
+
+// builtinTabPastePrimary pastes uris stored in the primary selection into new
+// tabs.
+//
+// Pastes the tab cache if it isn't empty instead.
+func (w *Window) builtinTabPastePrimary(_ *int) {
+	if len(w.parent.webViewCache) != 0 {
+		wvs := w.parent.pasteWebViews()
+		_, err := w.newTabsWithWebViews(wvs...)
+		if err != nil {
+			w.logErrorf("Failed to paste in web views: %v", err)
+		}
+		return
+	}
+	uris, err := w.urisFromClipboard(gdk.SELECTION_PRIMARY)
+	if err != nil {
+		return
+	}
+	_, err = w.NewTabs(uris...)
+	if err != nil {
+		w.logErrorf("Failed to paste in web views: %v", err)
+	}
 }
 
 // builtinTabPrev goes to the previous tab.
@@ -313,6 +459,78 @@ func (w *Window) builtinWindowEditURI(_ *int) {
 // builtinWindowOpen initiates command mode primed with a winopen command.
 func (w *Window) builtinWindowOpen(_ *int) {
 	w.setState(cmd.NewPartialCommandLineMode(w.State, states.CommandLineSubstateCommand, "winopen ", "", w.runCmd))
+}
+
+// builtinYankClipboard yanks the next n tabs (including the current) uris
+// to the clipboard.
+func (w *Window) builtinYankClipboard(n *int) {
+	i, j := w.numTabsToIndicies(getWithDefault(n, 1, 0, len(w.webViews)))
+	str := yankTabs(w.webViews[i:j])
+	go ggtk.GlibMainContextInvoke(func() {
+		clip, err := gtk.ClipboardGet(gdk.SELECTION_CLIPBOARD)
+		if err != nil {
+			w.logErrorf("Failed to yank to clipboard: %v", err)
+			return
+		}
+		clip.SetText(str)
+	})
+}
+
+// builtinYankPrimary yanks the next n tabs (including the current) uris
+// to the primary selection.
+func (w *Window) builtinYankPrimary(n *int) {
+	i, j := w.numTabsToIndicies(getWithDefault(n, 1, 0, len(w.webViews)))
+	str := yankTabs(w.webViews[i:j])
+	go ggtk.GlibMainContextInvoke(func() {
+		clip, err := gtk.ClipboardGet(gdk.SELECTION_PRIMARY)
+		if err != nil {
+			w.logErrorf("Failed to yank to clipboard: %v", err)
+			return
+		}
+		clip.SetText(str)
+	})
+}
+
+// urisFromClipboard gets a slice of uris from the specified clipboard.
+func (w *Window) urisFromClipboard(selection gdk.Atom) ([]string, error) {
+	args := ggtk.GlibMainContextInvoke(func() (string, error) {
+		clip, err := gtk.ClipboardGet(selection)
+		if err != nil {
+			w.logErrorf("Failed to access clipboard: %v", err)
+			return "", err
+		}
+		return clip.WaitForText()
+	})
+	if args[1] != nil {
+		return nil, args[1].(error)
+	}
+	return strings.Split(args[0].(string), "\n"), nil
+}
+
+// yankTabs extracts a uri string from given webviews to yank.
+func yankTabs(wvs []*webView) string {
+	uris := make([]string, len(wvs))
+	for i, wv := range wvs {
+		uris[i] = wv.GetURI()
+	}
+	return strings.Join(uris, "\n")
+}
+
+// numTabsToIndicies gets a slice indexes to the webViews slice from a number
+// of tabs to select.
+//
+// n must be <= the existing number or tabs, and tabs will be taken from
+// the current tab onward if possible. If not, tabs before the current tab
+// will be added until it fits.
+func (w *Window) numTabsToIndicies(n int) (i, j int) {
+	i = w.currentWebView
+	j = i + n
+	if j > len(w.webViews) {
+		diff := j - len(w.webViews)
+		i -= diff
+		j -= diff
+	}
+	return i, j
 }
 
 // scrollDelta scrolls a given amount of pixes either vertically or

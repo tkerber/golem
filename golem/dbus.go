@@ -45,8 +45,8 @@ const (
 <node>
 	<interface name="` + DBusInterface + `">
 		<method name="NewWindow" />
-		<method name="NewTab">
-			<arg direction="in" type="s" name="uri" />
+		<method name="NewTabs">
+			<arg direction="in" type="as" name="uris" />
 		</method>
 	</interface>` + introspect.IntrospectDataString + `</node>`
 )
@@ -73,17 +73,25 @@ func (g *DBusGolem) NewWindow() *dbus.Error {
 	return nil
 }
 
-func (g *DBusGolem) NewTab(uri string) *dbus.Error {
+// NewTabs opens a set of uris in new tabs.
+func (g *DBusGolem) NewTabs(uris []string) *dbus.Error {
 	// we try to split it into parts to allow searches to be passed
 	// via command line. If this fails, we ignore the error and just
 	// pass the whole string instead.
-	parts, err := shellwords.Parse(uri)
-	if err != nil {
-		parts = []string{uri}
+	for i, uri := range uris {
+		parts, err := shellwords.Parse(uri)
+		if err != nil {
+			parts = []string{uri}
+		}
+		uris[i] = g.golem.OpenURI(parts)
 	}
-	uri = g.golem.OpenURI(parts)
 	w := g.golem.windows[0]
-	w.NewTab(uri)
+	_, err := w.NewTabs(uris...)
+	if err != nil {
+		return &dbus.Error{
+			fmt.Sprintf(DBusName+".Error", g.golem.profile),
+			[]interface{}{err}}
+	}
 	w.tabNext()
 	return nil
 }

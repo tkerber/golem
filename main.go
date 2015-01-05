@@ -92,14 +92,17 @@ func main() {
 		} else {
 			// Open the last tab in the new window, then open all others in
 			// order in a new tab.
-			win, err := g.NewWindow(uris[len(uris)-1])
+			win, err := g.NewWindow(uris[0])
 			if err != nil {
 				golem.Errlog.Printf("Failed to open window: %v", err)
 				exitCode = 1
 				return
 			}
-			for _, uri := range uris[:len(uris)-1] {
-				win.NewTab(uri)
+			if len(uris) > 1 {
+				_, err = win.NewTabs(uris[1:]...)
+				if err != nil {
+					golem.Errlog.Printf("Failed to open tabs: %v", err)
+				}
 			}
 		}
 		// This doesn't need to run in a goroutine, but as the gtk main
@@ -125,16 +128,12 @@ func main() {
 				return
 			}
 		} else {
-			// Otherwise, create new tabs for each URI in order.
-			// The tabs will be created in the 'default' window, i.e. the first.
-			for _, arg := range args {
-				call := o.Call(
-					golem.DBusInterface+".NewTab",
-					0,
-					arg)
-				if call.Err != nil {
-					golem.Errlog.Printf("Failed to open tab: %v", call.Err)
-				}
+			call := o.Call(
+				golem.DBusInterface+".NewTabs",
+				0,
+				args)
+			if call.Err != nil {
+				golem.Errlog.Printf("Failed to open tabs: %v", call.Err)
 			}
 		}
 	}

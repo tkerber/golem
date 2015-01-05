@@ -121,7 +121,7 @@ func (g *Golem) NewWindow(uri string) (*Window, error) {
 	if err != nil {
 		return nil, err
 	}
-	win.webViews[0].setTabUI(tabUI)
+	win.webViews[0].tabUI = tabUI
 	win.Window.FocusTab(0)
 
 	win.builtins = builtinsFor(win)
@@ -343,12 +343,20 @@ func (w *Window) quickmarkCallback(keys []cmd.Key, _ *int, s cmd.Substate) {
 	case states.NormalSubstateQuickmark:
 		w.getWebView().LoadURI(uri)
 	case states.NormalSubstateQuickmarkTab:
-		w.NewTab(uri)
+		_, err := w.NewTabs(uri)
+		if err != nil {
+			w.logErrorf("Failed to open new tab: %v", err)
+			return
+		}
 		w.tabNext()
 	case states.NormalSubstateQuickmarkWindow:
 		w.parent.NewWindow(uri)
 	case states.NormalSubstateQuickmarksRapid:
-		w.NewTab(uri)
+		_, err := w.NewTabs(uri)
+		if err != nil {
+			w.logErrorf("Failed to open new tab: %v", err)
+			return
+		}
 		w.setState(cmd.NewNormalModeWithSubstate(
 			w.State,
 			states.NormalSubstateQuickmarksRapid))

@@ -38,6 +38,9 @@ func init() {
 		"t":               cmdTabOpen,
 		"topen":           cmdTabOpen,
 		"tabopen":         cmdTabOpen,
+		"bg":              cmdBackgroundOpen,
+		"bgopen":          cmdBackgroundOpen,
+		"backgroundopen":  cmdBackgroundOpen,
 		"newtab":          cmdTabOpen,
 		"w":               cmdWindowOpen,
 		"wopen":           cmdWindowOpen,
@@ -67,6 +70,19 @@ func (w *Window) logInvalidArgs(args []string) {
 // not have been executed in a global context (i.e. in golem's rc)
 func logNonGlobalCommand() {
 	(*Window)(nil).logError("Non global command executed in a global context.")
+}
+
+// cmdBackgroundOpen opens a new tab in the background.
+func cmdBackgroundOpen(w *Window, g *Golem, args []string) {
+	if w == nil {
+		logNonGlobalCommand()
+		return
+	}
+	uri := g.OpenURI(args[1:])
+	_, err := w.NewTabs(uri)
+	if err != nil {
+		w.logErrorf("Failed to open new tab: %v", err)
+	}
 }
 
 // cmdAddQuickmark adds a new quickmark and records it in the quickmarks file.
@@ -248,7 +264,11 @@ func cmdTabOpen(w *Window, g *Golem, args []string) {
 		return
 	}
 	uri := g.OpenURI(args[1:])
-	w.NewTab(uri)
+	_, err := w.NewTabs(uri)
+	if err != nil {
+		w.logErrorf("Failed to open new tab: %v", err)
+		return
+	}
 	w.tabNext()
 }
 

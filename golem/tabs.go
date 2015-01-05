@@ -7,58 +7,77 @@ import (
 	"github.com/tkerber/golem/webkit"
 )
 
-// NewTab opens a new tab to a specified URI.
+// NewTabs opens several new tabs to the specified URIs.
 //
 // If the URI is blank, the new tab page is used instead.
-func (w *Window) NewTab(uri string) (*webView, error) {
-	wv, err := w.newTabBlank()
+func (w *Window) NewTabs(uris ...string) ([]*webView, error) {
+	wvs := make([]*webView, len(uris))
+	wvs, err := w.newTabsWithWebViews(wvs...)
 	if err != nil {
 		return nil, err
 	}
-	if uri == "" {
-		wv.LoadURI(w.parent.newTabPage)
-	} else {
-		wv.LoadURI(uri)
+	for i, wv := range wvs {
+		if uris[i] == "" {
+			wv.LoadURI(w.parent.newTabPage)
+		} else {
+			wv.LoadURI(uris[i])
+		}
 	}
-	return wv, nil
+	return wvs, nil
 }
 
 // newTabWithRequests opens a new tab and loads a specified uri request into
 // it.
 func (w *Window) newTabWithRequest(req *webkit.UriRequest) (*webView, error) {
-	wv, err := w.newTabBlank()
+	wvs, err := w.newTabsWithWebViews(nil)
 	if err != nil {
 		return nil, err
 	}
-	wv.LoadRequest(req)
-	return wv, nil
+	wvs[0].LoadRequest(req)
+	return wvs[0], nil
 }
 
-// newTabBlank opens a blank new tab.
-func (w *Window) newTabBlank() (*webView, error) {
-	wv, err := w.newWebView(w.getWebView().settings)
+// newTabsWithWebViews creates tabs for several web views and attaches them
+// after the current tab.
+//
+// If nil is supplied as a web view, a new web view is created.
+func (w *Window) newTabsWithWebViews(wvs ...*webView) ([]*webView, error) {
+	for i, wv := range wvs {
+		if wv == nil {
+			wv, err := w.newWebView(w.getWebView().settings)
+			if err != nil {
+				return nil, err
+			}
+			wvs[i] = wv
+		} else {
+			wv.window = w
+		}
+	}
+	tabs, err := w.Window.TabBar.AddTabs(
+		w.currentWebView+1,
+		w.currentWebView+1+len(wvs))
 	if err != nil {
 		return nil, err
 	}
-	tab, err := w.Window.TabBar.AddTab(w.currentWebView + 1)
-	if err != nil {
-		return nil, err
+	for i := 0; i < len(wvs); i++ {
+		wvs[i].tabUI = tabs[i]
+		wvs[i].tabUI.SetTitle(wvs[i].GetTitle())
 	}
-	wv.setTabUI(tab)
 	w.wMutex.Lock()
 	defer w.wMutex.Unlock()
 	// At the new tab directly after the current one.
-	newWebViews := append(w.webViews, nil)
-	copy(
-		newWebViews[w.currentWebView+2:],
-		newWebViews[w.currentWebView+1:len(newWebViews)-1])
-	newWebViews[w.currentWebView+1] = wv
+	newWebViews := make([]*webView, len(w.webViews)+len(wvs))
+	copy(newWebViews[:w.currentWebView+1], w.webViews[:w.currentWebView+1])
+	copy(newWebViews[w.currentWebView+1:w.currentWebView+1+len(wvs)], wvs)
+	copy(newWebViews[w.currentWebView+1+len(wvs):], w.webViews[w.currentWebView+1:])
 	w.webViews = newWebViews
-	w.Window.AttachWebView(wv)
+	for _, wv := range wvs {
+		w.Window.AttachWebView(wv)
+	}
 	w.Window.TabCount = len(w.webViews)
 	go w.UpdateLocation()
 	// Note that we do *not* switch tabs here.
-	return wv, nil
+	return wvs, nil
 }
 
 // tabNext goes to the next tab.
@@ -89,8 +108,15 @@ func (w *Window) tabGo(index int) error {
 }
 
 // tabsClose closes the tabs from index i to j (slice indexes)
-func (w *Window) tabsClose(i, j int) {
+func (w *Window) tabsClose(i, j int, cut bool) {
 	if len(w.webViews) == j-i {
+		if cut {
+			for _, wv := range w.webViews {
+				wv.detach()
+			}
+			w.parent.cutWebViews(w.webViews)
+			w.webViews = make([]*webView, 0)
+		}
 		w.Window.Close()
 		return
 	}
@@ -115,8 +141,15 @@ func (w *Window) tabsClose(i, j int) {
 		}
 		w.webViews = w.webViews[:len(w.webViews)-(j-i)]
 		w.Window.CloseTabs(i, j)
-		for _, wv := range wvs {
-			wv.close()
+		if cut {
+			for _, wv := range wvs {
+				wv.detach()
+			}
+			w.parent.cutWebViews(wvs)
+		} else {
+			for _, wv := range wvs {
+				wv.close()
+			}
 		}
 		activeWebView := w.currentWebView >= i && w.currentWebView <= j
 		if activeWebView {

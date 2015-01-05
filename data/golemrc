@@ -1,9 +1,22 @@
 " This is a comment.
 set webkit:user-agent+=" golem/0 (Anvil of the Void)"
 
-bind dd      builtin:tabClose
-bind <num>dd builtin:tabClose
-bind d<num>d builtin:tabClose
+bind dd      builtin:cutClipboard
+bind <num>dd builtin:cutClipboard
+bind d<num>d builtin:cutClipboard
+
+bind yy      builtin:yankClipboard
+bind <num>yy builtin:yankClipboard
+bind y<num>y builtin:yankClipboard
+bind yY      builtin:yankPrimary
+bind <num>yY builtin:yankPrimary
+bind y<num>Y builtin:yankPrimary
+
+bind pp      builtin:pasteClipboard
+bind pP      builtin:pastePrimary
+bind Pp      builtin:tabPasteClipboard
+bind PP      builtin:tabPastePrimary
+
 bind h       builtin:tabPrev
 bind <num>h  builtin:tabPrev
 bind l       builtin:tabNext
