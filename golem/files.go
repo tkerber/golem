@@ -15,6 +15,7 @@ type files struct {
 	cookies     string
 	rc          string
 	quickmarks  string
+	histfile    string
 	downloadDir string
 }
 
@@ -59,6 +60,7 @@ func (g *Golem) newFiles() (*files, error) {
 		cookies,
 		configFiles[0],
 		configFiles[1],
+		filepath.Join(configDir, "history"),
 		downloads}, nil
 }
 

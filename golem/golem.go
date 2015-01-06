@@ -3,6 +3,7 @@ package golem
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -21,6 +22,12 @@ html::-webkit-scrollbar{
 	height:0px!important;
 	width:0px!important;
 }`
+
+// A historyEntry is a single entry in the history file.
+type historyEntry struct {
+	uri   string
+	title string
+}
 
 // Golem is golem's main instance.
 type Golem struct {
@@ -44,6 +51,9 @@ type Golem struct {
 
 	webViewCache     []*webView
 	webViewCacheFree chan bool
+
+	historyMutex *sync.Mutex
+	history      []historyEntry
 }
 
 // New creates a new instance of golem.
@@ -83,6 +93,8 @@ func New(sBus *dbus.Conn, profile string) (*Golem, error) {
 		"",
 		make([]*webView, 0),
 		make(chan bool, 1),
+		new(sync.Mutex),
+		make([]historyEntry, 0, defaultCfg.maxHistLen),
 	}
 	g.profile = profile
 
@@ -294,4 +306,45 @@ func (g *Golem) closeWindow(w *Window) {
 
 // addDownload adds a new download to the tracked downloads.
 func (g *Golem) addDownload(d *webkit.Download) {
+}
+
+// updateHistory updates the history file. With a newly visited uri and title.
+func (g *Golem) updateHistory(uri, title string) {
+	if g.maxHistLen == 0 || uri == "" {
+		return
+	}
+	g.historyMutex.Lock()
+	defer g.historyMutex.Unlock()
+	// Check if uri is alreay in the history. If so, move to the end, and
+	// update title.
+	var i int
+	for i = 0; i < len(g.history); i++ {
+		if g.history[i].uri == uri {
+			break
+		}
+	}
+	if i != len(g.history) {
+		// Update title and move to end.
+		hist := g.history[i]
+		hist.title = title
+		copy(g.history[i:len(g.history)-1], g.history[i+1:])
+		g.history[len(g.history)-1] = hist
+	} else {
+		if len(g.history) == g.maxHistLen {
+			g.history = g.history[1:]
+		}
+		g.history = append(g.history, historyEntry{uri, title})
+	}
+	// Write hist file.
+	strHist := make([]string, len(g.history))
+	for i, hist := range g.history {
+		strHist[i] = fmt.Sprintf("%s\t%s", hist.uri, hist.title)
+	}
+	err := ioutil.WriteFile(
+		g.files.histfile,
+		[]byte(strings.Join(strHist, "\n")),
+		0600)
+	if err != nil {
+		(*Window)(nil).logErrorf("Failed to write history file: %v", err)
+	}
 }

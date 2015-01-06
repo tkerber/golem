@@ -8,6 +8,7 @@ type cfg struct {
 	scrollDelta   int
 	profile       string
 	pdfjsEnabled  bool
+	maxHistLen    int
 }
 
 // The defaultCfg is used when golem is started, and typically overwritten
@@ -23,5 +24,6 @@ func init() {
 		40,
 		"default",
 		err == nil,
+		500,
 	}
 }

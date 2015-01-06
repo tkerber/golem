@@ -168,6 +168,17 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 		return nil, err
 	}
 	ret.handles = append(ret.handles, handle)
+	// history handle
+	handle, err = ret.WebView.Connect("load-changed",
+		func(wv *webkit.WebView, e C.WebKitLoadEvent) {
+			switch e {
+			case C.WEBKIT_LOAD_FINISHED:
+				go ret.parent.updateHistory(wv.GetURI(), wv.GetTitle())
+			}
+		})
+	if err == nil {
+		ret.handles = append(ret.handles, handle)
+	}
 	// tab ui handles.
 	handle, err = ret.WebView.Connect("notify::title",
 		func(wv *webkit.WebView) {
