@@ -23,7 +23,13 @@ var exitCode = 0
 
 // main runs golem (yay!)
 func main() {
-	defer func() { os.Exit(exitCode) }()
+	defer func() {
+		rec := recover()
+		if rec == nil {
+			os.Exit(exitCode)
+		}
+		panic(rec)
+	}()
 	// Init command line flags.
 	var profile string
 	flag.StringVar(
@@ -56,10 +62,10 @@ func main() {
 	case dbus.RequestNameReplyPrimaryOwner:
 		gtk.Init(&args)
 		g, err := golem.New(sBus, profile)
-		defer g.WebkitCleanup()
 		if err != nil {
 			panic(fmt.Sprintf("Error during golem initialization: %v", err))
 		}
+		defer g.WebkitCleanup()
 		sBus.Export(
 			g.CreateDBusWrapper(),
 			golem.DBusPath,

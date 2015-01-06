@@ -16,6 +16,8 @@ bind pp      builtin:pasteClipboard
 bind pP      builtin:pastePrimary
 bind Pp      builtin:tabPasteClipboard
 bind PP      builtin:tabPastePrimary
+bind wp      builtin:windowPasteClipboard
+bind wP      builtin:windowPastePrimary
 
 bind h       builtin:tabPrev
 bind <num>h  builtin:tabPrev
@@ -58,7 +60,7 @@ bind B       builtin:quickmarksTab
 bind wb      builtin:quickmarksWindow
 bind ,b      builtin:quickmarksRapid
 
-bind m       builtin:toggleQuickmarks
+bind m       builtin:toggleQuickmark
 
 " Mediasource isn't supported enough for YouTube yet :(
 set webkit:enable-mediasource=true
