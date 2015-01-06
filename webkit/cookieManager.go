@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	// CookiePeristentStorageText specifies that the cookies should be saved
+	// CookiePersistentStorageText specifies that the cookies should be saved
 	// in a text format.
 	CookiePersistentStorageText = C.WEBKIT_COOKIE_PERSISTENT_STORAGE_TEXT
 	// CookiePersistentStorageSQLite specifies that the cookies should be

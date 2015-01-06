@@ -15,7 +15,7 @@ const (
 	// NormalSubstateQuickmarkWindow indicates quickmark bindings mode opening
 	// in a new window.
 	NormalSubstateQuickmarkWindow
-	// NormalSubstateQuickmarkRapid indicates quickmark bindings mode opening
+	// NormalSubstateQuickmarksRapid indicates quickmark bindings mode opening
 	// several quickmarks in background tabs.
 	NormalSubstateQuickmarksRapid
 )

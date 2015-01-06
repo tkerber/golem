@@ -71,7 +71,10 @@ func (b RawBinding) ParseBinding(
 		if !ok {
 			return nil, fmt.Errorf("Unknown builtin function: %v", builtinName)
 		}
-		return &Binding{keys, func(_ []Key, i *int, _ Substate) { builtin(i) }}, nil
+		return &Binding{
+			keys,
+			func(_ []Key, i *int, _ Substate) { builtin(i) },
+		}, nil
 	} else if hasPrefixes(b.To, "command:", "cmd:", "c:") {
 		cmd := stripPrefixes(b.To, "command:", "cmd:", "c:")
 		return &Binding{keys, func(_ []Key, _ *int, _ Substate) {

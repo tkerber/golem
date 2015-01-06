@@ -15,7 +15,7 @@ import (
 )
 
 // hasProtocolRegex matches if a "uri" has what looks like a protocol.
-var hasProtocolRegex = regexp.MustCompile(`(http|https):.*`)
+var hasProtocolRegex = regexp.MustCompile(`(http|https|file):.*`)
 
 // looksLikeURIRegex matches if (despite no protocol existing), a "uri" looks
 // like a uri.
@@ -385,7 +385,8 @@ func cmdSet(w *Window, g *Golem, args []string) {
 			continue
 		}
 
-		operatorFunc, err := cmdSetOperatorFunc(op, setFunc, getFunc, valueType)
+		operatorFunc, err :=
+			cmdSetOperatorFunc(op, setFunc, getFunc, valueType)
 		if err != nil {
 			w.logErrorf("%v: '%v'", err, arg)
 			continue
@@ -440,7 +441,8 @@ func cmdSetOperatorFunc(
 				setFunc(obj, getFunc(obj).(uint)-val.(uint))
 			}, nil
 		default:
-			return nil, fmt.Errorf("Don't know how to subtract type %v", valueType)
+			return nil, fmt.Errorf("Don't know how to subtract type %v",
+				valueType)
 		}
 	case setOpInvert:
 		switch valueType.Kind() {
@@ -453,7 +455,8 @@ func cmdSetOperatorFunc(
 		case reflect.Uint:
 			return nil, fmt.Errorf("Cannot invert uint value")
 		default:
-			return nil, fmt.Errorf("Don't know how to invert type %v", valueType)
+			return nil, fmt.Errorf("Don't know how to invert type %v",
+				valueType)
 		}
 	default:
 		panic("unreachable")

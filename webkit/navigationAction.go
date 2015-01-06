@@ -21,9 +21,9 @@ func (a *NavigationAction) free() {
 }
 
 // GetRequest gets the request associated with the navigation action.
-func (a *NavigationAction) GetRequest() *UriRequest {
+func (a *NavigationAction) GetRequest() *URIRequest {
 	creq := C.webkit_navigation_action_get_request(a.native)
-	req := &UriRequest{&glib.Object{glib.ToGObject(unsafe.Pointer(creq))}}
+	req := &URIRequest{&glib.Object{glib.ToGObject(unsafe.Pointer(creq))}}
 	req.Object.RefSink()
 	runtime.SetFinalizer(req.Object, (*glib.Object).Unref)
 	return req

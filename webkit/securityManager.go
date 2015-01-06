@@ -32,49 +32,59 @@ func (sm *SecurityManager) native() *C.WebKitSecurityManager {
 	return (*C.WebKitSecurityManager)(unsafe.Pointer(sm.Native()))
 }
 
-// RegisterUriSchemeAsLocal registers a uri scheme as being local, i.e. non-
+// RegisterURISchemeAsLocal registers a uri scheme as being local, i.e. non-
 // local pages can't interact with it.
-func (sm *SecurityManager) RegisterUriSchemeAsLocal(scheme string) {
+func (sm *SecurityManager) RegisterURISchemeAsLocal(scheme string) {
 	cstr := (*C.gchar)(C.CString(scheme))
 	defer C.free(unsafe.Pointer(cstr))
 	C.webkit_security_manager_register_uri_scheme_as_local(sm.native(), cstr)
 }
 
-// RegisterUriSchemeAsNoAccess registers a uri scheme to have no access to
+// RegisterURISchemeAsNoAccess registers a uri scheme to have no access to
 // web pages in other schemes.
-func (sm *SecurityManager) RegisterUriSchemeAsNoAccess(scheme string) {
+func (sm *SecurityManager) RegisterURISchemeAsNoAccess(scheme string) {
 	cstr := (*C.gchar)(C.CString(scheme))
 	defer C.free(unsafe.Pointer(cstr))
-	C.webkit_security_manager_register_uri_scheme_as_no_access(sm.native(), cstr)
+	C.webkit_security_manager_register_uri_scheme_as_no_access(
+		sm.native(),
+		cstr)
 }
 
-// RegisterUriSchemeAsDisplayIsolated registers a uri scheme such that only
+// RegisterURISchemeAsDisplayIsolated registers a uri scheme such that only
 // pages on the same scheme can display it.
-func (sm *SecurityManager) RegisterUriSchemeAsDisplayIsolated(scheme string) {
+func (sm *SecurityManager) RegisterURISchemeAsDisplayIsolated(scheme string) {
 	cstr := (*C.gchar)(C.CString(scheme))
 	defer C.free(unsafe.Pointer(cstr))
-	C.webkit_security_manager_register_uri_scheme_as_display_isolated(sm.native(), cstr)
+	C.webkit_security_manager_register_uri_scheme_as_display_isolated(
+		sm.native(),
+		cstr)
 }
 
-// RegisterUriSchemeAsSecure silences mixed content warning for this scheme on
+// RegisterURISchemeAsSecure silences mixed content warning for this scheme on
 // https sites.
-func (sm *SecurityManager) RegisterUriSchemeAsSecure(scheme string) {
+func (sm *SecurityManager) RegisterURISchemeAsSecure(scheme string) {
 	cstr := (*C.gchar)(C.CString(scheme))
 	defer C.free(unsafe.Pointer(cstr))
-	C.webkit_security_manager_register_uri_scheme_as_secure(sm.native(), cstr)
+	C.webkit_security_manager_register_uri_scheme_as_secure(
+		sm.native(),
+		cstr)
 }
 
-// RegisterUriSchemeAsCorsEnabled registers the scheme as a CORS enabled scheme.
-func (sm *SecurityManager) RegisterUriSchemeAsCorsEnabled(scheme string) {
+// RegisterURISchemeAsCorsEnabled registers the scheme as a CORS enabled scheme.
+func (sm *SecurityManager) RegisterURISchemeAsCorsEnabled(scheme string) {
 	cstr := (*C.gchar)(C.CString(scheme))
 	defer C.free(unsafe.Pointer(cstr))
-	C.webkit_security_manager_register_uri_scheme_as_cors_enabled(sm.native(), cstr)
+	C.webkit_security_manager_register_uri_scheme_as_cors_enabled(
+		sm.native(),
+		cstr)
 }
 
-// RegisterUriSchemeAsEmptyDocuments registers a uri scheme as an empty document
+// RegisterURISchemeAsEmptyDocument registers a uri scheme as an empty document
 // scheme.
-func (sm *SecurityManager) RegisterUriSchemeAsEmptyDocument(scheme string) {
+func (sm *SecurityManager) RegisterURISchemeAsEmptyDocument(scheme string) {
 	cstr := (*C.gchar)(C.CString(scheme))
 	defer C.free(unsafe.Pointer(cstr))
-	C.webkit_security_manager_register_uri_scheme_as_empty_document(sm.native(), cstr)
+	C.webkit_security_manager_register_uri_scheme_as_empty_document(
+		sm.native(),
+		cstr)
 }

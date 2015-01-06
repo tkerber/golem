@@ -39,10 +39,10 @@ func (d *Download) native() *C.WebKitDownload {
 	return (*C.WebKitDownload)(unsafe.Pointer(d.Native()))
 }
 
-// GetRequest gets the UriRequest associated with this download.
-func (d *Download) GetRequest() *UriRequest {
+// GetRequest gets the URIRequest associated with this download.
+func (d *Download) GetRequest() *URIRequest {
 	cReq := C.webkit_download_get_request(d.native())
-	req := &UriRequest{&glib.Object{glib.ToGObject(unsafe.Pointer(cReq))}}
+	req := &URIRequest{&glib.Object{glib.ToGObject(unsafe.Pointer(cReq))}}
 	req.Object.RefSink()
 	runtime.SetFinalizer(req.Object, (*glib.Object).Unref)
 	return req
@@ -103,12 +103,12 @@ func (d *Download) GetWebView() (*WebView, error) {
 // GetResponse gets the uri response to the download request.
 //
 // Returns an error if the response is not yet available.
-func (d *Download) GetResponse() (*UriResponse, error) {
+func (d *Download) GetResponse() (*URIResponse, error) {
 	cresp := C.webkit_download_get_response(d.native())
 	if cresp == nil {
 		return nil, errNilPtr
 	}
-	resp := &UriResponse{&glib.Object{glib.ToGObject(unsafe.Pointer(cresp))}}
+	resp := &URIResponse{&glib.Object{glib.ToGObject(unsafe.Pointer(cresp))}}
 	resp.Object.Ref()
 	runtime.SetFinalizer(resp.Object, (*glib.Object).Unref)
 	return resp, nil

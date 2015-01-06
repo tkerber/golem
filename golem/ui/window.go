@@ -77,11 +77,11 @@ func newWindow(webView WebView) (*Window, error) {
 	sp := C.gtk_css_provider_new()
 	css := colors.CSS
 	gErr := new(*C.GError)
-	cCss := C.CString(css)
-	defer C.free(unsafe.Pointer(cCss))
+	cCSS := C.CString(css)
+	defer C.free(unsafe.Pointer(cCSS))
 	C.gtk_css_provider_load_from_data(
 		sp,
-		(*C.gchar)(cCss),
+		(*C.gchar)(cCSS),
 		-1,
 		gErr)
 	if *gErr != nil {
@@ -128,7 +128,10 @@ func newWindow(webView WebView) (*Window, error) {
 		return nil, err
 	}
 	statusBarEventBox.Add(statusBar)
-	w.StatusBar = &StatusBar{cmdStatus, locationStatus, statusBarEventBox.Container}
+	w.StatusBar = &StatusBar{
+		cmdStatus,
+		locationStatus,
+		statusBarEventBox.Container}
 
 	tabBar, err := NewTabBar(w)
 	if err != nil {

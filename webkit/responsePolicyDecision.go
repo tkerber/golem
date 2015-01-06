@@ -10,8 +10,8 @@ import (
 	"github.com/conformal/gotk3/glib"
 )
 
-// A ResponsePolicyDecision is a decision of whether or not to load a particular
-// resource.
+// A ResponsePolicyDecision is a decision of whether or not to load a
+// particular resource.
 type ResponsePolicyDecision struct {
 	*glib.Object
 }
@@ -40,9 +40,9 @@ func (d *ResponsePolicyDecision) Use() {
 }
 
 // GetResponse retrieves the uri response associated with this decision.
-func (d *ResponsePolicyDecision) GetResponse() *UriResponse {
+func (d *ResponsePolicyDecision) GetResponse() *URIResponse {
 	cresp := C.webkit_response_policy_decision_get_response(d.native())
-	resp := &UriResponse{&glib.Object{glib.ToGObject(unsafe.Pointer(cresp))}}
+	resp := &URIResponse{&glib.Object{glib.ToGObject(unsafe.Pointer(cresp))}}
 	resp.Object.RefSink()
 	runtime.SetFinalizer(resp.Object, (*glib.Object).Unref)
 	return resp

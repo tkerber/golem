@@ -207,15 +207,16 @@ func (g *Golem) watchSignals(c <-chan *dbus.Signal) {
 
 			continue
 		}
-		originId, err := strconv.ParseUint(
-			string(sig.Path[len(
-				fmt.Sprintf(webExtenDBusPathPrefix, g.profile)):len(sig.Path)]),
+		originID, err := strconv.ParseUint(
+			string(sig.Path[len(fmt.Sprintf(
+				webExtenDBusPathPrefix, g.profile,
+			)):len(sig.Path)]),
 			0,
 			64)
 		if err != nil {
 			continue
 		}
-		wv, ok := g.webViews[originId]
+		wv, ok := g.webViews[originID]
 		if !ok {
 			continue
 		}
@@ -240,7 +241,8 @@ func (g *Golem) watchSignals(c <-chan *dbus.Signal) {
 			for _, w := range g.windows {
 				if wv == w.getWebView() {
 					if focused {
-						w.setState(cmd.NewInsertMode(w.State, cmd.SubstateDefault))
+						w.setState(
+							cmd.NewInsertMode(w.State, cmd.SubstateDefault))
 					} else if _, ok := w.State.(*cmd.InsertMode); ok {
 						w.setState(
 							cmd.NewNormalMode(w.State))

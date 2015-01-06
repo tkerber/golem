@@ -107,7 +107,8 @@ func (w *Window) builtinBackgroundOpen(_ *int) {
 
 // builtinCommandMode initiates command mode.
 func (w *Window) builtinCommandMode(_ *int) {
-	w.setState(cmd.NewCommandLineMode(w.State, states.CommandLineSubstateCommand, w.runCmd))
+	w.setState(cmd.NewCommandLineMode(
+		w.State, states.CommandLineSubstateCommand, w.runCmd))
 }
 
 // builtinCutClipboard cuts n tabs after and including the current, adding the
@@ -142,7 +143,8 @@ func (w *Window) builtinEditURI(_ *int) {
 // builtinGoBack goes one step back in browser history.
 func (w *Window) builtinGoBack(n *int) {
 	wv := w.getWebView()
-	item, ok := wv.GetBackForwardList().GetNthItemWeak(-getWithDefault(n, 1, 0, 50))
+	item, ok := wv.GetBackForwardList().GetNthItemWeak(
+		-getWithDefault(n, 1, 0, 50))
 	if ok {
 		wv.GoToBackForwardListItem(item)
 	}
@@ -151,7 +153,8 @@ func (w *Window) builtinGoBack(n *int) {
 // builtinGoForward goes one step forward in browser history.
 func (w *Window) builtinGoForward(n *int) {
 	wv := w.getWebView()
-	item, ok := wv.GetBackForwardList().GetNthItemWeak(getWithDefault(n, 1, 0, 50))
+	item, ok := wv.GetBackForwardList().GetNthItemWeak(
+		getWithDefault(n, 1, 0, 50))
 	if ok {
 		wv.GoToBackForwardListItem(item)
 	}
@@ -167,7 +170,12 @@ func (w *Window) builtinNop(_ *int) {}
 
 // builtinOpen initiates command mode, primed with an open command.
 func (w *Window) builtinOpen(_ *int) {
-	w.setState(cmd.NewPartialCommandLineMode(w.State, states.CommandLineSubstateCommand, "open ", "", w.runCmd))
+	w.setState(cmd.NewPartialCommandLineMode(
+		w.State,
+		states.CommandLineSubstateCommand,
+		"open ",
+		"",
+		w.runCmd))
 }
 
 // builtinPanic causes a panic. You probably don't want to use this.
@@ -231,26 +239,30 @@ func (w *Window) builtinPastePrimary(_ *int) {
 // builtinQuickmarks enters quickmark mode (i.e. a binding mode for launching
 // quickmarks)
 func (w *Window) builtinQuickmarks(_ *int) {
-	w.setState(cmd.NewNormalModeWithSubstate(w.State, states.NormalSubstateQuickmark))
+	w.setState(cmd.NewNormalModeWithSubstate(
+		w.State, states.NormalSubstateQuickmark))
 }
 
 // builtinQuickmarksTab enters quickmark mode (i.e. a binding mode for
 // launching quickmarks), opening in a new tab.
 func (w *Window) builtinQuickmarksTab(_ *int) {
-	w.setState(cmd.NewNormalModeWithSubstate(w.State, states.NormalSubstateQuickmarkTab))
+	w.setState(cmd.NewNormalModeWithSubstate(
+		w.State, states.NormalSubstateQuickmarkTab))
 }
 
 // builtinQuickmarksWindow enters quickmark mode (i.e. a binding mode for
 // launching quickmarks), opening in a new window.
 func (w *Window) builtinQuickmarksWindow(_ *int) {
-	w.setState(cmd.NewNormalModeWithSubstate(w.State, states.NormalSubstateQuickmarkWindow))
+	w.setState(cmd.NewNormalModeWithSubstate(
+		w.State, states.NormalSubstateQuickmarkWindow))
 }
 
 // builtinQuickmarksRapid enters quickmark mode (i.e. a binding mode for
 // launching quickmarks), opening in a new tab, and remaining in quickmarks
 // rapid mode.
 func (w *Window) builtinQuickmarksRapid(_ *int) {
-	w.setState(cmd.NewNormalModeWithSubstate(w.State, states.NormalSubstateQuickmarksRapid))
+	w.setState(cmd.NewNormalModeWithSubstate(
+		w.State, states.NormalSubstateQuickmarksRapid))
 }
 
 // builtinReload reloads the current page.
@@ -359,7 +371,12 @@ func (w *Window) builtinTabNext(n *int) {
 
 // builtinTabOpen initiates command mode primed with a tabopen command.
 func (w *Window) builtinTabOpen(_ *int) {
-	w.setState(cmd.NewPartialCommandLineMode(w.State, states.CommandLineSubstateCommand, "tabopen ", "", w.runCmd))
+	w.setState(cmd.NewPartialCommandLineMode(
+		w.State,
+		states.CommandLineSubstateCommand,
+		"tabopen ",
+		"",
+		w.runCmd))
 }
 
 // builtinTabPasteClipboard pastes uris stored in the clipboard into new tabs.
@@ -458,7 +475,12 @@ func (w *Window) builtinWindowEditURI(_ *int) {
 
 // builtinWindowOpen initiates command mode primed with a winopen command.
 func (w *Window) builtinWindowOpen(_ *int) {
-	w.setState(cmd.NewPartialCommandLineMode(w.State, states.CommandLineSubstateCommand, "winopen ", "", w.runCmd))
+	w.setState(cmd.NewPartialCommandLineMode(
+		w.State,
+		states.CommandLineSubstateCommand,
+		"winopen ",
+		"",
+		w.runCmd))
 }
 
 // builtinWindowPasteClipboard pastes uris stored in the clipboard into a new

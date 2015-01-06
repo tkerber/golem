@@ -28,7 +28,7 @@ func (w *Window) NewTabs(uris ...string) ([]*webView, error) {
 
 // newTabWithRequests opens a new tab and loads a specified uri request into
 // it.
-func (w *Window) newTabWithRequest(req *webkit.UriRequest) (*webView, error) {
+func (w *Window) newTabWithRequest(req *webkit.URIRequest) (*webView, error) {
 	wvs, err := w.newTabsWithWebViews(nil)
 	if err != nil {
 		return nil, err
@@ -69,7 +69,8 @@ func (w *Window) newTabsWithWebViews(wvs ...*webView) ([]*webView, error) {
 	newWebViews := make([]*webView, len(w.webViews)+len(wvs))
 	copy(newWebViews[:w.currentWebView+1], w.webViews[:w.currentWebView+1])
 	copy(newWebViews[w.currentWebView+1:w.currentWebView+1+len(wvs)], wvs)
-	copy(newWebViews[w.currentWebView+1+len(wvs):], w.webViews[w.currentWebView+1:])
+	copy(newWebViews[w.currentWebView+1+len(wvs):],
+		w.webViews[w.currentWebView+1:])
 	w.webViews = newWebViews
 	for _, wv := range wvs {
 		w.Window.AttachWebView(wv)
@@ -133,7 +134,7 @@ func (w *Window) tabsClose(i, j int, cut bool) {
 		copy(
 			w.webViews[i:k],
 			w.webViews[j:])
-		for i, _ := range w.webViews[k:] {
+		for i := range w.webViews[k:] {
 			w.webViews[i+k] = nil
 		}
 		if w.currentWebView > j {

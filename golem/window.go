@@ -26,10 +26,10 @@ import (
 var Errlog = log.New(os.Stderr, "(E) ", log.LstdFlags)
 
 // PrintKeys specifies whether each keypress should be printed.
-var PrintKeys bool = false
+var PrintKeys = false
 
 // PrintCommands specifies whether all commands should be printed.
-var PrintCommands bool = false
+var PrintCommands = false
 
 // blankLineRegex matches a blank or comment line for commands.
 var blankLineRegex = regexp.MustCompile(`^\s*(".*|)$`)
@@ -41,7 +41,11 @@ type signalHandle struct {
 	handle glib.SignalHandle
 }
 
-func newSignalHandle(obj *glib.Object, handle glib.SignalHandle, err error) *signalHandle {
+func newSignalHandle(
+	obj *glib.Object,
+	handle glib.SignalHandle,
+	err error) *signalHandle {
+
 	// failed connects won't cause any errors, but *will* be logged.
 	if obj != nil && err == nil {
 		return &signalHandle{obj, handle}
@@ -105,109 +109,109 @@ func (g *Golem) initWindow() *Window {
 }
 
 // initWindowWebView finished window initialization with the given web view.
-func (win *Window) initWindowWebView(wv *webView) error {
+func (w *Window) initWindowWebView(wv *webView) error {
 	var err error
 
-	win.webViews[0] = wv
-	win.Window, err = ui.NewWindow(win.webViews[0])
+	w.webViews[0] = wv
+	w.Window, err = ui.NewWindow(w.webViews[0])
 	if err != nil {
 		return err
 	}
 
-	tabUI, err := win.Window.AppendTab()
+	tabUI, err := w.Window.AppendTab()
 	if err != nil {
 		return err
 	}
 	tabUI.SetTitle(wv.GetTitle())
 	wv.tabUI = tabUI
-	wv.window = win
-	win.Window.FocusTab(0)
+	wv.window = w
+	w.Window.FocusTab(0)
 
-	win.builtins = builtinsFor(win)
+	w.builtins = builtinsFor(w)
 
-	win.setState(cmd.NewState(win.bindings, win.setState))
+	w.setState(cmd.NewState(w.bindings, w.setState))
 
-	win.rebuildBindings()
-	win.rebuildQuickmarks()
+	w.rebuildBindings()
+	w.rebuildQuickmarks()
 
-	win.parent.wMutex.Lock()
-	win.parent.windows = append(win.parent.windows, win)
-	win.parent.wMutex.Unlock()
+	w.parent.wMutex.Lock()
+	w.parent.windows = append(w.parent.windows, w)
+	w.parent.wMutex.Unlock()
 
-	win.reconnectWebViewSignals()
+	w.reconnectWebViewSignals()
 
 	// Due to a bug with keypresses registering multiple times, we ignore
 	// keypresses within 10ms of each other.
 	// After each keypress, true gets sent to this channel 10ms after.
-	win.timeoutChan <- true
+	w.timeoutChan <- true
 
-	handle, err := win.Window.Window.Connect("key-press-event", win.handleKeyPress)
+	handle, err := w.Window.Window.Connect("key-press-event", w.handleKeyPress)
 	if err == nil {
-		win.windowSignalHandles = append(
-			win.windowSignalHandles,
-			&signalHandle{win.Window.Window.Object, handle})
+		w.windowSignalHandles = append(
+			w.windowSignalHandles,
+			&signalHandle{w.Window.Window.Object, handle})
 	}
-	handle, err = win.Window.Window.Connect(
+	handle, err = w.Window.Window.Connect(
 		"button-press-event",
-		win.handleBackForwardButtons)
+		w.handleBackForwardButtons)
 	if err == nil {
-		win.windowSignalHandles = append(
-			win.windowSignalHandles,
-			&signalHandle{win.Window.Window.Object, handle})
+		w.windowSignalHandles = append(
+			w.windowSignalHandles,
+			&signalHandle{w.Window.Window.Object, handle})
 	}
 	// handle middle click primary selection paste.
-	handle, err = win.Window.StatusBar.Container.Connect("button-press-event",
+	handle, err = w.Window.StatusBar.Container.Connect("button-press-event",
 		func(_ interface{}, e *gdk.Event) bool {
 			bpe := (*C.GdkEventButton)(unsafe.Pointer(e.Native()))
 			if bpe.button != 2 {
 				return false
 			}
-			cmdState, ok := win.State.(*cmd.CommandLineMode)
+			cmdState, ok := w.State.(*cmd.CommandLineMode)
 			if !ok {
 				return false
 			}
 			clip, err := gtk.ClipboardGet(gdk.SELECTION_PRIMARY)
 			if err != nil {
-				win.logErrorf("Failed to acquire clipboard: %v", err)
+				w.logErrorf("Failed to acquire clipboard: %v", err)
 				return false
 			}
 			str, err := clip.WaitForText()
 			if err != nil {
 				return true
 			}
-			win.setState(cmdState.Paste(str))
+			w.setState(cmdState.Paste(str))
 			return true
 		})
 	if err == nil {
-		win.windowSignalHandles = append(
-			win.windowSignalHandles,
-			&signalHandle{win.Window.StatusBar.Container.Object, handle})
+		w.windowSignalHandles = append(
+			w.windowSignalHandles,
+			&signalHandle{w.Window.StatusBar.Container.Object, handle})
 	}
-	handle, err = win.Window.Window.Connect("destroy", func() {
-		for _, wv := range win.webViews {
+	handle, err = w.Window.Window.Connect("destroy", func() {
+		for _, wv := range w.webViews {
 			wv.close()
 		}
-		for _, h := range win.activeSignalHandles {
+		for _, h := range w.activeSignalHandles {
 			h.disconnect()
 		}
-		for _, h := range win.windowSignalHandles {
+		for _, h := range w.windowSignalHandles {
 			h.disconnect()
 		}
-		win.parent.closeWindow(win)
+		w.parent.closeWindow(w)
 		// Ensure garbage collection
-		win.Window.WebView = nil
-		win.bindings = nil
-		win.builtins = nil
-		win.State = nil
+		w.Window.WebView = nil
+		w.bindings = nil
+		w.builtins = nil
+		w.State = nil
 		schedGc()
 	})
 	if err == nil {
-		win.windowSignalHandles = append(
-			win.windowSignalHandles,
-			&signalHandle{win.Window.Window.Object, handle})
+		w.windowSignalHandles = append(
+			w.windowSignalHandles,
+			&signalHandle{w.Window.Window.Object, handle})
 	}
 
-	win.Show()
+	w.Show()
 	return nil
 }
 
@@ -257,17 +261,15 @@ func (w *Window) handleBackForwardButtons(_ interface{}, e *gdk.Event) bool {
 		if wv.CanGoBack() {
 			wv.GoBack()
 			return true
-		} else {
-			return false
 		}
+		return false
 	// Forward button
 	case 9:
 		if wv.CanGoForward() {
 			wv.GoForward()
 			return true
-		} else {
-			return false
 		}
+		return false
 	default:
 		return false
 	}
@@ -302,18 +304,25 @@ func (w *Window) handleKeyPress(uiWin *gtk.Window, e *gdk.Event) bool {
 		// takes precedence.
 		if oldState == w.State {
 			w.setState(newState)
-		} else if statusM, ok := w.State.(*cmd.StatusMode); ok && statusM.State == oldState {
-			w.setState(cmd.NewStatusMode(newState, statusM.Substate, statusM.Status))
-		} else if confM, ok := w.State.(*cmd.ConfirmMode); ok && confM.State == oldState {
-			w.setState(&cmd.ConfirmMode{
-				newState,
-				confM.Substate,
-				confM.Prompt,
-				confM.ConfirmKeys,
-				confM.CancelKeys,
-				confM.Default,
-				confM.Callback,
-			})
+		} else if statusM, ok := w.State.(*cmd.StatusMode); ok {
+			if statusM.State == oldState {
+				w.setState(cmd.NewStatusMode(
+					newState,
+					statusM.Substate,
+					statusM.Status))
+			}
+		} else if confM, ok := w.State.(*cmd.ConfirmMode); ok {
+			if confM.State == oldState {
+				w.setState(&cmd.ConfirmMode{
+					newState,
+					confM.Substate,
+					confM.Prompt,
+					confM.ConfirmKeys,
+					confM.CancelKeys,
+					confM.Default,
+					confM.Callback,
+				})
+			}
 		}
 		return ret
 	default:
@@ -323,7 +332,10 @@ func (w *Window) handleKeyPress(uiWin *gtk.Window, e *gdk.Event) bool {
 
 // rebuildBindings rebuilds the bindings for this window.
 func (w *Window) rebuildBindings() {
-	bindings, errs := cmd.ParseRawBindings(w.parent.rawBindings, w.builtins, w.runCmd)
+	bindings, errs := cmd.ParseRawBindings(
+		w.parent.rawBindings,
+		w.builtins,
+		w.runCmd)
 	if errs != nil {
 		for _, err := range errs {
 			w.logErrorf("Error: Failed to parse key bindings: %v", err)
@@ -343,7 +355,7 @@ func (w *Window) rebuildBindings() {
 // rebuildQuickmarks rebuild the quickmark bindings for this window.
 func (w *Window) rebuildQuickmarks() {
 	bindings := make([]*cmd.Binding, 0, len(w.parent.quickmarks))
-	for keyStr, _ := range w.parent.quickmarks {
+	for keyStr := range w.parent.quickmarks {
 		bindings = append(
 			bindings,
 			&cmd.Binding{cmd.ParseKeys(keyStr), w.quickmarkCallback})
@@ -431,7 +443,8 @@ func (w *Window) reconnectWebViewSignals() {
 		w.activeSignalHandles,
 		newSignalHandle(wv.Object, handle, err))
 
-	handle, err = wv.Connect("notify::estimated-load-progress", w.UpdateLocation)
+	handle, err = wv.Connect("notify::estimated-load-progress",
+		w.UpdateLocation)
 	w.activeSignalHandles = append(
 		w.activeSignalHandles,
 		newSignalHandle(wv.Object, handle, err))
@@ -480,7 +493,8 @@ func runCmd(w *Window, g *Golem, command string) {
 		}
 		f(w, g, parts)
 	} else {
-		w.logErrorf("Error: Failed to run command '%v': No such command.", command)
+		w.logErrorf("Error: Failed to run command '%v': No such command.",
+			command)
 	}
 }
 

@@ -14,6 +14,7 @@ type cfg struct {
 // with rc commands.
 var defaultCfg *cfg
 
+// init initializes the default config.
 func init() {
 	_, err := Asset("srv/pdf.js/web/viewer.html")
 	defaultCfg = &cfg{

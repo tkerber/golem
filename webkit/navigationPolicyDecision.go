@@ -41,7 +41,8 @@ func (d *NavigationPolicyDecision) Use() {
 
 // GetNavigationAction returns the navigation action causing the navigation.
 func (d *NavigationPolicyDecision) GetNavigationAction() *NavigationAction {
-	cnav := C.webkit_navigation_policy_decision_get_navigation_action(d.native())
+	cnav := C.webkit_navigation_policy_decision_get_navigation_action(
+		d.native())
 	cnav = C.webkit_navigation_action_copy(cnav)
 	nav := &NavigationAction{cnav}
 	runtime.SetFinalizer(nav, (*NavigationAction).free)

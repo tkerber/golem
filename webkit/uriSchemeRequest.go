@@ -46,8 +46,8 @@ func (r *URISchemeRequest) GetPath() string {
 // replaced with a method using a Reader for retrieving data instead of the
 // raw bytes.
 func (r *URISchemeRequest) Finish(data []byte, mimeType string) {
-	// TODO: use a reader instead of data; and think of some way to transform it
-	// into a GInputStream.
+	// TODO: use a reader instead of data; and think of some way to transform
+	// it into a GInputStream.
 	cstr := C.CString(mimeType)
 	defer C.free(unsafe.Pointer(cstr))
 	var dataPtr unsafe.Pointer

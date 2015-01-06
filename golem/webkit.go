@@ -82,24 +82,27 @@ func (g *Golem) webkitInit() {
 		}
 		g.addDownload(d)
 		dlDir := g.files.downloadDir
-		d.Connect("decide-destination", func(d *webkit.Download, suggestedName string) bool {
-			// Check if the file with the suggested name exists in dlDir
-			path := filepath.Join(dlDir, suggestedName)
-			_, err := os.Stat(path)
-			exists := !os.IsNotExist(err)
-			for i := 1; exists; i++ {
-				path = filepath.Join(dlDir, fmt.Sprintf("%d_%s", i, suggestedName))
+		d.Connect("decide-destination",
+			func(d *webkit.Download, suggestedName string) bool {
+				// Check if the file with the suggested name exists in dlDir
+				path := filepath.Join(dlDir, suggestedName)
 				_, err := os.Stat(path)
-				exists = !os.IsNotExist(err)
-			}
-			d.SetDestination(fmt.Sprintf("file://%s", path))
-			return false
-		})
+				exists := !os.IsNotExist(err)
+				for i := 1; exists; i++ {
+					path = filepath.Join(
+						dlDir,
+						fmt.Sprintf("%d_%s", i, suggestedName))
+					_, err := os.Stat(path)
+					exists = !os.IsNotExist(err)
+				}
+				d.SetDestination(fmt.Sprintf("file://%s", path))
+				return false
+			})
 	})
 
 	// TODO this is temporary.
 	c.RegisterURIScheme("golem", golemSchemeHandler)
-	c.GetSecurityManager().RegisterUriSchemeAsCorsEnabled("golem")
+	c.GetSecurityManager().RegisterURISchemeAsCorsEnabled("golem")
 }
 
 // WebkitCleanup removes the temporary webkit extension directory.
@@ -161,7 +164,7 @@ func handleLoopRequest(req *webkit.URISchemeRequest) {
 		os.RemoveAll(tmpDir)
 		return
 	}
-	dwnld := webkit.GetDefaultWebContext().DownloadUri(uri)
+	dwnld := webkit.GetDefaultWebContext().DownloadURI(uri)
 	dwnld.SetDestination("file://" + dlFile)
 	var handle glib.SignalHandle
 	handle, err = dwnld.Connect("finished", func() {

@@ -63,7 +63,9 @@ func NewWebView() (*WebView, error) {
 
 // NewWebViewWithUserContentManager creates a new WebView, using a specific
 // UserContentManager.
-func NewWebViewWithUserContentManager(ucm *UserContentManager) (*WebView, error) {
+func NewWebViewWithUserContentManager(
+	ucm *UserContentManager) (*WebView, error) {
+
 	w := C.webkit_web_view_new_with_user_content_manager(
 		(*C.WebKitUserContentManager)(unsafe.Pointer(ucm.Native())))
 	if w == nil {
@@ -80,7 +82,10 @@ func NewWebViewWithUserContentManager(ucm *UserContentManager) (*WebView, error)
 
 // wrapWebView wraps a creates web view object in the appropriate classes.
 func wrapWebView(obj *glib.Object) *WebView {
-	return &WebView{gtk.Container{gtk.Widget{glib.InitiallyUnowned{obj}}}, nil, nil}
+	return &WebView{
+		gtk.Container{gtk.Widget{glib.InitiallyUnowned{obj}}},
+		nil,
+		nil}
 }
 
 // native retrieves (a properly casted) pointer the native C WebKitWebView.
@@ -101,7 +106,7 @@ func (w *WebView) LoadURI(uri string) {
 }
 
 // LoadRequest loads a specified URI request.
-func (w *WebView) LoadRequest(req *UriRequest) {
+func (w *WebView) LoadRequest(req *URIRequest) {
 	C.webkit_web_view_load_request(
 		w.native(),
 		(*C.WebKitURIRequest)(unsafe.Pointer(req.Native())))
@@ -199,15 +204,18 @@ func (w *WebView) GetSettings() *Settings {
 	return w.settings
 }
 
-// LoadAlternativeHtml loads html into the web view, with a given uri.
+// LoadAlternateHTML loads html into the web view, with a given uri.
 //
-// baseUri is used to resolve relative paths in the html.
-func (w *WebView) LoadAlternateHtml(content []byte, contentUri, baseUri string) {
+// baseURI is used to resolve relative paths in the html.
+func (w *WebView) LoadAlternateHTML(
+	content []byte,
+	contentURI, baseURI string) {
+
 	ccont := (*C.gchar)(C.CString(string(content)))
 	defer C.free(unsafe.Pointer(ccont))
-	ccuri := (*C.gchar)(C.CString(contentUri))
+	ccuri := (*C.gchar)(C.CString(contentURI))
 	defer C.free(unsafe.Pointer(ccuri))
-	cburi := (*C.gchar)(C.CString(baseUri))
+	cburi := (*C.gchar)(C.CString(baseURI))
 	defer C.free(unsafe.Pointer(cburi))
 	C.webkit_web_view_load_alternate_html(w.native(), ccont, ccuri, cburi)
 }

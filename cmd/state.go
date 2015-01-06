@@ -30,7 +30,7 @@ var primarySelectionPasteKey = NewKeyFromString("C-V")
 
 // PrintBindings specifies whether or not to print bindings as and when they
 // run.
-var PrintBindings bool = false
+var PrintBindings = false
 
 // timeout is the time waited in normal mode before an ambiguous binding is
 // executed.
@@ -113,6 +113,8 @@ func NewNormalMode(s State) *NormalMode {
 	return NewNormalModeWithSubstate(s, SubstateDefault)
 }
 
+// NewNormalModeWithSubstate creates a new NormalMode with the specified
+// substate.
 func NewNormalModeWithSubstate(s State, st Substate) *NormalMode {
 	si := s.GetStateIndependant()
 	return &NormalMode{
@@ -325,7 +327,11 @@ type CommandLineMode struct {
 //
 // The finalizer function is run if a command line entry is accepted, with the
 // command line entry as an argument.
-func NewCommandLineMode(s State, st Substate, f func(string)) *CommandLineMode {
+func NewCommandLineMode(
+	s State,
+	st Substate,
+	f func(string)) *CommandLineMode {
+
 	return &CommandLineMode{
 		s.GetStateIndependant(),
 		st,
@@ -416,27 +422,25 @@ func (s *CommandLineMode) ProcessKeyPress(key RealKey) (State, bool) {
 	case KeyHome:
 		if s.CursorPos == 0 {
 			return s, false
-		} else {
-			return &CommandLineMode{
-				s.StateIndependant,
-				s.Substate,
-				s.CurrentKeys,
-				0,
-				s.Finalizer}, true
 		}
+		return &CommandLineMode{
+			s.StateIndependant,
+			s.Substate,
+			s.CurrentKeys,
+			0,
+			s.Finalizer}, true
 	case KeyKPEnd:
 		fallthrough
 	case KeyEnd:
 		if s.CursorPos == len(s.CurrentKeys) {
 			return s, false
-		} else {
-			return &CommandLineMode{
-				s.StateIndependant,
-				s.Substate,
-				s.CurrentKeys,
-				len(s.CurrentKeys),
-				s.Finalizer}, true
 		}
+		return &CommandLineMode{
+			s.StateIndependant,
+			s.Substate,
+			s.CurrentKeys,
+			len(s.CurrentKeys),
+			s.Finalizer}, true
 	// Execute command line
 	case KeyKPEnter:
 		fallthrough
@@ -651,7 +655,7 @@ func (s *ConfirmMode) ProcessKeyPress(k RealKey) (State, bool) {
 	}
 }
 
-// Get substate gets the substate of the current state.
+// GetSubstate gets the substate of the current state.
 func (s *ConfirmMode) GetSubstate() Substate {
 	return s.Substate
 }

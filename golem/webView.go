@@ -63,25 +63,27 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 	}
 
 	// Attach to the create signal, which creates new tabs on demand.
-	handle, err := ret.WebView.Connect("create", func(wv *webkit.WebView, ptr uintptr) {
-		// TODO clean this up. It should probably be somewhere in the
-		// webkit package.
-		boxed := (*C.WebKitNavigationAction)(unsafe.Pointer(ptr))
-		req := C.webkit_navigation_action_get_request(boxed)
-		cStr := (*C.char)(C.webkit_uri_request_get_uri(req))
-		if ret.window == nil {
-			ret.window.logError("A tab currently not associated to a " +
-				"window attempted to open a new tab. The request was dropped.")
-		} else {
-			wvs, err := ret.window.NewTabs(C.GoString(cStr))
-			if err != nil {
-				ret.window.logError("Failed creation of new tab...")
+	handle, err := ret.WebView.Connect("create",
+		func(wv *webkit.WebView, ptr uintptr) {
+			// TODO clean this up. It should probably be somewhere in the
+			// webkit package.
+			boxed := (*C.WebKitNavigationAction)(unsafe.Pointer(ptr))
+			req := C.webkit_navigation_action_get_request(boxed)
+			cStr := (*C.char)(C.webkit_uri_request_get_uri(req))
+			if ret.window == nil {
+				ret.window.logError("A tab currently not associated to a " +
+					"window attempted to open a new tab. The request was " +
+					"dropped.")
 			} else {
-				// Focus our new tab.
-				ret.window.tabGo(ret.window.tabIndex(wvs[0]))
+				wvs, err := ret.window.NewTabs(C.GoString(cStr))
+				if err != nil {
+					ret.window.logError("Failed creation of new tab...")
+				} else {
+					// Focus our new tab.
+					ret.window.tabGo(ret.window.tabIndex(wvs[0]))
+				}
 			}
-		}
-	})
+		})
 	if err != nil {
 		return nil, err
 	}
@@ -126,18 +128,18 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 				mimetype := resp.GetMimeType()
 				switch mimetype {
 				case "application/pdf", "application/x-pdf":
-					if resp.GetUri() == ret.WebView.GetURI() {
+					if resp.GetURI() == ret.WebView.GetURI() {
 						site, err := Asset("srv/pdf.js/frame.html.fmt")
 						if err == nil && w.parent.pdfjsEnabled {
 							decision.Ignore()
-							ret.WebView.LoadAlternateHtml(
+							ret.WebView.LoadAlternateHTML(
 								[]byte(fmt.Sprintf(
 									string(site),
-									html.EscapeString(resp.GetUri()))),
-								resp.GetUri(),
+									html.EscapeString(resp.GetURI()))),
+								resp.GetURI(),
 								fmt.Sprintf(
 									"golem:///pdf.js/frame.html?%s",
-									resp.GetUri))
+									resp.GetURI))
 							return true
 						}
 					}
@@ -167,19 +169,21 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 	}
 	ret.handles = append(ret.handles, handle)
 	// tab ui handles.
-	handle, err = ret.WebView.Connect("notify::title", func(wv *webkit.WebView) {
-		if ret.tabUI != nil {
-			ret.tabUI.SetTitle(wv.GetTitle())
-		}
-	})
+	handle, err = ret.WebView.Connect("notify::title",
+		func(wv *webkit.WebView) {
+			if ret.tabUI != nil {
+				ret.tabUI.SetTitle(wv.GetTitle())
+			}
+		})
 	if err == nil {
 		ret.handles = append(ret.handles, handle)
 	}
-	handle, err = ret.WebView.Connect("notify::estimated-load-progress", func(wv *webkit.WebView) {
-		if ret.tabUI != nil {
-			ret.tabUI.SetLoadProgress(wv.GetEstimatedLoadProgress())
-		}
-	})
+	handle, err = ret.WebView.Connect("notify::estimated-load-progress",
+		func(wv *webkit.WebView) {
+			if ret.tabUI != nil {
+				ret.tabUI.SetLoadProgress(wv.GetEstimatedLoadProgress())
+			}
+		})
 	if err == nil {
 		ret.handles = append(ret.handles, handle)
 	}
