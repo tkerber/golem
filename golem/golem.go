@@ -102,6 +102,10 @@ func New(sBus *dbus.Conn, profile string) (*Golem, error) {
 	if err != nil {
 		return nil, err
 	}
+	err = g.loadHistory()
+	if err != nil {
+		return nil, err
+	}
 
 	g.webkitInit()
 
@@ -117,6 +121,31 @@ func New(sBus *dbus.Conn, profile string) (*Golem, error) {
 	}
 
 	return g, nil
+}
+
+// loadHistory loads an existing histfile.
+func (g *Golem) loadHistory() error {
+	data, err := ioutil.ReadFile(g.files.histfile)
+	if os.IsNotExist(err) {
+		// No history to load. Nothing to do.
+	} else if err != nil {
+		return err
+	} else {
+		histStrs := strings.Split(string(data), "\n")
+		for _, str := range histStrs {
+			split := strings.SplitN(str, "\t", 2)
+			var uri, title string
+			if len(split) != 2 {
+				uri = split[0]
+				title = ""
+			} else {
+				uri = split[0]
+				title = split[1]
+			}
+			g.history = append(g.history, historyEntry{uri, title})
+		}
+	}
+	return nil
 }
 
 // cutWebViews moves the supplied web views to an internal buffer, and keeps
