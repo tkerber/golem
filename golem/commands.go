@@ -15,11 +15,13 @@ import (
 )
 
 // hasProtocolRegex matches if a "uri" has what looks like a protocol.
-var hasProtocolRegex = regexp.MustCompile(`\w+:.*`)
+var hasProtocolRegex = regexp.MustCompile(`(http|https):.*`)
 
 // looksLikeURIRegex matches if (despite no protocol existing), a "uri" looks
 // like a uri.
-var looksLikeURIRegex = regexp.MustCompile(`\S+\.\S+`)
+// TODO make sure this and hasProtocolRegex function correctly in almost all
+// cases. (ipv6?)
+var looksLikeURIRegex = regexp.MustCompile(`(\S+\.\S+|localhost)(:\d+)?(/.*)?`)
 
 // commands maps a command name to the command's function.
 var commands map[string]func(*Window, *Golem, []string)

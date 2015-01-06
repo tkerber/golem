@@ -14,49 +14,49 @@ import (
 // builtinsfor retrieves the builtin functions bound to a specific window.
 func builtinsFor(w *Window) cmd.Builtins {
 	return cmd.Builtins{
-		"backgroundEditURI": w.builtinBackgroundEditURI,
-		"backgroundOpen":    w.builtinBackgroundOpen,
-		"commandMode":       w.builtinCommandMode,
-		"cutClipboard":      w.builtinCutClipboard,
-		"cutPrimary":        w.builtinCutPrimary,
-		"editURI":           w.builtinEditURI,
-		"goBack":            w.builtinGoBack,
-		"goForward":         w.builtinGoForward,
-		"insertMode":        w.builtinInsertMode,
-		"nop":               w.builtinNop,
-		"open":              w.builtinOpen,
-		"panic":             w.builtinPanic,
-		"pasteClipboard":    w.builtinPasteClipboard,
-		"pastePrimary":      w.builtinPastePrimary,
-		"quickmarks":        w.builtinQuickmarks,
-		"quickmarksTab":     w.builtinQuickmarksTab,
-		"quickmarksWindow":  w.builtinQuickmarksWindow,
-		"quickmarksRapid":   w.builtinQuickmarksRapid,
-		"reload":            w.builtinReload,
-		"reloadNoCache":     w.builtinReloadNoCache,
-		"scrollDown":        w.builtinScrollDown,
-		"scrollLeft":        w.builtinScrollLeft,
-		"scrollRight":       w.builtinScrollRight,
-		"scrollPageDown":    w.builtinScrollPageDown,
-		"scrollPageUp":      w.builtinScrollPageUp,
-		"scrollToBottom":    w.builtinScrollToBottom,
-		"scrollToTop":       w.builtinScrollToTop,
-		"scrollUp":          w.builtinScrollUp,
-		"tabClose":          w.builtinTabClose,
-		"tabEditURI":        w.builtinTabEditURI,
-		"tabGo":             w.builtinTabGo,
-		"tabNext":           w.builtinTabNext,
-		"tabOpen":           w.builtinTabOpen,
-		"tabPasteClipboard": w.builtinTabPasteClipboard,
-		"tabPastePrimary":   w.builtinTabPastePrimary,
-		"tabPrev":           w.builtinTabPrev,
-		"toggleQuickmark":   w.builtinToggleQuickmark,
-		"windowEditURI":     w.builtinWindowEditURI,
-		"windowOpen":        w.builtinWindowOpen,
-		//"windowPasteClipboard": w.builtinWindowPasteClipboard,
-		//"windowPastePrimary":   w.builtinWindowPastePrimary,
-		"yankClipboard": w.builtinYankClipboard,
-		"yankPrimary":   w.builtinYankPrimary,
+		"backgroundEditURI":    w.builtinBackgroundEditURI,
+		"backgroundOpen":       w.builtinBackgroundOpen,
+		"commandMode":          w.builtinCommandMode,
+		"cutClipboard":         w.builtinCutClipboard,
+		"cutPrimary":           w.builtinCutPrimary,
+		"editURI":              w.builtinEditURI,
+		"goBack":               w.builtinGoBack,
+		"goForward":            w.builtinGoForward,
+		"insertMode":           w.builtinInsertMode,
+		"nop":                  w.builtinNop,
+		"open":                 w.builtinOpen,
+		"panic":                w.builtinPanic,
+		"pasteClipboard":       w.builtinPasteClipboard,
+		"pastePrimary":         w.builtinPastePrimary,
+		"quickmarks":           w.builtinQuickmarks,
+		"quickmarksTab":        w.builtinQuickmarksTab,
+		"quickmarksWindow":     w.builtinQuickmarksWindow,
+		"quickmarksRapid":      w.builtinQuickmarksRapid,
+		"reload":               w.builtinReload,
+		"reloadNoCache":        w.builtinReloadNoCache,
+		"scrollDown":           w.builtinScrollDown,
+		"scrollLeft":           w.builtinScrollLeft,
+		"scrollRight":          w.builtinScrollRight,
+		"scrollPageDown":       w.builtinScrollPageDown,
+		"scrollPageUp":         w.builtinScrollPageUp,
+		"scrollToBottom":       w.builtinScrollToBottom,
+		"scrollToTop":          w.builtinScrollToTop,
+		"scrollUp":             w.builtinScrollUp,
+		"tabClose":             w.builtinTabClose,
+		"tabEditURI":           w.builtinTabEditURI,
+		"tabGo":                w.builtinTabGo,
+		"tabNext":              w.builtinTabNext,
+		"tabOpen":              w.builtinTabOpen,
+		"tabPasteClipboard":    w.builtinTabPasteClipboard,
+		"tabPastePrimary":      w.builtinTabPastePrimary,
+		"tabPrev":              w.builtinTabPrev,
+		"toggleQuickmark":      w.builtinToggleQuickmark,
+		"windowEditURI":        w.builtinWindowEditURI,
+		"windowOpen":           w.builtinWindowOpen,
+		"windowPasteClipboard": w.builtinWindowPasteClipboard,
+		"windowPastePrimary":   w.builtinWindowPastePrimary,
+		"yankClipboard":        w.builtinYankClipboard,
+		"yankPrimary":          w.builtinYankPrimary,
 	}
 }
 
@@ -459,6 +459,84 @@ func (w *Window) builtinWindowEditURI(_ *int) {
 // builtinWindowOpen initiates command mode primed with a winopen command.
 func (w *Window) builtinWindowOpen(_ *int) {
 	w.setState(cmd.NewPartialCommandLineMode(w.State, states.CommandLineSubstateCommand, "winopen ", "", w.runCmd))
+}
+
+// builtinWindowPasteClipboard pastes uris stored in the clipboard into a new
+// window.
+//
+// Pastes the tab cache if it isn't empty instead.
+func (w *Window) builtinWindowPasteClipboard(_ *int) {
+	var win *Window
+	var err error
+	if len(w.parent.webViewCache) != 0 {
+		wvs := w.parent.pasteWebViews()
+		win, err = w.parent.newWindowWithWebView(wvs[0])
+		if err != nil {
+			w.logErrorf("Failed to open new window: %v", err)
+			return
+		}
+		if len(wvs) > 1 {
+			_, err := win.newTabsWithWebViews(wvs[1:]...)
+			if err != nil {
+				w.logErrorf("Failed to paste in web views: %v", err)
+			}
+		}
+		return
+	}
+	uris, err := w.urisFromClipboard(gdk.SELECTION_CLIPBOARD)
+	if err != nil {
+		return
+	}
+	win, err = w.parent.NewWindow(uris[0])
+	if err != nil {
+		w.logErrorf("Failed to open new window: %v", err)
+		return
+	}
+	if len(uris) > 1 {
+		_, err := w.NewTabs(uris[1:]...)
+		if err != nil {
+			w.logErrorf("Failed to paste in web views: %v", err)
+		}
+	}
+}
+
+// builtinWindowPastePrimary pastes uris stored in the primary selection into
+// a new window.
+//
+// Pastes the tab cache if it isn't empty instead.
+func (w *Window) builtinWindowPastePrimary(_ *int) {
+	var win *Window
+	var err error
+	if len(w.parent.webViewCache) != 0 {
+		wvs := w.parent.pasteWebViews()
+		win, err = w.parent.newWindowWithWebView(wvs[0])
+		if err != nil {
+			w.logErrorf("Failed to open new window: %v", err)
+			return
+		}
+		if len(wvs) > 1 {
+			_, err := win.newTabsWithWebViews(wvs[1:]...)
+			if err != nil {
+				w.logErrorf("Failed to paste in web views: %v", err)
+			}
+		}
+		return
+	}
+	uris, err := w.urisFromClipboard(gdk.SELECTION_PRIMARY)
+	if err != nil {
+		return
+	}
+	win, err = w.parent.NewWindow(uris[0])
+	if err != nil {
+		w.logErrorf("Failed to open new window: %v", err)
+		return
+	}
+	if len(uris) > 1 {
+		_, err := w.NewTabs(uris[1:]...)
+		if err != nil {
+			w.logErrorf("Failed to paste in web views: %v", err)
+		}
+	}
 }
 
 // builtinYankClipboard yanks the next n tabs (including the current) uris

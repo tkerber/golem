@@ -85,13 +85,11 @@ func (w *Window) setState(state cmd.State) {
 	w.UpdateState(w.State)
 }
 
-// newWindow creates a new window, using particular webkit settings as a
-// template.
+// initWindow initializes the Window struct.
 //
-// A new web view is initialized and sent to a specified uri. If the URI is
-// empty, the new tab page is used instead.
-func (g *Golem) NewWindow(uri string) (*Window, error) {
-	win := &Window{
+// Should only be used by NewWindow functions.
+func (g *Golem) initWindow() *Window {
+	return &Window{
 		nil,
 		nil,
 		make([]*webView, 1, 50),
@@ -104,24 +102,25 @@ func (g *Golem) NewWindow(uri string) (*Window, error) {
 		make(chan bool, 1),
 		new(sync.Mutex),
 	}
+}
 
+// initWindowWebView finished window initialization with the given web view.
+func (win *Window) initWindowWebView(wv *webView) error {
 	var err error
 
-	win.webViews[0], err = win.newWebView(g.DefaultSettings)
-	if err != nil {
-		return nil, err
-	}
-
+	win.webViews[0] = wv
 	win.Window, err = ui.NewWindow(win.webViews[0])
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	tabUI, err := win.Window.AppendTab()
 	if err != nil {
-		return nil, err
+		return err
 	}
-	win.webViews[0].tabUI = tabUI
+	tabUI.SetTitle(wv.GetTitle())
+	wv.tabUI = tabUI
+	wv.window = win
 	win.Window.FocusTab(0)
 
 	win.builtins = builtinsFor(win)
@@ -131,17 +130,11 @@ func (g *Golem) NewWindow(uri string) (*Window, error) {
 	win.rebuildBindings()
 	win.rebuildQuickmarks()
 
-	g.wMutex.Lock()
-	g.windows = append(g.windows, win)
-	g.wMutex.Unlock()
+	win.parent.wMutex.Lock()
+	win.parent.windows = append(win.parent.windows, win)
+	win.parent.wMutex.Unlock()
 
 	win.reconnectWebViewSignals()
-
-	if uri == "" {
-		win.webViews[0].LoadURI(g.newTabPage)
-	} else {
-		win.webViews[0].LoadURI(uri)
-	}
 
 	// Due to a bug with keypresses registering multiple times, we ignore
 	// keypresses within 10ms of each other.
@@ -200,7 +193,7 @@ func (g *Golem) NewWindow(uri string) (*Window, error) {
 		for _, h := range win.windowSignalHandles {
 			h.disconnect()
 		}
-		g.closeWindow(win)
+		win.parent.closeWindow(win)
 		// Ensure garbage collection
 		win.Window.WebView = nil
 		win.bindings = nil
@@ -215,6 +208,42 @@ func (g *Golem) NewWindow(uri string) (*Window, error) {
 	}
 
 	win.Show()
+	return nil
+}
+
+// NewWindow creates a new window, using particular webkit settings as a
+// template.
+//
+// A new web view is initialized and sent to a specified uri. If the URI is
+// empty, the new tab page is used instead.
+func (g *Golem) NewWindow(uri string) (*Window, error) {
+	win := g.initWindow()
+
+	wv, err := win.newWebView(g.DefaultSettings)
+	if err != nil {
+		return nil, err
+	}
+	if uri == "" {
+		wv.LoadURI(win.parent.newTabPage)
+	} else {
+		wv.LoadURI(uri)
+	}
+
+	err = win.initWindowWebView(wv)
+	if err != nil {
+		return nil, err
+	}
+	return win, nil
+}
+
+// newWindowWithWebView creates a new window, using the given web view.
+func (g *Golem) newWindowWithWebView(wv *webView) (*Window, error) {
+	win := g.initWindow()
+
+	err := win.initWindowWebView(wv)
+	if err != nil {
+		return nil, err
+	}
 	return win, nil
 }
 
