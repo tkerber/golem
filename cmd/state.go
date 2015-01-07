@@ -25,6 +25,15 @@ func min(a, b int) int {
 	return a
 }
 
+// statefulAppend functions like append for a slice of keys, except it is
+// guaranteed to return a freshly allocated slice every time.
+func statefulAppend(keys []Key, app ...Key) []Key {
+	ret := make([]Key, len(keys)+len(app))
+	copy(ret[:len(keys)], keys)
+	copy(ret[len(keys):], app)
+	return ret
+}
+
 var pasteKey = NewKeyFromString("C-v")
 var primarySelectionPasteKey = NewKeyFromString("C-V")
 
@@ -126,6 +135,38 @@ func NewNormalModeWithSubstate(s State, st Substate) *NormalMode {
 		0,
 		false,
 		false,
+	}
+}
+
+// PredictState predicts the state if "fast forwarded" a slice of keys.
+//
+// A few peculiarities are of note:
+//
+//  - No bindings are executed, under any circumstances.
+//  - The virtual <num> key is not handled.
+//
+// This method is primarily meant for creating states predicted through
+// completion.
+func (s *NormalMode) PredictState(keys []Key) *NormalMode {
+	t := s.CurrentTree
+	for _, k := range keys {
+		t := t.Subtrees[k]
+		if t == nil {
+			return NewNormalMode(s)
+		}
+	}
+	newKeys := make([]Key, len(s.CurrentKeys)+len(keys))
+	copy(newKeys[:len(s.CurrentKeys)], s.CurrentKeys)
+	copy(newKeys[len(s.CurrentKeys):], keys)
+	return &NormalMode{
+		s.StateIndependant,
+		s.Substate,
+		newKeys,
+		t,
+		make(chan bool, 1),
+		s.num,
+		false,
+		s.hadNum || s.inNum,
 	}
 }
 
@@ -241,9 +282,12 @@ func (s *NormalMode) ProcessKeyPress(key RealKey) (State, bool) {
 			// state.
 			if PrintBindings {
 				log.Printf("Executing binding for %v...",
-					KeysString(append(s.CurrentKeys, key)))
+					KeysString(statefulAppend(s.CurrentKeys, key)))
 			}
-			go subtree.Binding(append(s.CurrentKeys, key), nump, s.Substate)
+			go subtree.Binding(
+				statefulAppend(s.CurrentKeys, key),
+				nump,
+				s.Substate)
 			return NewNormalMode(s), true
 		}
 		// Otherwise, we wait for another keypress.
@@ -252,14 +296,14 @@ func (s *NormalMode) ProcessKeyPress(key RealKey) (State, bool) {
 			subtree.Binding,
 			nump,
 			s,
-			append(s.CurrentKeys, key))
+			statefulAppend(s.CurrentKeys, key))
 		// The return is the same as if no binding exists. i.e. Fallthrough.
 	}
 	// We add the key to our list and wait for a new keypress.
 	return &NormalMode{
 		s.StateIndependant,
 		s.Substate,
-		append(s.CurrentKeys, key),
+		statefulAppend(s.CurrentKeys, key),
 		subtree,
 		timeoutChan,
 		num,

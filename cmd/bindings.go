@@ -145,6 +145,29 @@ func NewBindingTree(bindings []*Binding) (*BindingTree, []error) {
 	return t, errs
 }
 
+// IterLeaves iterates recursively over the leaves of the tree.
+//
+// Not terribly efficient due to each recursion step creating a new goroutine,
+// but hey.
+func (t *BindingTree) IterLeaves() <-chan *Binding {
+	ret := make(chan *Binding)
+	go func() {
+		if t.Binding != nil {
+			ret <- &Binding{make([]Key, 0), t.Binding}
+		}
+		for key, tree := range t.Subtrees {
+			for b := range tree.IterLeaves() {
+				keys := make([]Key, len(b.From)+1)
+				keys[0] = key
+				copy(keys[1:], b.From)
+				ret <- &Binding{keys, b.To}
+			}
+		}
+		close(ret)
+	}()
+	return ret
+}
+
 // Append adds a new binding to a BindingTree.
 //
 // Fails if the binding conflicts with an existing one.
