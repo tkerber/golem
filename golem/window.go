@@ -129,7 +129,7 @@ func (w *Window) initWindowWebView(wv *webView) error {
 
 	w.builtins = builtinsFor(w)
 
-	w.setState(cmd.NewState(w.bindings, w.setState))
+	w.setState(cmd.NewState(w.bindings, w.setState, w.completeState))
 
 	w.rebuildBindings()
 	w.rebuildQuickmarks()

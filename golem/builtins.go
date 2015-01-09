@@ -11,6 +11,16 @@ import (
 	ggtk "github.com/tkerber/golem/gtk"
 )
 
+var builtinNames []string
+
+func init() {
+	dummyBuiltins := builtinsFor(nil)
+	builtinNames = make([]string, 0, len(dummyBuiltins))
+	for b := range dummyBuiltins {
+		builtinNames = append(builtinNames, b)
+	}
+}
+
 // builtinsfor retrieves the builtin functions bound to a specific window.
 func builtinsFor(w *Window) cmd.Builtins {
 	return cmd.Builtins{

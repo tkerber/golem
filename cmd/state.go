@@ -70,9 +70,13 @@ type Substate uint
 const SubstateDefault Substate = 0
 
 // NewState creates a new state, in its original setting.
-func NewState(bindings map[Substate]*BindingTree, setState func(State)) State {
+func NewState(
+	bindings map[Substate]*BindingTree,
+	setState func(State),
+	completer func(State, <-chan bool, *[]State)) State {
+
 	return &NormalMode{
-		&StateIndependant{bindings, setState},
+		&StateIndependant{bindings, setState, completer},
 		SubstateDefault,
 		make([]Key, 0),
 		bindings[SubstateDefault],
@@ -86,8 +90,9 @@ func NewState(bindings map[Substate]*BindingTree, setState func(State)) State {
 // A StateIndependant encompasses all data indepentant of the state, avoiding
 // copying it around every time the state is changed.
 type StateIndependant struct {
-	Bindings map[Substate]*BindingTree
-	SetState func(s State)
+	Bindings  map[Substate]*BindingTree
+	SetState  func(s State)
+	Completer func(State, <-chan bool, *[]State)
 }
 
 // NormalMode is a mode which mostly deals with key sequence bindings.
@@ -218,6 +223,9 @@ func (s *NormalMode) ProcessKeyPress(key RealKey) (State, bool) {
 	if ok && inNum {
 		inNum = false
 		hadNum = true
+	}
+	// Start completion.
+	if key.Keyval == KeyTab {
 	}
 	// If we are waiting for a virtual <num> key, and the key pressed was
 	// a number, we use up the <num> key, and set the number.

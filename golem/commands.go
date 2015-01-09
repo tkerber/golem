@@ -23,6 +23,8 @@ var hasProtocolRegex = regexp.MustCompile(`(http|https|file):.*`)
 // cases. (ipv6?)
 var looksLikeURIRegex = regexp.MustCompile(`(\S+\.\S+|localhost)(:\d+)?(/.*)?`)
 
+var commandNames []string
+
 // commands maps a command name to the command's function.
 var commands map[string]func(*Window, *Golem, []string)
 
@@ -40,10 +42,10 @@ func init() {
 		"t":               cmdTabOpen,
 		"topen":           cmdTabOpen,
 		"tabopen":         cmdTabOpen,
+		"newtab":          cmdTabOpen,
 		"bg":              cmdBackgroundOpen,
 		"bgopen":          cmdBackgroundOpen,
 		"backgroundopen":  cmdBackgroundOpen,
-		"newtab":          cmdTabOpen,
 		"w":               cmdWindowOpen,
 		"wopen":           cmdWindowOpen,
 		"winopen":         cmdWindowOpen,
@@ -59,6 +61,10 @@ func init() {
 		"quitall":         cmdQuitAll,
 		"qm":              cmdQuickmark,
 		"quickmark":       cmdQuickmark,
+	}
+	commandNames = make([]string, 0, len(commands))
+	for c := range commands {
+		commandNames = append(commandNames, c)
 	}
 }
 
