@@ -75,13 +75,15 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 					"window attempted to open a new tab. The request was " +
 					"dropped.")
 			} else {
-				wvs, err := ret.window.NewTabs(C.GoString(cStr))
-				if err != nil {
-					ret.window.logError("Failed creation of new tab...")
-				} else {
-					// Focus our new tab.
-					ret.window.tabGo(ret.window.tabIndex(wvs[0]))
-				}
+				ggtk.GlibMainContextInvoke(func() {
+					wvs, err := ret.window.NewTabs(C.GoString(cStr))
+					if err != nil {
+						ret.window.logError("Failed creation of new tab...")
+					} else {
+						// Focus our new tab.
+						ret.window.tabGo(ret.window.tabIndex(wvs[0]))
+					}
+				})
 			}
 		})
 	if err != nil {
@@ -116,10 +118,12 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 					}
 					req := action.GetRequest()
 
-					_, err := ret.window.newTabWithRequest(req)
-					if err != nil {
-						ret.window.logError("Failed creation of new tab...")
-					}
+					ggtk.GlibMainContextInvoke(func() {
+						_, err := ret.window.newTabWithRequest(req)
+						if err != nil {
+							ret.window.logError("Failed creation of new tab...")
+						}
+					})
 					return true
 				}
 			case C.WEBKIT_POLICY_DECISION_TYPE_RESPONSE:

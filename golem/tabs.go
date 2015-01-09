@@ -18,7 +18,7 @@ func (w *Window) NewTabs(uris ...string) ([]*webView, error) {
 	var wvs []*webView
 	var err error
 	gtk.GlibMainContextInvoke(func() {
-		wvs := make([]*webView, len(uris))
+		wvs = make([]*webView, len(uris))
 		wvs, err = w.newTabsWithWebViews(wvs...)
 		if err != nil {
 			return
