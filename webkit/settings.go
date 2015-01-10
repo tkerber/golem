@@ -84,6 +84,26 @@ var (
 	}
 )
 
+// SettingNames is a slice of the names of all webkit settings.
+var SettingNames []string
+
+// init initializes SettingNames.
+func init() {
+	SettingNames = make(
+		[]string,
+		0,
+		len(boolSetting)+len(stringSetting)+len(uintSetting))
+	for s := range boolSetting {
+		SettingNames = append(SettingNames, s)
+	}
+	for s := range stringSetting {
+		SettingNames = append(SettingNames, s)
+	}
+	for s := range uintSetting {
+		SettingNames = append(SettingNames, s)
+	}
+}
+
 // Settings are a collection of settings for webkit.
 type Settings struct {
 	*glib.Object

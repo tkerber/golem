@@ -7,6 +7,7 @@ import (
 	"github.com/mattn/go-shellwords"
 	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/golem/states"
+	"github.com/tkerber/golem/webkit"
 )
 
 var completionsShown = 5
@@ -131,6 +132,33 @@ func (g *Golem) completeCommand(command string) func() (string, string, bool) {
 	default:
 		return func() (string, string, bool) {
 			return "", "", false
+		}
+	}
+}
+
+func (g *Golem) completeOptionSet(parts []string) func() (string, string, bool) {
+	if len(parts) != 2 {
+		return func() (string, string, bool) {
+			return "", "", false
+		}
+	}
+	i := -1
+	return func() (string, string, bool) {
+		for {
+			i++
+			if i >= len(webkit.SettingNames) {
+				return "", "", false
+			} else if strings.HasPrefix("w:"+webkit.SettingNames[i], parts[1]) ||
+				strings.HasPrefix("webkit:"+webkit.SettingNames[i], parts[1]) {
+
+				t, _ := webkit.GetSettingsType(webkit.SettingNames[i])
+				return parts[0] + " webkit:" + webkit.SettingNames[i],
+					fmt.Sprintf(
+						"%s\t%v",
+						webkit.SettingNames[i],
+						t),
+					true
+			}
 		}
 	}
 }
