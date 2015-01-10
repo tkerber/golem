@@ -25,7 +25,7 @@ data/srv/pdf.js/: pdf.js/
 all:
 
 pdf.js/:
-	git clone git://github.com/mozilla/pdf.js.git $@
+	git clone --depth 1 git://github.com/mozilla/pdf.js.git $@
 
 clean:
 	rm exten/*.o
