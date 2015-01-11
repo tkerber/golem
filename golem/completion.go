@@ -20,9 +20,28 @@ func (w *Window) completeState(
 	first chan<- bool,
 	compStates *[]cmd.State) {
 
+	cancel2 := make(chan bool, 1)
 	var strs []string
-	go w.parent.complete(s, cancel, first, compStates, &strs)
-	// TODO add statement to show strings for completion.
+	update := make(chan bool, 1)
+	go w.parent.complete(s, cancel2, update, compStates, &strs)
+	go func() {
+		updated := false
+		for {
+			select {
+			case <-cancel:
+				cancel2 <- true
+				// destroy UI
+				return
+			case done := <-update:
+				if !updated {
+					first <- !done
+					updated = true
+				}
+				// update UI
+			}
+		}
+	}()
+	// init UI
 }
 
 // complete retrieves the possible completions for a state and started them
@@ -39,16 +58,15 @@ func (w *Window) completeState(
 func (g *Golem) complete(
 	s cmd.State,
 	cancel <-chan bool,
-	first chan<- bool,
+	update chan<- bool,
 	compStates *[]cmd.State,
 	compStrings *[]string) {
 
 	switch s := s.(type) {
 	case *cmd.NormalMode:
-		g.completeNormalMode(s, cancel, first, compStates, compStrings)
+		g.completeNormalMode(s, cancel, update, compStates, compStrings)
 	case *cmd.CommandLineMode:
 		f := g.completeCommandLineMode(s)
-		firstDone := false
 		for {
 			s, str, ok := f()
 			if !ok {
@@ -60,15 +78,10 @@ func (g *Golem) complete(
 			default:
 				*compStates = append(*compStates, s)
 				*compStrings = append(*compStrings, str)
-				if !firstDone {
-					first <- true
-					firstDone = true
-				}
+				update <- false
 			}
 		}
-		if !firstDone {
-			first <- false
-		}
+		update <- true
 	default:
 		return
 	}
@@ -352,11 +365,10 @@ func (g *Golem) completeCommandCommand(
 func (g *Golem) completeNormalMode(
 	s *cmd.NormalMode,
 	cancel <-chan bool,
-	first chan<- bool,
+	update chan<- bool,
 	compStates *[]cmd.State,
 	compStrings *[]string) {
 
-	firstDone := false
 	for b := range s.CurrentTree.IterLeaves() {
 		select {
 		case <-cancel:
@@ -387,12 +399,7 @@ func (g *Golem) completeNormalMode(
 		}
 		*compStates = append(*compStates, s.PredictState(b.From))
 		*compStrings = append(*compStrings, str)
-		if !firstDone {
-			first <- true
-			firstDone = true
-		}
+		update <- false
 	}
-	if !firstDone {
-		first <- false
-	}
+	update <- true
 }

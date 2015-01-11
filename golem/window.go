@@ -85,13 +85,24 @@ const keyTimeout = time.Millisecond * 10
 
 // setState sets the windows state.
 func (w *Window) setState(state cmd.State) {
+	// Prevents locks where a completion mode writes to its own cancel chan.
+	// (below).
+	if state == w.State {
+		return
+	}
 	if cm, ok := w.State.(*cmd.CompletionMode); ok {
 		// If we have a container containing exactly this completion, we don't
 		// cancel it. Otherwise, we do.
 		if cont, ok := state.(cmd.ContainerState); !ok ||
 			cont.ChildState() != state {
 
-			cm.CancelChan <- true
+			// If the new container is also a completion mode, and the cancel
+			// channels are the same, we DO NOT CANCEL.
+			if cm2, ok := cont.(*cmd.CompletionMode); !ok ||
+				cm.CancelChan != cm2.CancelChan {
+
+				cm.CancelChan <- true
+			}
 		}
 	}
 	w.State = state

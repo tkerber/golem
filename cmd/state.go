@@ -232,9 +232,27 @@ func (s *NormalMode) ProcessKeyPress(key RealKey) (State, bool) {
 		hadNum = true
 	}
 	// Start completion.
-	if key.Keyval == KeyTab {
+	switch key.Keyval {
+	case KeyTab:
 		NewCompletion(s)
 		return s, false
+	case KeyReturn, KeyKPEnter:
+		if s.CurrentTree.Binding != nil {
+			if PrintBindings {
+				log.Printf("Executing binding for %v...",
+					KeysString(s.CurrentKeys))
+			}
+			var nump *int
+			if hadNum || inNum {
+				nump = &num
+			} else {
+				nump = nil
+			}
+			go subtree.Binding(
+				s.CurrentKeys,
+				nump,
+				s.Substate)
+		}
 	}
 	// If we are waiting for a virtual <num> key, and the key pressed was
 	// a number, we use up the <num> key, and set the number.
