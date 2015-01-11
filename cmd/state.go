@@ -57,6 +57,13 @@ type State interface {
 	GetSubstate() Substate
 }
 
+// A ContainerState is a state which contains another state.
+type ContainerState interface {
+	State
+	ChildState() State
+	SwapChildState(newState State) ContainerState
+}
+
 // A Substate allows using the same state for several different purposes.
 //
 // Substates are not defined in this module, with the exception of the
@@ -640,6 +647,20 @@ func (s *StatusMode) GetSubstate() Substate {
 	return s.Substate
 }
 
+// ChildState retrieves the status modes contained state.
+func (s *StatusMode) ChildState() State {
+	return s.State
+}
+
+// SwapChildState swaps out the child state, returning the resulting container.
+func (s *StatusMode) SwapChildState(newState State) ContainerState {
+	return &StatusMode{
+		newState,
+		s.Substate,
+		s.Status,
+	}
+}
+
 // ConfirmMode tries to confirm an action with the user.
 //
 // If a key in ConfirmKeys is pressed, the action is confirmed (callback called
@@ -719,13 +740,31 @@ func (s *ConfirmMode) GetSubstate() Substate {
 	return s.Substate
 }
 
+// ChildState returns the contained state of the confirm mode.
+func (s *ConfirmMode) ChildState() State {
+	return s.State
+}
+
+// SwapChildState swaps out the child state, returning the resulting container.
+func (s *ConfirmMode) SwapChildState(newState State) ContainerState {
+	return &ConfirmMode{
+		newState,
+		s.Substate,
+		s.Prompt,
+		s.ConfirmKeys,
+		s.CancelKeys,
+		s.Default,
+		s.Callback,
+	}
+}
+
 // CompletionMode is a mode in which some other state is being completed.
 type CompletionMode struct {
 	State
 	Substate
 	CompletionStates  *[]State
 	CurrentCompletion int
-	cancelChan        chan<- bool
+	CancelChan        chan<- bool
 }
 
 // NewCompletion schedules a completion to start once calculations have found
@@ -760,15 +799,15 @@ func (s *CompletionMode) GetSubstate() Substate {
 
 // ProcessKeyPress processes a single key press in completion mode.
 //
-// Tab chooses the next completion, Shift-Tab (ISO Left Tab) the previous one,
-// escape cancels it and any other key is passed to the completion state
-// (effectively accepting it)
+// Tab or down chooses the next completion, Shift-Tab (ISO Left Tab) or up the
+// previous one, escape cancels it and any other key is passed to the
+// completion state (effectively accepting it)
 func (s *CompletionMode) ProcessKeyPress(key RealKey) (State, bool) {
 	switch key.Keyval {
 	case KeyEscape:
-		s.cancelChan <- true
+		s.CancelChan <- true
 		return s.State, true
-	case KeyTab:
+	case KeyTab, KeyDown, KeyKPDown:
 		comp := s.CurrentCompletion + 1
 		if comp >= len(*s.CompletionStates) {
 			comp %= len(*s.CompletionStates)
@@ -778,9 +817,9 @@ func (s *CompletionMode) ProcessKeyPress(key RealKey) (State, bool) {
 			s.Substate,
 			s.CompletionStates,
 			comp,
-			s.cancelChan,
+			s.CancelChan,
 		}, true
-	case KeyLeftTab:
+	case KeyLeftTab, KeyUp, KeyKPUp:
 		comp := s.CurrentCompletion - 1
 		if comp < 0 {
 			comp = len(*s.CompletionStates) - 1
@@ -790,10 +829,26 @@ func (s *CompletionMode) ProcessKeyPress(key RealKey) (State, bool) {
 			s.Substate,
 			s.CompletionStates,
 			comp,
-			s.cancelChan,
+			s.CancelChan,
 		}, true
 	default:
-		s.cancelChan <- true
+		s.CancelChan <- true
 		return (*s.CompletionStates)[s.CurrentCompletion].ProcessKeyPress(key)
+	}
+}
+
+// ChildState gets the original state being completed.
+func (s *CompletionMode) ChildState() State {
+	return s.State
+}
+
+// SwapChildState swaps out the child state, returning the resulting container.
+func (s *CompletionMode) SwapChildState(newState State) ContainerState {
+	return &CompletionMode{
+		newState,
+		s.Substate,
+		s.CompletionStates,
+		s.CurrentCompletion,
+		s.CancelChan,
 	}
 }

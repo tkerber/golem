@@ -85,6 +85,15 @@ const keyTimeout = time.Millisecond * 10
 
 // setState sets the windows state.
 func (w *Window) setState(state cmd.State) {
+	if cm, ok := w.State.(*cmd.CompletionMode); ok {
+		// If we have a container containing exactly this completion, we don't
+		// cancel it. Otherwise, we do.
+		if cont, ok := state.(cmd.ContainerState); !ok ||
+			cont.ChildState() != state {
+
+			cm.CancelChan <- true
+		}
+	}
 	w.State = state
 	w.UpdateState(w.State)
 }
@@ -304,25 +313,9 @@ func (w *Window) handleKeyPress(uiWin *gtk.Window, e *gdk.Event) bool {
 		// takes precedence.
 		if oldState == w.State {
 			w.setState(newState)
-		} else if statusM, ok := w.State.(*cmd.StatusMode); ok {
-			if statusM.State == oldState {
-				w.setState(cmd.NewStatusMode(
-					newState,
-					statusM.Substate,
-					statusM.Status))
-			}
-		} else if confM, ok := w.State.(*cmd.ConfirmMode); ok {
-			if confM.State == oldState {
-				w.setState(&cmd.ConfirmMode{
-					newState,
-					confM.Substate,
-					confM.Prompt,
-					confM.ConfirmKeys,
-					confM.CancelKeys,
-					confM.Default,
-					confM.Callback,
-				})
-			}
+		} else if cont, ok := w.State.(cmd.ContainerState); ok &&
+			cont.ChildState() == oldState {
+			w.setState(cont.SwapChildState(newState))
 		}
 		return ret
 	default:

@@ -82,6 +82,10 @@ const (
 	KeyKPLeft    = C.GDK_KEY_KP_Left
 	KeyRight     = C.GDK_KEY_Right
 	KeyKPRight   = C.GDK_KEY_KP_Right
+	KeyUp        = C.GDK_KEY_Up
+	KeyKPUp      = C.GDK_KEY_KP_Up
+	KeyDown      = C.GDK_KEY_Down
+	KeyKPDown    = C.GDK_KEY_KP_Down
 	KeyReturn    = C.GDK_KEY_Return
 	KeyKPEnter   = C.GDK_KEY_KP_Enter
 	KeyBackSpace = C.GDK_KEY_BackSpace
