@@ -133,7 +133,7 @@ func (w *Window) initWindowWebView(wv *webView) error {
 	var err error
 
 	w.webViews[0] = wv
-	w.Window, err = ui.NewWindow(w.webViews[0])
+	w.Window, err = ui.NewWindow(w.webViews[0], w)
 	if err != nil {
 		return err
 	}
@@ -223,6 +223,7 @@ func (w *Window) initWindowWebView(wv *webView) error {
 		w.bindings = nil
 		w.builtins = nil
 		w.State = nil
+		w.Callback = nil
 		schedGc()
 	})
 	if err == nil {

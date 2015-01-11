@@ -21,6 +21,7 @@ type Window struct {
 	WebView
 	*gtk.Window
 	*ColorScheme
+	Callback
 	webViewStack *gtk.Stack
 	// The number of the active tab.
 	TabNumber int
@@ -29,8 +30,8 @@ type Window struct {
 }
 
 // NewWindow creates a new window containing the given WebView.
-func NewWindow(webView WebView) (*Window, error) {
-	rets := ggtk.GlibMainContextInvoke(newWindow, webView)
+func NewWindow(webView WebView, callback Callback) (*Window, error) {
+	rets := ggtk.GlibMainContextInvoke(newWindow, webView, callback)
 	if rets[1] != nil {
 		return nil, rets[1].(error)
 	}
@@ -40,7 +41,7 @@ func NewWindow(webView WebView) (*Window, error) {
 // newWindow creates a new window containing the given WebView.
 //
 // MUST BE CALLED IN GLIB'S MAIN CONTEXT.
-func newWindow(webView WebView) (*Window, error) {
+func newWindow(webView WebView, callback Callback) (*Window, error) {
 	colors := NewColorScheme(
 		0xffffff,
 		0x888888,
@@ -62,6 +63,7 @@ func newWindow(webView WebView) (*Window, error) {
 		webView,
 		nil,
 		colors,
+		callback,
 		nil,
 		1,
 		1,

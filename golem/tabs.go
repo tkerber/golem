@@ -111,7 +111,7 @@ func (w *Window) newTabsWithWebViews(wvs ...*webView) ([]*webView, error) {
 // tabNext is a glib atomic operation, that is, it is executed in glibs main
 // context.
 func (w *Window) tabNext() {
-	w.tabGo((w.currentWebView + 1) % len(w.webViews))
+	w.TabGo((w.currentWebView + 1) % len(w.webViews))
 }
 
 // tabPrev goes to the previous tab.
@@ -119,14 +119,14 @@ func (w *Window) tabNext() {
 // tabPrev is a glib atomic operation, that is, it is executed in glibs main
 // context.
 func (w *Window) tabPrev() {
-	w.tabGo((w.currentWebView + len(w.webViews) - 1) % len(w.webViews))
+	w.TabGo((w.currentWebView + len(w.webViews) - 1) % len(w.webViews))
 }
 
-// tabGo goes to a specified tab.
+// TabGo goes to a specified tab.
 //
-// tabGo is a glib atomic operation, that is, it is executed in glibs main
+// TabGo is a glib atomic operation, that is, it is executed in glibs main
 // context.
-func (w *Window) tabGo(index int) error {
+func (w *Window) TabGo(index int) error {
 	var err error
 	gtk.GlibMainContextInvoke(func() {
 		if index >= len(w.webViews) || index < 0 {

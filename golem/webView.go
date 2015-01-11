@@ -81,7 +81,7 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 						ret.window.logError("Failed creation of new tab...")
 					} else {
 						// Focus our new tab.
-						ret.window.tabGo(ret.window.tabIndex(wvs[0]))
+						ret.window.TabGo(ret.window.tabIndex(wvs[0]))
 					}
 				})
 			}

@@ -364,7 +364,7 @@ func (w *Window) builtinTabEditURI(_ *int) {
 // builtinTabGo goes to the specified tab.
 func (w *Window) builtinTabGo(n *int) {
 	num := getWithDefault(n, 1, 1, len(w.webViews))
-	w.tabGo(num - 1)
+	w.TabGo(num - 1)
 }
 
 // builtinTabNext goes to the next tab.
@@ -376,7 +376,7 @@ func (w *Window) builtinTabNext(n *int) {
 	if newTab < 0 {
 		newTab += size
 	}
-	w.tabGo(newTab)
+	w.TabGo(newTab)
 }
 
 // builtinTabOpen initiates command mode primed with a tabopen command.
@@ -443,7 +443,7 @@ func (w *Window) builtinTabPrev(n *int) {
 	if newTab < 0 {
 		newTab += size
 	}
-	w.tabGo(newTab)
+	w.TabGo(newTab)
 }
 
 // builtinToggleQuickmark toggles the quickmark state of the current site.

@@ -1,11 +1,17 @@
 package ui
 
+// #cgo pkg-config: gdk-3.0
+// #include <gdk/gdk.h>
+import "C"
 import (
 	"fmt"
 	"html"
 	"math"
 	"unicode/utf8"
+	"unsafe"
 
+	"github.com/conformal/gotk3/gdk"
+	"github.com/conformal/gotk3/glib"
 	"github.com/conformal/gotk3/gtk"
 	"github.com/conformal/gotk3/pango"
 	ggtk "github.com/tkerber/golem/gtk"
@@ -68,8 +74,8 @@ func (tb *TabBar) appendTabs(n int) ([]*TabBarTab, error) {
 	ggtk.GlibMainContextInvoke(func() {
 		for _, tab := range tabs {
 			tb.tabs = append(tb.tabs, tab)
-			tb.PackStart(tab.Label, false, false, 0)
-			tab.Label.Show()
+			tb.PackStart(tab.EventBox, false, false, 0)
+			tab.EventBox.ShowAll()
 			tab.redraw()
 		}
 	})
@@ -129,7 +135,7 @@ func (tb *TabBar) moveTabs(toStart, fromStart, fromEnd int) {
 		copy(tabs, tb.tabs[fromStart:fromEnd])
 		if toStart > fromStart {
 			for i := len(tabs) - 1; i >= 0; i-- {
-				tb.ReorderChild(tabs[i].Label, i+toStart)
+				tb.ReorderChild(tabs[i].EventBox, i+toStart)
 			}
 			// move tabs back along tabs array.
 			copy(
@@ -144,7 +150,7 @@ func (tb *TabBar) moveTabs(toStart, fromStart, fromEnd int) {
 			}
 		} else if toStart < fromStart {
 			for i, tab := range tabs {
-				tb.ReorderChild(tab.Label, i+toStart)
+				tb.ReorderChild(tab.EventBox, i+toStart)
 			}
 			// move tas further along tabs array.
 			copy(
@@ -179,11 +185,14 @@ func (tb *TabBar) FocusTab(i int) {
 // popTabs removes the n tabs
 func (tb *TabBar) popTabs(n int) {
 	ggtk.GlibMainContextInvoke(func() {
-		for _, tab := range tb.tabs[len(tb.tabs)-n:] {
+		delSlice := tb.tabs[len(tb.tabs)-n:]
+		for i, tab := range delSlice {
 			tb.Remove(tab)
 			if tab == tb.focused {
 				tb.focused = nil
 			}
+			tab.Free()
+			delSlice[i] = nil
 		}
 		tb.tabs = tb.tabs[:len(tb.tabs)-n]
 	})
@@ -199,27 +208,56 @@ func (tb *TabBar) CloseTabs(i, j int) {
 
 // A TabBarTab is the display of a single tab name.
 type TabBarTab struct {
-	*gtk.Label
+	*gtk.EventBox
+	label        *gtk.Label
 	parent       *TabBar
 	title        string
 	index        int
 	focused      bool
 	loadProgress float64
+	handles      []glib.SignalHandle
 }
 
 // newTabBarTab creates a new TabBarTab in a given TabBar at a given index.
 func newTabBarTab(parent *TabBar, index int) (*TabBarTab, error) {
+	box, err := gtk.EventBoxNew()
+	if err != nil {
+		return nil, err
+	}
 	l, err := gtk.LabelNew("")
 	if err != nil {
 		return nil, err
 	}
+	box.Add(l)
 	l.SetEllipsize(pango.ELLIPSIZE_END)
 	l.OverrideFont("monospace")
 	// Seriously? Is this the only way to limit the width?
 	l.SetMaxWidthChars(15)
 	l.SetWidthChars(15)
 	l.SetUseMarkup(true)
-	return &TabBarTab{l, parent, "", index, false, 1.0}, nil
+	t := &TabBarTab{
+		box,
+		l,
+		parent,
+		"",
+		index,
+		false,
+		1.0,
+		make([]glib.SignalHandle, 0, 5),
+	}
+	handle, err := box.Connect("button-press-event",
+		func(_ interface{}, e *gdk.Event) bool {
+			bpe := (*C.GdkEventButton)(unsafe.Pointer(e.Native()))
+			if bpe.button != 1 {
+				return false
+			}
+			t.parent.parent.TabGo(t.index)
+			return true
+		})
+	if err == nil {
+		t.handles = append(t.handles, handle)
+	}
+	return t, nil
 }
 
 // SetTitle sets the tabs title.
@@ -232,6 +270,14 @@ func (t *TabBarTab) SetTitle(title string) {
 func (t *TabBarTab) SetLoadProgress(to float64) {
 	t.loadProgress = to
 	ggtk.GlibMainContextInvoke(t.redraw)
+}
+
+// Free ensures that all connections which could keep the tab from being GC'd
+// are broken.
+func (t *TabBarTab) Free() {
+	for _, handle := range t.handles {
+		t.EventBox.HandlerDisconnect(handle)
+	}
 }
 
 // redraw redraws the tab.
@@ -265,5 +311,5 @@ func (t *TabBarTab) redraw() {
 	if t.focused {
 		text = fmt.Sprintf("<focus>%s</focus>", text)
 	}
-	t.SetMarkup(t.parent.parent.MarkupReplacer.Replace(text))
+	t.label.SetMarkup(t.parent.parent.MarkupReplacer.Replace(text))
 }
