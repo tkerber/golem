@@ -2,6 +2,7 @@ package golem
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/mattn/go-shellwords"
@@ -10,16 +11,17 @@ import (
 	"github.com/tkerber/golem/webkit"
 )
 
-var completionsShown = 5
+var trailingWhitespaceRegex = regexp.MustCompile(`.*\s`)
 
-type completion struct {
-	state cmd.State
-	str   string
-}
+// completeState starts completing a state.
+func (w *Window) completeState(
+	s cmd.State,
+	cancel <-chan bool,
+	first chan<- bool,
+	compStates *[]cmd.State) {
 
-func (w *Window) completeState(s cmd.State, cancel <-chan bool, compStates *[]cmd.State) {
-	strs := make([]string, 0)
-	w.parent.complete(s, cancel, compStates, &strs)
+	var strs []string
+	go w.parent.complete(s, cancel, first, compStates, &strs)
 	// TODO add statement to show strings for completion.
 }
 
@@ -34,14 +36,21 @@ func (w *Window) completeState(s cmd.State, cancel <-chan bool, compStates *[]cm
 // limit to sending one item, as it isn't guaranteed to be read.
 //
 // Passing nil for ptr is a fatal error.
-func (g *Golem) complete(s cmd.State, cancel <-chan bool, compStates *[]cmd.State, compStrings *[]string) {
+func (g *Golem) complete(
+	s cmd.State,
+	cancel <-chan bool,
+	first chan<- bool,
+	compStates *[]cmd.State,
+	compStrings *[]string) {
+
 	switch s := s.(type) {
 	case *cmd.NormalMode:
-		g.completeNormalMode(s, cancel, compStates, compStrings)
+		g.completeNormalMode(s, cancel, first, compStates, compStrings)
 	case *cmd.CommandLineMode:
 		f := g.completeCommandLineMode(s)
+		firstDone := false
 		for {
-			completion, ok := f()
+			s, str, ok := f()
 			if !ok {
 				break
 			}
@@ -49,9 +58,16 @@ func (g *Golem) complete(s cmd.State, cancel <-chan bool, compStates *[]cmd.Stat
 			case <-cancel:
 				return
 			default:
-				*compStates = append(*compStates, completion.state)
-				*compStrings = append(*compStrings, completion.str)
+				*compStates = append(*compStates, s)
+				*compStrings = append(*compStrings, str)
+				if !firstDone {
+					first <- true
+					firstDone = true
+				}
 			}
+		}
+		if !firstDone {
+			first <- false
 		}
 	default:
 		return
@@ -60,7 +76,7 @@ func (g *Golem) complete(s cmd.State, cancel <-chan bool, compStates *[]cmd.Stat
 
 // completeCommandLineMode completes a command line mode state.
 func (g *Golem) completeCommandLineMode(
-	s *cmd.CommandLineMode) func() (*completion, bool) {
+	s *cmd.CommandLineMode) func() (cmd.State, string, bool) {
 
 	// Only the keys before the cursor are taken into account.
 	keyStr := cmd.KeysStringSelective(s.CurrentKeys[:s.CursorPos], false)
@@ -68,23 +84,25 @@ func (g *Golem) completeCommandLineMode(
 	case states.CommandLineSubstateCommand:
 		return g.completionWrapCommandLine(g.completeCommand(keyStr), s)
 	default:
-		return func() (*completion, bool) {
-			return nil, false
+		return func() (cmd.State, string, bool) {
+			return nil, "", false
 		}
 	}
 }
 
+// completionWrapCommandLine wraps a command string generator into a
+// completion state generator.
 func (g *Golem) completionWrapCommandLine(
-	f func() (string, string, bool), s *cmd.CommandLineMode) func() (*completion, bool) {
+	f func() (string, string, bool),
+	s *cmd.CommandLineMode) func() (cmd.State, string, bool) {
 
-	return func() (*completion, bool) {
+	return func() (cmd.State, string, bool) {
 		keyStr, desc, ok := f()
 		if !ok {
-			return nil, false
+			return nil, "", false
 		}
 		keys := cmd.ParseKeys(keyStr)
-		return &completion{
-			&cmd.CommandLineMode{
+		return &cmd.CommandLineMode{
 				s.StateIndependant,
 				s.Substate,
 				keys,
@@ -92,16 +110,22 @@ func (g *Golem) completionWrapCommandLine(
 				s.Finalizer,
 			},
 			desc,
-		}, true
+			true
 	}
 }
 
+// completeCommand Completes a command state.
 func (g *Golem) completeCommand(command string) func() (string, string, bool) {
 	parts, err := shellwords.Parse(command)
 	if err != nil {
 		return func() (string, string, bool) {
 			return "", "", false
 		}
+	}
+	// If we have a trailing whitespace, we add an empty part. This is so that
+	// for "open " e.g. a uri will be completed and not a command.
+	if trailingWhitespaceRegex.MatchString(command) {
+		parts = append(parts, "")
 	}
 	if len(parts) == 1 {
 		// Silly name. But we actually complete the "command" part of the
@@ -136,7 +160,10 @@ func (g *Golem) completeCommand(command string) func() (string, string, bool) {
 	}
 }
 
-func (g *Golem) completeOptionSet(parts []string) func() (string, string, bool) {
+// completeOptionSet complets an option for the "set" command.
+func (g *Golem) completeOptionSet(
+	parts []string) func() (string, string, bool) {
+
 	if len(parts) != 2 {
 		return func() (string, string, bool) {
 			return "", "", false
@@ -148,14 +175,16 @@ func (g *Golem) completeOptionSet(parts []string) func() (string, string, bool) 
 			i++
 			if i >= len(webkit.SettingNames) {
 				return "", "", false
-			} else if strings.HasPrefix("w:"+webkit.SettingNames[i], parts[1]) ||
-				strings.HasPrefix("webkit:"+webkit.SettingNames[i], parts[1]) {
+			}
+			setting := webkit.SettingNames[i]
+			if strings.HasPrefix("w:"+setting, parts[1]) ||
+				strings.HasPrefix("webkit:"+setting, parts[1]) {
 
-				t, _ := webkit.GetSettingsType(webkit.SettingNames[i])
-				return parts[0] + " webkit:" + webkit.SettingNames[i],
+				t, _ := webkit.GetSettingsType(setting)
+				return parts[0] + " webkit:" + setting,
 					fmt.Sprintf(
 						"%s\t%v",
-						webkit.SettingNames[i],
+						setting,
 						t),
 					true
 			}
@@ -163,7 +192,10 @@ func (g *Golem) completeOptionSet(parts []string) func() (string, string, bool) 
 	}
 }
 
-func (g *Golem) completeQuickmark(parts []string) func() (string, string, bool) {
+// completeQuickmarks completes a quickmark argument.
+func (g *Golem) completeQuickmark(
+	parts []string) func() (string, string, bool) {
+
 	qml := make([]string, 0, len(g.quickmarks))
 	for qm := range g.quickmarks {
 		qml = append(qml, qm)
@@ -183,7 +215,10 @@ func (g *Golem) completeQuickmark(parts []string) func() (string, string, bool) 
 	}
 }
 
-func (g *Golem) completeBinding(parts []string) func() (string, string, bool) {
+// completeBinding completes a binding argument.
+func (g *Golem) completeBinding(
+	parts []string) func() (string, string, bool) {
+
 	opt := ""
 	if len(parts) == 3 {
 		opt = parts[2]
@@ -221,12 +256,16 @@ func (g *Golem) completeBinding(parts []string) func() (string, string, bool) {
 	}
 }
 
-func (g *Golem) completeURI(parts []string, startFrom int) func() (string, string, bool) {
-	uriparts := parts[startFrom-1:]
+// completeURI completes a URI argument.
+func (g *Golem) completeURI(
+	parts []string,
+	startFrom int) func() (string, string, bool) {
+
+	uriparts := parts[startFrom:]
 	stage := 0
 	qmArr := make([]string, len(g.quickmarks))
 	i := 0
-	for _, s := range qmArr {
+	for _, s := range g.quickmarks {
 		qmArr[i] = s
 		i++
 	}
@@ -250,7 +289,7 @@ func (g *Golem) completeURI(parts []string, startFrom int) func() (string, strin
 					}
 				}
 				uri = qmArr[i]
-				break
+				break outer
 			// complete history
 			case 1:
 				i++
@@ -266,26 +305,29 @@ func (g *Golem) completeURI(parts []string, startFrom int) func() (string, strin
 					}
 				}
 				uri = g.history[i].uri
-				break
+				break outer
 			// end iteration
 			default:
 				return "", "", false
 			}
 		}
 		// Won't always cleanly work. But it doesn't have to.
-		return strings.Join(parts[:startFrom-1], " ") + " " + uri, uri, true
+		return strings.Join(parts[:startFrom], " ") + " " + uri, uri, true
 	}
 }
 
 // stringCompleteAgainstList returns a function iterating over possible
 // completions for the given string, amount the given list.
-func stringCompleteAgainstList(str string, arr []string) func() (string, string, bool) {
+func stringCompleteAgainstList(
+	str string,
+	arr []string) func() (string, string, bool) {
+
 	i := 0
 	return func() (string, string, bool) {
 		for i < len(arr) {
 			if strings.HasPrefix(arr[i], str) {
 				i++
-				return arr[i], arr[i], true
+				return arr[i-1], arr[i-1], true
 			}
 			i++
 		}
@@ -294,7 +336,9 @@ func stringCompleteAgainstList(str string, arr []string) func() (string, string,
 }
 
 // completeCommandCommand completes the actual command of a command mode.
-func (g *Golem) completeCommandCommand(cmd string) func() (string, string, bool) {
+func (g *Golem) completeCommandCommand(
+	cmd string) func() (string, string, bool) {
+
 	commandNames := make([]string, len(commands))
 	i := 0
 	for command := range commands {
@@ -308,9 +352,11 @@ func (g *Golem) completeCommandCommand(cmd string) func() (string, string, bool)
 func (g *Golem) completeNormalMode(
 	s *cmd.NormalMode,
 	cancel <-chan bool,
+	first chan<- bool,
 	compStates *[]cmd.State,
 	compStrings *[]string) {
 
+	firstDone := false
 	for b := range s.CurrentTree.IterLeaves() {
 		select {
 		case <-cancel:
@@ -341,5 +387,12 @@ func (g *Golem) completeNormalMode(
 		}
 		*compStates = append(*compStates, s.PredictState(b.From))
 		*compStrings = append(*compStrings, str)
+		if !firstDone {
+			first <- true
+			firstDone = true
+		}
+	}
+	if !firstDone {
+		first <- false
 	}
 }

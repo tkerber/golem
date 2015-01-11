@@ -54,6 +54,9 @@ func (s *StatusBar) SetCmdMarkup(label string) {
 // UpdateState updates the (command) state display of the window.
 func (w *Window) UpdateState(state cmd.State) {
 	var newStatus string
+	if comp, ok := state.(*cmd.CompletionMode); ok {
+		state = (*comp.CompletionStates)[comp.CurrentCompletion]
+	}
 	switch s := state.(type) {
 	case *cmd.NormalMode:
 		var fmtStr string

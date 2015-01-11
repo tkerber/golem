@@ -92,6 +92,7 @@ const (
 	KeyEnd       = C.GDK_KEY_End
 	KeyKPEnd     = C.GDK_KEY_KP_End
 	KeyTab       = C.GDK_KEY_Tab
+	KeyLeftTab   = C.GDK_KEY_ISO_Left_Tab
 )
 
 // isNonPrintRune checks in a rune is a member of nonPrintRunes.

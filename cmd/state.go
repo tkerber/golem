@@ -73,7 +73,7 @@ const SubstateDefault Substate = 0
 func NewState(
 	bindings map[Substate]*BindingTree,
 	setState func(State),
-	completer func(State, <-chan bool, *[]State)) State {
+	completer func(State, <-chan bool, chan<- bool, *[]State)) State {
 
 	return &NormalMode{
 		&StateIndependant{bindings, setState, completer},
@@ -92,7 +92,7 @@ func NewState(
 type StateIndependant struct {
 	Bindings  map[Substate]*BindingTree
 	SetState  func(s State)
-	Completer func(State, <-chan bool, *[]State)
+	Completer func(State, <-chan bool, chan<- bool, *[]State)
 }
 
 // NormalMode is a mode which mostly deals with key sequence bindings.
@@ -226,6 +226,8 @@ func (s *NormalMode) ProcessKeyPress(key RealKey) (State, bool) {
 	}
 	// Start completion.
 	if key.Keyval == KeyTab {
+		NewCompletion(s)
+		return s, false
 	}
 	// If we are waiting for a virtual <num> key, and the key pressed was
 	// a number, we use up the <num> key, and set the number.
@@ -468,6 +470,10 @@ func (s *CommandLineMode) ProcessKeyPress(key RealKey) (State, bool) {
 		return s.Paste(str), true
 	}
 	switch key.Keyval {
+	// Complete command
+	case KeyTab:
+		NewCompletion(s)
+		return s, true
 	// Move cursor to start
 	case KeyKPHome:
 		fallthrough
@@ -481,6 +487,7 @@ func (s *CommandLineMode) ProcessKeyPress(key RealKey) (State, bool) {
 			s.CurrentKeys,
 			0,
 			s.Finalizer}, true
+	// Move cursor to end
 	case KeyKPEnd:
 		fallthrough
 	case KeyEnd:
@@ -710,4 +717,83 @@ func (s *ConfirmMode) ProcessKeyPress(k RealKey) (State, bool) {
 // GetSubstate gets the substate of the current state.
 func (s *ConfirmMode) GetSubstate() Substate {
 	return s.Substate
+}
+
+// CompletionMode is a mode in which some other state is being completed.
+type CompletionMode struct {
+	State
+	Substate
+	CompletionStates  *[]State
+	CurrentCompletion int
+	cancelChan        chan<- bool
+}
+
+// NewCompletion schedules a completion to start once calculations have found
+// at least one completion.
+//
+// If no completions are found, nothing is done.
+func NewCompletion(s State) {
+	cancelChan := make(chan bool, 1)
+	var completionStates []State
+	si := s.GetStateIndependant()
+	first := make(chan bool)
+	go func() {
+		si.Completer(
+			s, cancelChan, first, &completionStates)
+		exists := <-first
+		if exists {
+			si.SetState(&CompletionMode{
+				s,
+				SubstateDefault,
+				&completionStates,
+				0,
+				cancelChan,
+			})
+		}
+	}()
+}
+
+// GetSubstate gets the substate of the current state.
+func (s *CompletionMode) GetSubstate() Substate {
+	return s.Substate
+}
+
+// ProcessKeyPress processes a single key press in completion mode.
+//
+// Tab chooses the next completion, Shift-Tab (ISO Left Tab) the previous one,
+// escape cancels it and any other key is passed to the completion state
+// (effectively accepting it)
+func (s *CompletionMode) ProcessKeyPress(key RealKey) (State, bool) {
+	switch key.Keyval {
+	case KeyEscape:
+		s.cancelChan <- true
+		return s.State, true
+	case KeyTab:
+		comp := s.CurrentCompletion + 1
+		if comp >= len(*s.CompletionStates) {
+			comp %= len(*s.CompletionStates)
+		}
+		return &CompletionMode{
+			s.State,
+			s.Substate,
+			s.CompletionStates,
+			comp,
+			s.cancelChan,
+		}, true
+	case KeyLeftTab:
+		comp := s.CurrentCompletion - 1
+		if comp < 0 {
+			comp = len(*s.CompletionStates) - 1
+		}
+		return &CompletionMode{
+			s.State,
+			s.Substate,
+			s.CompletionStates,
+			comp,
+			s.cancelChan,
+		}, true
+	default:
+		s.cancelChan <- true
+		return (*s.CompletionStates)[s.CurrentCompletion].ProcessKeyPress(key)
+	}
 }
