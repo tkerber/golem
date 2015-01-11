@@ -394,7 +394,7 @@ func (w *Window) quickmarkCallback(keys []cmd.Key, _ *int, s cmd.Substate) {
 			w.logErrorf("Failed to open new tab: %v", err)
 			return
 		}
-		w.tabNext()
+		w.TabNext()
 	case states.NormalSubstateQuickmarkWindow:
 		w.parent.NewWindow(uri)
 	case states.NormalSubstateQuickmarksRapid:

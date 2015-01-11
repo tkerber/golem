@@ -92,7 +92,7 @@ func (g *DBusGolem) NewTabs(uris []string) *dbus.Error {
 			fmt.Sprintf(DBusName+".Error", g.golem.profile),
 			[]interface{}{err}}
 	}
-	w.tabNext()
+	w.TabNext()
 	return nil
 }
 

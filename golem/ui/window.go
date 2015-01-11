@@ -157,7 +157,7 @@ func newWindow(webView WebView, callback Callback) (*Window, error) {
 	if err != nil {
 		return nil, err
 	}
-	contentBox.PackStart(tabBar, false, false, 0)
+	contentBox.PackStart(tabBar.EventBox, false, false, 0)
 	contentBox.PackStart(webViewStack, true, true, 0)
 
 	box.PackStart(contentBox, true, true, 0)
@@ -179,7 +179,7 @@ func (w *Window) Show() {
 func (w *Window) HideUI() {
 	ggtk.GlibMainContextInvoke(func() {
 		w.StatusBar.Container.Hide()
-		w.TabBar.Box.Hide()
+		w.TabBar.box.Hide()
 	})
 }
 
@@ -187,7 +187,7 @@ func (w *Window) HideUI() {
 func (w *Window) ShowUI() {
 	ggtk.GlibMainContextInvoke(func() {
 		w.StatusBar.Container.Show()
-		w.TabBar.Box.Show()
+		w.TabBar.box.Show()
 	})
 }
 

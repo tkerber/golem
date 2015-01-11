@@ -277,7 +277,7 @@ func cmdTabOpen(w *Window, g *Golem, args []string) {
 		w.logErrorf("Failed to open new tab: %v", err)
 		return
 	}
-	w.tabNext()
+	w.TabNext()
 }
 
 // cmdWindowOpen behaves like cmdOpen, but opens the uri in a new window. If

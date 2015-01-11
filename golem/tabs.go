@@ -106,19 +106,19 @@ func (w *Window) newTabsWithWebViews(wvs ...*webView) ([]*webView, error) {
 	return wvs, err
 }
 
-// tabNext goes to the next tab.
+// TabNext goes to the next tab.
 //
-// tabNext is a glib atomic operation, that is, it is executed in glibs main
+// TabNext is a glib atomic operation, that is, it is executed in glibs main
 // context.
-func (w *Window) tabNext() {
+func (w *Window) TabNext() {
 	w.TabGo((w.currentWebView + 1) % len(w.webViews))
 }
 
-// tabPrev goes to the previous tab.
+// TabPrev goes to the previous tab.
 //
-// tabPrev is a glib atomic operation, that is, it is executed in glibs main
+// TabPrev is a glib atomic operation, that is, it is executed in glibs main
 // context.
-func (w *Window) tabPrev() {
+func (w *Window) TabPrev() {
 	w.TabGo((w.currentWebView + len(w.webViews) - 1) % len(w.webViews))
 }
 

@@ -8,4 +8,6 @@ package ui
 // passes them through the Callback.
 type Callback interface {
 	TabGo(index int) error
+	TabPrev()
+	TabNext()
 }

@@ -19,7 +19,8 @@ import (
 
 // A TabBar is a bar containing tab displays.
 type TabBar struct {
-	*gtk.Box
+	*gtk.EventBox
+	box                  *gtk.Box
 	tabs                 []*TabBarTab
 	parent               *Window
 	focused              *TabBarTab
@@ -27,17 +28,26 @@ type TabBar struct {
 	fmtStringBaseLen     int
 	fmtLoadString        string
 	fmtLoadStringBaseLen int
+	handles              []glib.SignalHandle
 }
 
 // NewTabBar creates a new TabBar for a Window.
 func NewTabBar(parent *Window) (*TabBar, error) {
+	ebox, err := gtk.EventBoxNew()
+	if err != nil {
+		return nil, err
+	}
+	ebox.AddEvents(C.GDK_SCROLL_MASK)
+
 	box, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 1)
 	if err != nil {
 		return nil, err
 	}
 	box.SetName("tabbar")
+	ebox.Add(box)
 
 	tabBar := &TabBar{
+		ebox,
 		box,
 		make([]*TabBarTab, 0, 100),
 		parent,
@@ -45,7 +55,24 @@ func NewTabBar(parent *Window) (*TabBar, error) {
 		"",
 		0,
 		"",
-		0}
+		0,
+		make([]glib.SignalHandle, 0, 5),
+	}
+
+	// Scroll tabs up/down.
+	handle, err := ebox.Connect("scroll-event",
+		func(_ interface{}, e *gdk.Event) {
+			se := (*C.GdkEventScroll)(unsafe.Pointer(e.Native()))
+			switch se.direction {
+			case C.GDK_SCROLL_UP:
+				tabBar.parent.TabPrev()
+			case C.GDK_SCROLL_DOWN:
+				tabBar.parent.TabNext()
+			}
+		})
+	if err == nil {
+		tabBar.handles = append(tabBar.handles, handle)
+	}
 
 	return tabBar, nil
 }
@@ -74,7 +101,7 @@ func (tb *TabBar) appendTabs(n int) ([]*TabBarTab, error) {
 	ggtk.GlibMainContextInvoke(func() {
 		for _, tab := range tabs {
 			tb.tabs = append(tb.tabs, tab)
-			tb.PackStart(tab.EventBox, false, false, 0)
+			tb.box.PackStart(tab.EventBox, false, false, 0)
 			tab.EventBox.ShowAll()
 			tab.redraw()
 		}
@@ -135,7 +162,7 @@ func (tb *TabBar) moveTabs(toStart, fromStart, fromEnd int) {
 		copy(tabs, tb.tabs[fromStart:fromEnd])
 		if toStart > fromStart {
 			for i := len(tabs) - 1; i >= 0; i-- {
-				tb.ReorderChild(tabs[i].EventBox, i+toStart)
+				tb.box.ReorderChild(tabs[i].EventBox, i+toStart)
 			}
 			// move tabs back along tabs array.
 			copy(
@@ -150,7 +177,7 @@ func (tb *TabBar) moveTabs(toStart, fromStart, fromEnd int) {
 			}
 		} else if toStart < fromStart {
 			for i, tab := range tabs {
-				tb.ReorderChild(tab.EventBox, i+toStart)
+				tb.box.ReorderChild(tab.EventBox, i+toStart)
 			}
 			// move tas further along tabs array.
 			copy(
@@ -187,7 +214,7 @@ func (tb *TabBar) popTabs(n int) {
 	ggtk.GlibMainContextInvoke(func() {
 		delSlice := tb.tabs[len(tb.tabs)-n:]
 		for i, tab := range delSlice {
-			tb.Remove(tab)
+			tb.box.Remove(tab)
 			if tab == tb.focused {
 				tb.focused = nil
 			}
@@ -195,6 +222,11 @@ func (tb *TabBar) popTabs(n int) {
 			delSlice[i] = nil
 		}
 		tb.tabs = tb.tabs[:len(tb.tabs)-n]
+		if len(tb.tabs) == 0 {
+			for _, handle := range tb.handles {
+				tb.EventBox.HandlerDisconnect(handle)
+			}
+		}
 	})
 
 	tb.UpdateFormatString()
