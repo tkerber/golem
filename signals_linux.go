@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/tkerber/golem/golem"
 )
@@ -15,6 +16,10 @@ func handleSignals(g *golem.Golem) {
 	go func() {
 		<-c
 		exitCode = 1
+		go func() {
+			time.Sleep(100 * time.Millisecond)
+			panic("Timeout during controlled shutdown.")
+		}()
 		g.Close()
 	}()
 }
