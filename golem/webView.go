@@ -21,14 +21,15 @@ import (
 type webView struct {
 	*webkit.WebView
 	*webExtension
-	id       uint64
-	top      int64
-	height   int64
-	parent   *Golem
-	settings *webkit.Settings
-	window   *Window
-	tabUI    *ui.TabBarTab
-	handles  []glib.SignalHandle
+	id         uint64
+	top        int64
+	height     int64
+	parent     *Golem
+	settings   *webkit.Settings
+	window     *Window
+	tabUI      *ui.TabBarTab
+	fullscreen bool
+	handles    []glib.SignalHandle
 }
 
 // newWebView creates a new webView using given settings as a template.
@@ -59,6 +60,7 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 		newSettings,
 		w,
 		nil,
+		false,
 		make([]glib.SignalHandle, 0, 4),
 	}
 
@@ -199,6 +201,21 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 				ret.tabUI.SetLoadProgress(wv.GetEstimatedLoadProgress())
 			}
 		})
+	if err == nil {
+		ret.handles = append(ret.handles, handle)
+	}
+	// fullscreen handles
+	handle, err = wv.Connect("enter-fullscreen", func() bool {
+		ret.fullscreen = true
+		return false
+	})
+	if err == nil {
+		ret.handles = append(ret.handles, handle)
+	}
+	handle, err = wv.Connect("leave-fullscreen", func() bool {
+		ret.fullscreen = false
+		return false
+	})
 	if err == nil {
 		ret.handles = append(ret.handles, handle)
 	}

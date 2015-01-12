@@ -73,6 +73,7 @@ type Window struct {
 	activeSignalHandles []*signalHandle
 	windowSignalHandles []*signalHandle
 	timeoutChan         chan bool
+	fullscreenHidingUI  bool
 	wMutex              *sync.Mutex
 }
 
@@ -124,6 +125,7 @@ func (g *Golem) initWindow() *Window {
 		make([]*signalHandle, 0),
 		make([]*signalHandle, 0, 5),
 		make(chan bool, 1),
+		false,
 		new(sync.Mutex),
 	}
 }
@@ -460,12 +462,20 @@ func (w *Window) reconnectWebViewSignals() {
 		w.activeSignalHandles,
 		newSignalHandle(bfl.Object, handle, err))
 
-	handle, err = wv.Connect("enter-fullscreen", w.Window.HideUI)
+	handle, err = wv.Connect("enter-fullscreen", func() bool {
+		w.Window.HideUI()
+		w.fullscreenHidingUI = true
+		return false
+	})
 	w.activeSignalHandles = append(
 		w.activeSignalHandles,
 		newSignalHandle(wv.Object, handle, err))
 
-	handle, err = wv.Connect("leave-fullscreen", w.Window.ShowUI)
+	handle, err = wv.Connect("leave-fullscreen", func() bool {
+		w.Window.ShowUI()
+		w.fullscreenHidingUI = false
+		return false
+	})
 	w.activeSignalHandles = append(
 		w.activeSignalHandles,
 		newSignalHandle(wv.Object, handle, err))

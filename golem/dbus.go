@@ -2,6 +2,8 @@ package golem
 
 import (
 	"fmt"
+	"log"
+	"time"
 
 	"github.com/guelfey/go.dbus"
 	"github.com/guelfey/go.dbus/introspect"
@@ -149,12 +151,14 @@ func (w *webExtension) getScrollHeight() (int64, error) {
 
 // setScrollTop sets the webExtension's scroll position from the top.
 func (w *webExtension) setScrollTop(to int64) error {
+	t := time.Now()
 	call := w.Call(
 		"org.freedesktop.DBus.Properties.Set",
 		0,
 		webExtenDBusInterface,
 		"ScrollTop",
 		dbus.MakeVariant(to))
+	log.Println(time.Since(t))
 	return call.Err
 }
 

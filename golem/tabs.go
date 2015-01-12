@@ -142,6 +142,15 @@ func (w *Window) TabGo(index int) error {
 		w.SwitchToWebView(wv)
 		w.Window.TabBar.FocusTab(index)
 		go w.UpdateLocation()
+		if w.fullscreenHidingUI && !wv.fullscreen {
+			w.ShowUI()
+			w.Unfullscreen()
+			w.fullscreenHidingUI = false
+		} else if !w.fullscreenHidingUI && wv.fullscreen {
+			w.HideUI()
+			w.Fullscreen()
+			w.fullscreenHidingUI = true
+		}
 	})
 	return err
 }
