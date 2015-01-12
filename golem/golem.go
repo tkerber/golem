@@ -12,6 +12,7 @@ import (
 
 	"github.com/conformal/gotk3/gtk"
 	"github.com/guelfey/go.dbus"
+	"github.com/tkerber/golem/adblock"
 	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/webkit"
 )
@@ -54,6 +55,8 @@ type Golem struct {
 
 	historyMutex *sync.Mutex
 	history      []historyEntry
+
+	adblocker *adblock.Blocker
 }
 
 // New creates a new instance of golem.
@@ -95,7 +98,9 @@ func New(sBus *dbus.Conn, profile string) (*Golem, error) {
 		make(chan bool, 1),
 		new(sync.Mutex),
 		make([]historyEntry, 0, defaultCfg.maxHistLen),
+		nil,
 	}
+
 	g.profile = profile
 
 	g.files, err = g.newFiles()
@@ -106,6 +111,8 @@ func New(sBus *dbus.Conn, profile string) (*Golem, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	g.adblocker = adblock.NewBlocker(g.files.filterlistDir)
 
 	g.webkitInit()
 

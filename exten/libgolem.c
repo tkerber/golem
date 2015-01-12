@@ -39,6 +39,7 @@ struct Exten {
     gboolean         last_input_focus;
     gchar           *object_path;
     gchar           *profile;
+    gchar           *golem_name;
 };
 
 static void
@@ -242,6 +243,40 @@ poll_status(gpointer user_data)
     return G_SOURCE_CONTINUE;
 }
 
+static gboolean
+golem_is_blocked(const char *uri, struct Exten *exten) {
+    GError *err = NULL;
+    GVariant *ret = g_dbus_connection_call_sync(
+            exten->connection,
+            exten->golem_name,
+            "/com/github/tkerber/Golem",
+            "com.github.tkerber.Golem",
+            "Blocks",
+            g_variant_new("(s)", uri),
+            G_VARIANT_TYPE("(b)"),
+            G_DBUS_CALL_FLAGS_NONE,
+            -1,
+            NULL,
+            &err);
+    if(err != NULL) {
+        printf("%s\n", err->message);
+        g_error_free(err);
+        return false;
+    }
+    gboolean blocked = g_variant_get_boolean(g_variant_get_child_value(ret, 0));
+    g_variant_unref(ret);
+    return blocked;
+}
+
+static gboolean
+golem_request_handler(WebKitWebPage     *page,
+                      WebKitURIRequest  *req,
+                      WebKitURIResponse *resp,
+                      gpointer           exten) {
+    const gchar *uri = webkit_uri_request_get_uri(req);
+    return golem_is_blocked(uri, exten);
+}
+
 static void
 on_bus_acquired(GDBusConnection *connection,
                 const gchar     *name,
@@ -269,6 +304,12 @@ on_bus_acquired(GDBusConnection *connection,
     // Register 100ms loop polling the current status and sending updates as
     // required.
     g_timeout_add(100, poll_status, exten);
+    // Register the request signal...
+    g_signal_connect(
+            exten->web_page,
+            "send-request",
+            G_CALLBACK(golem_request_handler),
+            exten);
 }
 
 static void
@@ -295,6 +336,8 @@ web_page_created_callback(WebKitWebExtension *extension,
     struct Exten *exten = malloc(sizeof(struct Exten));
     exten->web_page = web_page;
     exten->profile = user_data;
+    exten->golem_name = g_strdup_printf(
+            "com.github.tkerber.Golem.%s", exten->profile);
     guint owner_id;
 
     introspection_data = g_dbus_node_info_new_for_xml(introspection_xml, NULL);

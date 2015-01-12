@@ -10,13 +10,14 @@ import (
 
 // files keeps track of all files golem uses.
 type files struct {
-	configDir   string
-	cacheDir    string
-	cookies     string
-	rc          string
-	quickmarks  string
-	histfile    string
-	downloadDir string
+	configDir     string
+	cacheDir      string
+	cookies       string
+	rc            string
+	quickmarks    string
+	histfile      string
+	downloadDir   string
+	filterlistDir string
 }
 
 // configFiles is an array of all of golems config files.
@@ -36,6 +37,12 @@ func (g *Golem) newFiles() (*files, error) {
 	configDir := xdg.GetUserConfigDir()
 	configDir = filepath.Join(configDir, "golem", g.profile)
 	err := os.MkdirAll(configDir, 0700)
+	if err != nil {
+		return nil, err
+	}
+
+	filterlistDir := filepath.Join(configDir, "filterlists")
+	err = os.MkdirAll(filterlistDir, 0700)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +68,9 @@ func (g *Golem) newFiles() (*files, error) {
 		configFiles[0],
 		configFiles[1],
 		filepath.Join(configDir, "history"),
-		downloads}, nil
+		downloads,
+		filterlistDir,
+	}, nil
 }
 
 // rcFiles returns a list of all files golem should use as rc files.
