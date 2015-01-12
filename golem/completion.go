@@ -310,14 +310,15 @@ func (g *Golem) completeURI(
 					stage++
 					continue
 				}
+				item := g.history[len(g.history)-1-i]
 				for _, part := range uriparts {
-					if !strings.Contains(g.history[i].uri, part) &&
-						!strings.Contains(g.history[i].title, part) {
+					if !strings.Contains(item.uri, part) &&
+						!strings.Contains(item.title, part) {
 
 						continue outer
 					}
 				}
-				uri = g.history[i].uri
+				uri = item.uri
 				break outer
 			// end iteration
 			default:
