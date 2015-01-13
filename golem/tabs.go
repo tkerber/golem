@@ -218,6 +218,15 @@ func (w *Window) tabsClose(i, j int, cut bool) {
 			w.Window.SwitchToWebView(wv)
 			w.Window.TabCount = len(w.webViews)
 			go w.Window.UpdateLocation()
+			if w.fullscreenHidingUI && !wv.fullscreen {
+				w.ShowUI()
+				w.Unfullscreen()
+				w.fullscreenHidingUI = false
+			} else if !w.fullscreenHidingUI && wv.fullscreen {
+				w.HideUI()
+				w.Fullscreen()
+				w.fullscreenHidingUI = true
+			}
 		}
 	})
 }
