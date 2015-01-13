@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html"
 	"regexp"
+	"strings"
 
 	"github.com/conformal/gotk3/gtk"
 	"github.com/tkerber/golem/cmd"
@@ -36,7 +37,9 @@ func keysToMarkupString(keys []cmd.Key, selective, highlightNums bool) string {
 
 // A StatusBar contains the status bar UI elements.
 type StatusBar struct {
-	CmdStatus      *gtk.Label
+	CmdStatusLeft  *gtk.Label
+	CmdStatusMid   *gtk.Label
+	CmdStatusRight *gtk.Label
 	LocationStatus *gtk.Label
 	Container      gtk.Container
 }
@@ -47,8 +50,10 @@ func (s *StatusBar) SetLocationMarkup(label string) {
 }
 
 // SetCmdMarkup sets the text markup of the command status.
-func (s *StatusBar) SetCmdMarkup(label string) {
-	ggtk.GlibMainContextInvoke(s.CmdStatus.SetMarkup, label)
+func (s *StatusBar) SetCmdMarkup(left, mid, right string) {
+	ggtk.GlibMainContextInvoke(s.CmdStatusLeft.SetMarkup, left)
+	ggtk.GlibMainContextInvoke(s.CmdStatusMid.SetMarkup, mid)
+	ggtk.GlibMainContextInvoke(s.CmdStatusRight.SetMarkup, right)
 }
 
 // UpdateState updates the (command) state display of the window.
@@ -104,7 +109,15 @@ func (w *Window) UpdateState(state cmd.State) {
 			"%s <cursor>_</cursor>",
 			html.EscapeString(s.Prompt))
 	}
-	w.SetCmdMarkup(w.MarkupReplacer.Replace(newStatus))
+	split := strings.SplitN(newStatus, "<cursor>_</cursor>", 2)
+	if len(split) == 1 {
+		w.SetCmdMarkup(w.MarkupReplacer.Replace(split[0]), "", "")
+	} else {
+		w.SetCmdMarkup(
+			w.MarkupReplacer.Replace(split[0]),
+			w.MarkupReplacer.Replace("<cursor>_</cursor>"),
+			w.MarkupReplacer.Replace(split[1]))
+	}
 }
 
 // UpdateLocation updates the location display of the window.

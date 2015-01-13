@@ -100,19 +100,23 @@ func newWindow(webView WebView, callback Callback) (*Window, error) {
 		(*C.GtkStyleProvider)(unsafe.Pointer(sp)),
 		C.GTK_STYLE_PROVIDER_PRIORITY_APPLICATION)
 
-	statusBar, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 10)
+	statusBar, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
 	if err != nil {
 		return nil, err
 	}
 	statusBar.SetName("statusbar")
 
-	cmdStatus, err := gtk.LabelNew("")
-	if err != nil {
-		return nil, err
+	cmdStatii := make([]*gtk.Label, 3)
+	for i := range cmdStatii {
+		cmdStatii[i], err = gtk.LabelNew("")
+		if err != nil {
+			return nil, err
+		}
+		cmdStatii[i].OverrideFont("monospace")
+		cmdStatii[i].SetUseMarkup(true)
 	}
-	cmdStatus.OverrideFont("monospace")
-	cmdStatus.SetUseMarkup(true)
-	cmdStatus.SetEllipsize(pango.ELLIPSIZE_START)
+	cmdStatii[0].SetEllipsize(pango.ELLIPSIZE_START)
+	cmdStatii[2].SetEllipsize(pango.ELLIPSIZE_END)
 
 	locationStatus, err := gtk.LabelNew("")
 	if err != nil {
@@ -122,7 +126,9 @@ func newWindow(webView WebView, callback Callback) (*Window, error) {
 	locationStatus.SetUseMarkup(true)
 	locationStatus.SetEllipsize(pango.ELLIPSIZE_START)
 
-	statusBar.PackStart(cmdStatus, false, false, 0)
+	for _, status := range cmdStatii {
+		statusBar.PackStart(status, false, false, 0)
+	}
 	statusBar.PackEnd(locationStatus, false, false, 0)
 
 	statusBarEventBox, err := gtk.EventBoxNew()
@@ -131,7 +137,9 @@ func newWindow(webView WebView, callback Callback) (*Window, error) {
 	}
 	statusBarEventBox.Add(statusBar)
 	w.StatusBar = &StatusBar{
-		cmdStatus,
+		cmdStatii[0],
+		cmdStatii[1],
+		cmdStatii[2],
 		locationStatus,
 		statusBarEventBox.Container}
 
