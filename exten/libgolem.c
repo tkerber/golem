@@ -244,7 +244,8 @@ poll_status(gpointer user_data)
 }
 
 static gboolean
-golem_is_blocked(const char *uri, struct Exten *exten) {
+golem_is_blocked(const char *uri, struct Exten *exten)
+{
     GError *err = NULL;
     GVariant *ret = g_dbus_connection_call_sync(
             exten->connection,
@@ -272,7 +273,8 @@ static gboolean
 golem_request_handler(WebKitWebPage     *page,
                       WebKitURIRequest  *req,
                       WebKitURIResponse *resp,
-                      gpointer           exten) {
+                      gpointer           exten)
+{
     const gchar *uri = webkit_uri_request_get_uri(req);
     return golem_is_blocked(uri, exten);
 }
