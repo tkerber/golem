@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/conformal/gotk3/gdk"
 	"github.com/conformal/gotk3/gtk"
 	"github.com/guelfey/go.dbus"
 	"github.com/tkerber/golem/adblock"
@@ -50,8 +51,10 @@ type Golem struct {
 	files           *files
 	extenDir        string
 
-	webViewCache     []*webView
-	webViewCacheFree chan bool
+	webViewCache          []*webView
+	webViewCacheFree      chan bool
+	webViewCacheClipboard string
+	webViewCachePrimary   string
 
 	historyMutex *sync.Mutex
 	history      []historyEntry
@@ -96,6 +99,8 @@ func New(sBus *dbus.Conn, profile string) (*Golem, error) {
 		"",
 		make([]*webView, 0),
 		make(chan bool, 1),
+		"",
+		"",
 		new(sync.Mutex),
 		make([]historyEntry, 0, defaultCfg.maxHistLen),
 		nil,
@@ -155,6 +160,40 @@ func (g *Golem) loadHistory() error {
 	return nil
 }
 
+// clipboardChanged checks if the contents of the clipboard has changed since
+// the last write to the webViewCache.
+func (g *Golem) clipboardChanged() bool {
+	clip, err := gtk.ClipboardGet(gdk.SELECTION_CLIPBOARD)
+	if err != nil {
+		(*Window)(nil).logErrorf("Failed to retrieve clipboard: %v", err)
+		return false
+	}
+	text, err := clip.WaitForText()
+	if err != nil {
+		(*Window)(nil).logErrorf("Failed to retrieve clipboard text: %v", err)
+		return false
+	}
+	return text != g.webViewCacheClipboard
+}
+
+// primaryChanged checks if the contents of the clipboard has changed since
+// the last write to the webViewCache.
+func (g *Golem) primaryChanged() bool {
+	clip, err := gtk.ClipboardGet(gdk.SELECTION_PRIMARY)
+	if err != nil {
+		(*Window)(nil).logErrorf(
+			"Failed to retrieve primary selection: %v", err)
+		return false
+	}
+	text, err := clip.WaitForText()
+	if err != nil {
+		(*Window)(nil).logErrorf(
+			"Failed to retrieve primary selection text: %v", err)
+		return false
+	}
+	return text != g.webViewCachePrimary
+}
+
 // cutWebViews moves the supplied web views to an internal buffer, and keeps
 // them there for at most 1 minute.
 func (g *Golem) cutWebViews(wvs []*webView) {
@@ -165,6 +204,24 @@ func (g *Golem) cutWebViews(wvs []*webView) {
 	g.webViewCache = wvs
 	cp := make([]*webView, len(g.webViewCache))
 	copy(cp, g.webViewCache)
+	clipboards := []*string{&g.webViewCacheClipboard, &g.webViewCachePrimary}
+	for i, sel := range []gdk.Atom{
+		gdk.SELECTION_CLIPBOARD,
+		gdk.SELECTION_PRIMARY} {
+
+		clip, err := gtk.ClipboardGet(sel)
+		if err != nil {
+			(*Window)(nil).logErrorf("Failed to retrieve selection: %v", err)
+			continue
+		}
+		text, err := clip.WaitForText()
+		if err != nil {
+			(*Window)(nil).logErrorf(
+				"Failed to retrieve selection text: %v", err)
+			continue
+		}
+		*(clipboards[i]) = text
+	}
 	go func() {
 		select {
 		case <-time.After(time.Minute):

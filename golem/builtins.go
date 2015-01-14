@@ -6,6 +6,7 @@ import (
 
 	"github.com/conformal/gotk3/gdk"
 	"github.com/conformal/gotk3/gtk"
+	"github.com/mattn/go-shellwords"
 	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/golem/states"
 	ggtk "github.com/tkerber/golem/gtk"
@@ -199,7 +200,7 @@ func (w *Window) builtinPanic(_ *int) {
 // Pastes the tab cache if it isn't empty instead.
 // If the tab cache is pasted behaves the same of builtinTabPasteClipboard.
 func (w *Window) builtinPasteClipboard(_ *int) {
-	if len(w.parent.webViewCache) != 0 {
+	if len(w.parent.webViewCache) != 0 && !w.parent.clipboardChanged() {
 		wvs := w.parent.pasteWebViews()
 		_, err := w.newTabsWithWebViews(wvs...)
 		if err != nil {
@@ -225,7 +226,7 @@ func (w *Window) builtinPasteClipboard(_ *int) {
 //
 // Pastes the tab cache if it isn't empty instead.
 func (w *Window) builtinPastePrimary(_ *int) {
-	if len(w.parent.webViewCache) != 0 {
+	if len(w.parent.webViewCache) != 0 && !w.parent.primaryChanged() {
 		wvs := w.parent.pasteWebViews()
 		_, err := w.newTabsWithWebViews(wvs...)
 		if err != nil {
@@ -393,7 +394,7 @@ func (w *Window) builtinTabOpen(_ *int) {
 //
 // Pastes the tab cache if it isn't empty instead.
 func (w *Window) builtinTabPasteClipboard(_ *int) {
-	if len(w.parent.webViewCache) != 0 {
+	if len(w.parent.webViewCache) != 0 && !w.parent.clipboardChanged() {
 		wvs := w.parent.pasteWebViews()
 		_, err := w.newTabsWithWebViews(wvs...)
 		if err != nil {
@@ -416,7 +417,7 @@ func (w *Window) builtinTabPasteClipboard(_ *int) {
 //
 // Pastes the tab cache if it isn't empty instead.
 func (w *Window) builtinTabPastePrimary(_ *int) {
-	if len(w.parent.webViewCache) != 0 {
+	if len(w.parent.webViewCache) != 0 && !w.parent.primaryChanged() {
 		wvs := w.parent.pasteWebViews()
 		_, err := w.newTabsWithWebViews(wvs...)
 		if err != nil {
@@ -500,7 +501,7 @@ func (w *Window) builtinWindowOpen(_ *int) {
 func (w *Window) builtinWindowPasteClipboard(_ *int) {
 	var win *Window
 	var err error
-	if len(w.parent.webViewCache) != 0 {
+	if len(w.parent.webViewCache) != 0 && !w.parent.clipboardChanged() {
 		wvs := w.parent.pasteWebViews()
 		win, err = w.parent.newWindowWithWebView(wvs[0])
 		if err != nil {
@@ -539,7 +540,7 @@ func (w *Window) builtinWindowPasteClipboard(_ *int) {
 func (w *Window) builtinWindowPastePrimary(_ *int) {
 	var win *Window
 	var err error
-	if len(w.parent.webViewCache) != 0 {
+	if len(w.parent.webViewCache) != 0 && !w.parent.primaryChanged() {
 		wvs := w.parent.pasteWebViews()
 		win, err = w.parent.newWindowWithWebView(wvs[0])
 		if err != nil {
@@ -576,7 +577,7 @@ func (w *Window) builtinWindowPastePrimary(_ *int) {
 func (w *Window) builtinYankClipboard(n *int) {
 	i, j := w.numTabsToIndicies(getWithDefault(n, 1, 0, len(w.webViews)))
 	str := yankTabs(w.webViews[i:j])
-	go ggtk.GlibMainContextInvoke(func() {
+	ggtk.GlibMainContextInvoke(func() {
 		clip, err := gtk.ClipboardGet(gdk.SELECTION_CLIPBOARD)
 		if err != nil {
 			w.logErrorf("Failed to yank to clipboard: %v", err)
@@ -591,10 +592,10 @@ func (w *Window) builtinYankClipboard(n *int) {
 func (w *Window) builtinYankPrimary(n *int) {
 	i, j := w.numTabsToIndicies(getWithDefault(n, 1, 0, len(w.webViews)))
 	str := yankTabs(w.webViews[i:j])
-	go ggtk.GlibMainContextInvoke(func() {
+	ggtk.GlibMainContextInvoke(func() {
 		clip, err := gtk.ClipboardGet(gdk.SELECTION_PRIMARY)
 		if err != nil {
-			w.logErrorf("Failed to yank to clipboard: %v", err)
+			w.logErrorf("Failed to yank to primary selection: %v", err)
 			return
 		}
 		clip.SetText(str)
@@ -614,7 +615,20 @@ func (w *Window) urisFromClipboard(selection gdk.Atom) ([]string, error) {
 	if args[1] != nil {
 		return nil, args[1].(error)
 	}
-	return strings.Split(args[0].(string), "\n"), nil
+	split := strings.Split(args[0].(string), "\n")
+	ret := make([]string, 0, len(split))
+	for _, line := range split {
+		if line == "" {
+			continue
+		}
+		splitLine, err := shellwords.Parse(line)
+		if err != nil {
+			ret = append(ret, line)
+		} else {
+			ret = append(ret, w.parent.OpenURI(splitLine))
+		}
+	}
+	return ret, nil
 }
 
 // yankTabs extracts a uri string from given webviews to yank.

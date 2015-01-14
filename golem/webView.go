@@ -266,7 +266,7 @@ func (wv *webView) detach() {
 	wv.tabUI = nil
 	if p, _ := wv.WebView.GetParent(); p != nil {
 		cont := &gtk.Container{*p}
-		ggtk.GlibMainContextInvoke(cont.Remove, wv.WebView)
+		cont.Remove(wv.WebView)
 	}
 }
 
@@ -278,6 +278,6 @@ func (wv *webView) close() {
 	wv.parent.wMutex.Lock()
 	delete(wv.parent.webViews, wv.id)
 	wv.parent.wMutex.Unlock()
-	wv.detach()
+	ggtk.GlibMainContextInvoke(wv.detach)
 	schedGc()
 }
