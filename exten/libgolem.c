@@ -229,43 +229,6 @@ handle_set_property(GDBusConnection *connection,
 }
 
 static gboolean
-poll_status(gpointer user_data)
-{
-    struct Exten *exten = user_data;
-
-    WebKitDOMDocument *dom = webkit_web_page_get_dom_document(exten->web_page);
-    WebKitDOMElement *e = NULL;
-    if(dom != NULL) {
-        e = WEBKIT_DOM_ELEMENT(webkit_dom_document_get_body(dom));
-    }
-
-    // Check for current scroll position. If it has changed, signal DBus.
-    if(e != NULL) {
-        glong top = webkit_dom_element_get_scroll_top(e);
-        glong height = webkit_dom_element_get_scroll_height(e);
-        if(top != exten->last_top || height != exten->last_height) {
-            exten->last_top = top;
-            exten->last_height = height;
-            g_dbus_connection_emit_signal(
-                    exten->connection,
-                    NULL,
-                    exten->object_path,
-                    "com.github.tkerber.golem.WebExtension",
-                    "VerticalPositionChanged",
-                    g_variant_new("(xx)", top, height),
-                    NULL);
-        }
-    }
-
-    if(dom != NULL) {
-        e = webkit_dom_document_get_active_element(dom);
-    }
-
-
-    return G_SOURCE_CONTINUE;
-}
-
-static gboolean
 golem_is_blocked(const char *uri, struct Exten *exten)
 {
     GError *err = NULL;
@@ -323,6 +286,41 @@ get_scroll_target(WebKitDOMElement *elem)
         elem = webkit_dom_element_get_offset_parent(elem);
     }
     return elem;
+}
+
+static void
+document_scroll_cb(WebKitDOMEventTarget *target,
+                   WebKitDOMEvent       *event,
+                   gpointer              user_data)
+{
+    struct Exten *exten = user_data;
+    WebKitDOMDocument *dom = WEBKIT_DOM_DOCUMENT(target);
+    WebKitDOMElement *e = NULL;
+    if(dom != NULL) {
+        e = WEBKIT_DOM_ELEMENT(webkit_dom_document_get_body(dom));
+    }
+
+    // Check for current scroll position. If it has changed, signal DBus.
+    if(e != NULL) {
+        glong top = webkit_dom_element_get_scroll_top(e);
+        glong height = webkit_dom_element_get_scroll_height(e);
+        if(top != exten->last_top || height != exten->last_height) {
+            exten->last_top = top;
+            exten->last_height = height;
+            g_dbus_connection_emit_signal(
+                    exten->connection,
+                    NULL,
+                    exten->object_path,
+                    "com.github.tkerber.golem.WebExtension",
+                    "VerticalPositionChanged",
+                    g_variant_new("(xx)", top, height),
+                    NULL);
+        }
+    }
+
+    if(dom != NULL) {
+        e = webkit_dom_document_get_active_element(dom);
+    }
 }
 
 static void
@@ -406,6 +404,12 @@ document_loaded_cb(WebKitWebPage *page,
     struct Exten *exten = user_data;
     exten->document = webkit_web_page_get_dom_document(page);
     watch_document(exten->document, exten);
+    webkit_dom_event_target_add_event_listener(
+            WEBKIT_DOM_EVENT_TARGET(exten->document),
+            "scroll",
+            G_CALLBACK(document_scroll_cb),
+            false,
+            exten);
 }
 
 static void
@@ -432,9 +436,7 @@ on_bus_acquired(GDBusConnection *connection,
             NULL,
             NULL);
     g_assert(registration_id > 0);
-    // Register 100ms loop polling the current status and sending updates as
-    // required.
-    g_timeout_add(100, poll_status, exten);
+
     g_signal_connect(
             exten->web_page,
             "document-loaded",
