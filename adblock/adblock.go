@@ -23,13 +23,13 @@ var regexpReplacer = strings.NewReplacer(
 // A Blocker is an instance of adblock.
 type Blocker struct {
 	// We (more or less) use adblock pluses technique for rule matching.
-	ruleMap       map[[8]byte][]Rule
-	trailingRules []Rule
+	blockRuleMap       map[[8]byte][]*BlockRule
+	trailingBlockRules []*BlockRule
 }
 
 // NewBlocker creates a new ad blocker.
 func NewBlocker(dir string) *Blocker {
-	b := &Blocker{make(map[[8]byte][]Rule, 1000), make([]Rule, 10)}
+	b := &Blocker{make(map[[8]byte][]*BlockRule, 1000), make([]*BlockRule, 10)}
 	go func() {
 		err := filepath.Walk(
 			dir,
@@ -81,7 +81,7 @@ func (b *Blocker) Blocks(uri string) bool {
 	blocked := false
 	exception := false
 	for _, candidate := range candidateSubstrings([]byte(uri)) {
-		for _, rule := range b.ruleMap[candidate] {
+		for _, rule := range b.blockRuleMap[candidate] {
 			if !blocked && rule.RuleType == RuleTypeBlock && rule.MatchString(uri) {
 				blocked = true
 			}
@@ -111,7 +111,7 @@ func (b *Blocker) parseLine(line []byte) {
 	line = []byte(split[0])
 	// TODO handle $ options.
 	line = []byte(strings.ToLower(string(line)))
-	rule, err := NewRule(line)
+	rule, err := NewBlockRule(line)
 	if err == nil {
 		b.addRule(rule, line)
 	}
@@ -119,38 +119,41 @@ func (b *Blocker) parseLine(line []byte) {
 
 // addRule adds a new rule to the blocker.
 func (b *Blocker) addRule(rule Rule, src []byte) {
-	if !rule.IsSimple {
-		b.trailingRules = append(b.trailingRules, rule)
-		return
-	}
-	// Find the key for our rule.
-	candidates := candidateSubstrings(src)
-	var key [8]byte
-	var competing uint
-	competing = ^uint(0)
-	for _, candidate := range candidates {
-		if strings.ContainsAny(string(candidate[:]), "*^") {
-			continue
+	switch rule := rule.(type) {
+	case *BlockRule:
+		if !rule.IsSimple {
+			b.trailingBlockRules = append(b.trailingBlockRules, rule)
+			return
 		}
-		if competing == 0 {
-			break
+		// Find the key for our rule.
+		candidates := candidateSubstrings(src)
+		var key [8]byte
+		var competing uint
+		competing = ^uint(0)
+		for _, candidate := range candidates {
+			if strings.ContainsAny(string(candidate[:]), "*^") {
+				continue
+			}
+			if competing == 0 {
+				break
+			}
+			c := len(b.blockRuleMap[candidate])
+			if uint(c) < competing {
+				key = candidate
+				competing = uint(c)
+			}
 		}
-		c := len(b.ruleMap[candidate])
-		if uint(c) < competing {
-			key = candidate
-			competing = uint(c)
+		if competing == ^uint(0) {
+			b.trailingBlockRules = append(b.trailingBlockRules, rule)
+			return
 		}
-	}
-	if competing == ^uint(0) {
-		b.trailingRules = append(b.trailingRules, rule)
-		return
-	}
-	// Add the rule under the specified key.
-	rules := b.ruleMap[key]
-	if rules == nil {
-		b.ruleMap[key] = []Rule{rule}
-	} else {
-		b.ruleMap[key] = append(rules, rule)
+		// Add the rule under the specified key.
+		rules := b.blockRuleMap[key]
+		if rules == nil {
+			b.blockRuleMap[key] = []*BlockRule{rule}
+		} else {
+			b.blockRuleMap[key] = append(rules, rule)
+		}
 	}
 }
 
@@ -168,35 +171,43 @@ func candidateSubstrings(str []byte) [][8]byte {
 	return ret
 }
 
-// A Rule is a single filter in the filterlist.
-type Rule struct {
+// A Rule is either a BlockRule or a HideRule.
+type Rule interface {
+	isRule()
+}
+
+// A BlockRule is a single filter in the filterlist.
+type BlockRule struct {
 	*regexp.Regexp
 	RuleType
 	IsSimple bool
 }
 
-// NewRule creates a new rule from the corresponding line in the filterlist.
-func NewRule(rule []byte) (Rule, error) {
+// isRule adherence to the Rule interface.
+func (r *BlockRule) isRule() {}
+
+// NewBlockRule creates a new rule from the corresponding line in the filterlist.
+func NewBlockRule(rule []byte) (*BlockRule, error) {
 	rt := RuleTypeBlock
 	if len(rule) == 0 {
-		return *new(Rule), errors.New("empty rule")
+		return nil, errors.New("empty rule")
 	}
 	if len(rule) >= 2 && string(rule[:2]) == "@@" {
 		rt = RuleTypeException
 		rule = rule[2:]
 		if len(rule) == 0 {
-			return *new(Rule), errors.New("empty rule")
+			return nil, errors.New("empty rule")
 		}
 	}
 	if strings.Contains(string(rule), "##") || strings.Contains(string(rule), "$") || strings.Contains(string(rule), "||") {
-		return *new(Rule), errors.New("currently unsupported ruletype")
+		return nil, errors.New("currently unsupported ruletype")
 	}
 	simple := true
 	if len(rule) >= 2 && rule[0] == '/' && rule[len(rule)-1] == '/' {
 		simple = false
 		rule = rule[1 : len(rule)-1]
 		if len(rule) == 0 {
-			return *new(Rule), errors.New("empty rule")
+			return nil, errors.New("empty rule")
 		}
 	}
 	var r *regexp.Regexp
@@ -207,13 +218,13 @@ func NewRule(rule []byte) (Rule, error) {
 			reg += `^[^:]*://`
 			rule = rule[2:]
 			if len(rule) == 0 {
-				return *new(Rule), errors.New("empty rule")
+				return nil, errors.New("empty rule")
 			}
 		} else if rule[0] == '|' {
 			reg += `^`
 			rule = rule[1:]
 			if len(rule) == 0 {
-				return *new(Rule), errors.New("empty rule")
+				return nil, errors.New("empty rule")
 			}
 		} else {
 			reg += `^.*`
@@ -222,7 +233,7 @@ func NewRule(rule []byte) (Rule, error) {
 		if rule[len(rule)-1] == '|' {
 			rule = rule[:len(rule)-1]
 			if len(rule) == 0 {
-				return *new(Rule), errors.New("empty rule")
+				return nil, errors.New("empty rule")
 			}
 		}
 		quot := regexp.QuoteMeta(string(rule))
@@ -237,9 +248,9 @@ func NewRule(rule []byte) (Rule, error) {
 		r, err = regexp.Compile(string(rule))
 	}
 	if err != nil {
-		return *new(Rule), err
+		return nil, err
 	}
-	return Rule{r, rt, simple}, nil
+	return &BlockRule{r, rt, simple}, nil
 }
 
 // The RuleType of a Rule is what the rule does when it matches.

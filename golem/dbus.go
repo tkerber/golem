@@ -114,62 +114,88 @@ func webExtensionForWebView(g *Golem, wv *webkit.WebView) *webExtension {
 		dbus.ObjectPath(fmt.Sprintf(webExtenDBusPath, g.profile, page)))}
 }
 
-// getScrollTop retrieves the webExtension's scroll position from the top of
-// the page.
-func (w *webExtension) getScrollTop() (int64, error) {
-	v, err := w.GetProperty(webExtenDBusInterface + ".ScrollTop")
+// getInt64 retrieves an int64 value.
+func (w *webExtension) getInt64(name string) (int64, error) {
+	v, err := w.GetProperty(webExtenDBusInterface + "." + name)
 	if err != nil {
 		return 0, err
 	}
 	return v.Value().(int64), nil
+}
+
+// getScrollTop retrieves the webExtension's scroll position from the top of
+// the page.
+func (w *webExtension) getScrollTop() (int64, error) {
+	return w.getInt64("ScrollTop")
 }
 
 // getScrollLeft retrieves the webExtension's scroll position from the left of
 // the page.
 func (w *webExtension) getScrollLeft() (int64, error) {
-	v, err := w.GetProperty(webExtenDBusInterface + ".ScrollLeft")
-	if err != nil {
-		return 0, err
-	}
-	return v.Value().(int64), nil
+	return w.getInt64("ScrollLeft")
 }
 
 // getScrollWidth retrieves the webExtension's scroll area width.
 func (w *webExtension) getScrollWidth() (int64, error) {
-	v, err := w.GetProperty(webExtenDBusInterface + ".ScrollWidth")
-	if err != nil {
-		return 0, err
-	}
-	return v.Value().(int64), nil
+	return w.getInt64("ScrollWidth")
 }
 
 // getScrollHeight retrieves the webExtension's scroll area height.
 func (w *webExtension) getScrollHeight() (int64, error) {
-	v, err := w.GetProperty(webExtenDBusInterface + ".ScrollHeight")
-	if err != nil {
-		return 0, err
-	}
-	return v.Value().(int64), nil
+	return w.getInt64("ScrollHeight")
+}
+
+// getScrollTargetTop retrieves the webExtension's scroll position from the
+// top of the target scroll area.
+func (w *webExtension) getScrollTargetTop() (int64, error) {
+	return w.getInt64("ScrollTargetTop")
+}
+
+// getScrollTargetLeft retrieves the webExtension's scroll position from the
+// left of the target scroll area.
+func (w *webExtension) getScrollTargetLeft() (int64, error) {
+	return w.getInt64("ScrollTargetLeft")
+}
+
+// getScrollTargetWidth retrieves the webExtension's target scroll area width.
+func (w *webExtension) getScrollTargetWidth() (int64, error) {
+	return w.getInt64("ScrollTargetWidth")
+}
+
+// getScrollTargetHeight retrieves the webExtension's target scroll area height.
+func (w *webExtension) getScrollTargetHeight() (int64, error) {
+	return w.getInt64("ScrollTargetHeight")
+}
+
+// setInf64 sets an int64 value.
+func (w *webExtension) setInt64(name string, to int64) error {
+	call := w.Call(
+		"org.freedesktop.DBus.Properties.Set",
+		0,
+		webExtenDBusInterface,
+		name,
+		dbus.MakeVariant(to))
+	return call.Err
 }
 
 // setScrollTop sets the webExtension's scroll position from the top.
 func (w *webExtension) setScrollTop(to int64) error {
-	call := w.Call(
-		"org.freedesktop.DBus.Properties.Set",
-		0,
-		webExtenDBusInterface,
-		"ScrollTop",
-		dbus.MakeVariant(to))
-	return call.Err
+	return w.setInt64("ScrollTop", to)
 }
 
 // setScrollLeft sets the webExtension's scroll position from the left.
 func (w *webExtension) setScrollLeft(to int64) error {
-	call := w.Call(
-		"org.freedesktop.DBus.Properties.Set",
-		0,
-		webExtenDBusInterface,
-		"ScrollLeft",
-		dbus.MakeVariant(to))
-	return call.Err
+	return w.setInt64("ScrollLeft", to)
+}
+
+// setScrollTargetTop sets the webExtension's scroll position from the top of
+// the target scroll area..
+func (w *webExtension) setScrollTargetTop(to int64) error {
+	return w.setInt64("ScrollTargetTop", to)
+}
+
+// setScrollTargetLeft sets the webExtension's scroll position from the left
+// of the target scroll area.
+func (w *webExtension) setScrollTargetLeft(to int64) error {
+	return w.setInt64("ScrollTargetLeft", to)
 }

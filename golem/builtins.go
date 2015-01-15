@@ -303,6 +303,7 @@ func (w *Window) builtinScrollRight(n *int) {
 
 // builtinScrollPageDown scrolls down 80% of the page.
 func (w *Window) builtinScrollPageDown(n *int) {
+	// TODO with different target areas this will scroll way too much.
 	w.scrollDelta(
 		int(float64(w.Window.WebView.GetWebView().GetAllocatedHeight())*
 			0.8*
@@ -322,11 +323,11 @@ func (w *Window) builtinScrollPageUp(n *int) {
 // builtinScrollToBottom scrolls to the bottom of the page.
 func (w *Window) builtinScrollToBottom(_ *int) {
 	ext := w.getWebView()
-	height, err := ext.getScrollHeight()
+	height, err := ext.getScrollTargetHeight()
 	if err != nil {
 		w.logErrorf("Error scrolling: %v", err)
 	}
-	err = ext.setScrollTop(height)
+	err = ext.setScrollTargetTop(height)
 	if err != nil {
 		w.logErrorf("Error scrolling: %v", err)
 	}
@@ -334,7 +335,7 @@ func (w *Window) builtinScrollToBottom(_ *int) {
 
 // builtinScrollTotop scrolls to the top of the page.
 func (w *Window) builtinScrollToTop(_ *int) {
-	err := w.getWebView().setScrollTop(0)
+	err := w.getWebView().setScrollTargetTop(0)
 	if err != nil {
 		w.logErrorf("Error scrolling %v", err)
 	}
@@ -664,9 +665,9 @@ func (w *Window) scrollDelta(delta int, vertical bool) {
 	var err error
 	wv := w.getWebView()
 	if vertical {
-		curr, err = wv.getScrollTop()
+		curr, err = wv.getScrollTargetTop()
 	} else {
-		curr, err = wv.getScrollLeft()
+		curr, err = wv.getScrollTargetLeft()
 	}
 	if err != nil {
 		w.logErrorf("Error scrolling: %v", err)
@@ -674,9 +675,9 @@ func (w *Window) scrollDelta(delta int, vertical bool) {
 	}
 	curr += int64(delta)
 	if vertical {
-		err = wv.setScrollTop(curr)
+		err = wv.setScrollTargetTop(curr)
 	} else {
-		err = wv.setScrollLeft(curr)
+		err = wv.setScrollTargetLeft(curr)
 	}
 	if err != nil {
 		w.logErrorf("Error scrolling: %v", err)

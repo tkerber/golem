@@ -21,6 +21,10 @@ static const gchar introspection_xml[] =
     "        <property type='x' name='ScrollLeft' access='readwrite' />"
     "        <property type='x' name='ScrollHeight' access='read' />"
     "        <property type='x' name='ScrollWidth' access='read' />"
+    "        <property type='x' name='ScrollTargetTop' access='readwrite' />"
+    "        <property type='x' name='ScrollTargetLeft' access='readwrite' />"
+    "        <property type='x' name='ScrollTargetHeight' access='read' />"
+    "        <property type='x' name='ScrollTargetWidth' access='read' />"
     "        <signal name='VerticalPositionChanged'>"
     "            <arg type='x' name='ScrollTop' />"
     "            <arg type='x' name='ScrollHeight' />"
@@ -32,14 +36,17 @@ static const gchar introspection_xml[] =
     "</node>";
 
 struct Exten {
-    WebKitWebPage   *web_page;
-    GDBusConnection *connection;
-    glong            last_top;
-    glong            last_height;
-    gboolean         last_input_focus;
-    gchar           *object_path;
-    gchar           *profile;
-    gchar           *golem_name;
+    WebKitWebPage     *web_page;
+    WebKitDOMDocument *document;
+    WebKitDOMElement  *active;
+    WebKitDOMElement  *scroll_target;
+    GDBusConnection   *connection;
+    glong              last_top;
+    glong              last_height;
+    gboolean           last_input_focus;
+    gchar             *object_path;
+    gchar             *profile;
+    gchar             *golem_name;
 };
 
 static void
@@ -80,6 +87,10 @@ scroll_to_top(gpointer web_page_p);
 static void
 scroll_to_bottom(gpointer web_page_p);
 
+static void
+watch_document(WebKitDOMDocument *doc,
+               struct Exten      *exten);
+
 static GDBusNodeInfo *introspection_data = NULL;
 static const GDBusInterfaceVTable interface_vtable =
 {
@@ -114,29 +125,51 @@ handle_get_property(GDBusConnection *connection,
     GVariant *ret = NULL;
     WebKitWebPage *wp = exten->web_page;
     WebKitDOMDocument *dom = webkit_web_page_get_dom_document(wp);
+    if(dom == NULL) {
+        g_set_error(
+                error,
+                GOLEM_WEB_ERROR,
+                GOLEM_WEB_ERROR_NULL_BODY,
+                "Document element is NULL.");
+        return NULL;
+    }
     WebKitDOMElement *e = NULL;
-    if(dom != NULL) {
+    if(g_strcmp0(property_name, "ScrollTop") == 0 ||
+        g_strcmp0(property_name, "ScrollLeft") == 0 ||
+        g_strcmp0(property_name, "ScrollHeight") == 0 ||
+        g_strcmp0(property_name, "ScrollWidth") == 0) {
+
         e = WEBKIT_DOM_ELEMENT(webkit_dom_document_get_body(dom));
+    } else if (g_strcmp0(property_name, "ScrollTargetTop") == 0 ||
+        g_strcmp0(property_name, "ScrollTargetLeft") == 0 ||
+        g_strcmp0(property_name, "ScrollTargetHeight") == 0||
+        g_strcmp0(property_name, "ScrollTargetWidth") == 0) {
+
+        e = exten->scroll_target;
     }
     if(e == NULL) {
         g_set_error(
                 error,
                 GOLEM_WEB_ERROR,
                 GOLEM_WEB_ERROR_NULL_BODY,
-                "Body element is NULL.");
+                "Scroll element is NULL.");
         return NULL;
     }
 
-    if(g_strcmp0(property_name, "ScrollTop") == 0) {
+    if(g_strcmp0(property_name, "ScrollTop") == 0 ||
+            g_strcmp0(property_name, "ScrollTargetTop") == 0) {
         ret = g_variant_new_int64(
                 webkit_dom_element_get_scroll_top(e));
-    } else if(g_strcmp0(property_name, "ScrollLeft") == 0) {
+    } else if(g_strcmp0(property_name, "ScrollLeft") == 0 ||
+            g_strcmp0(property_name, "ScrollTargetLeft") == 0) {
         ret = g_variant_new_int64(
                 webkit_dom_element_get_scroll_left(e));
-    } else if(g_strcmp0(property_name, "ScrollHeight") == 0) {
+    } else if(g_strcmp0(property_name, "ScrollHeight") == 0 ||
+            g_strcmp0(property_name, "ScrollTargetHeight") == 0) {
         ret = g_variant_new_int64(
                 webkit_dom_element_get_scroll_height(e));
-    } else if(g_strcmp0(property_name, "ScrollWidth") == 0) {
+    } else if(g_strcmp0(property_name, "ScrollWidth") == 0 ||
+            g_strcmp0(property_name, "ScrollTargetWidth") == 0) {
         ret = g_variant_new_int64(
                 webkit_dom_element_get_scroll_width(e));
     }
@@ -155,23 +188,39 @@ handle_set_property(GDBusConnection *connection,
 {
     struct Exten *exten = user_data;
     WebKitDOMDocument *dom = webkit_web_page_get_dom_document(exten->web_page);
+    if(dom == NULL) {
+        g_set_error(
+                error,
+                GOLEM_WEB_ERROR,
+                GOLEM_WEB_ERROR_NULL_BODY,
+                "Document element is NULL.");
+        return TRUE;
+    }
     WebKitDOMElement *e = NULL;
-    if(dom != NULL) {
+    if(g_strcmp0(property_name, "ScrollTop") == 0 ||
+        g_strcmp0(property_name, "ScrollLeft") == 0) {
+
         e = WEBKIT_DOM_ELEMENT(webkit_dom_document_get_body(dom));
+    } else if (g_strcmp0(property_name, "ScrollTargetTop") == 0 ||
+        g_strcmp0(property_name, "ScrollTargetLeft") == 0) {
+
+        e = exten->scroll_target;
     }
     if(e == NULL) {
         g_set_error(
                 error,
                 GOLEM_WEB_ERROR,
                 GOLEM_WEB_ERROR_NULL_BODY,
-                "Body element is NULL.");
-        return FALSE;
+                "Scroll element is NULL.");
+        return TRUE;
     }
 
-    if(g_strcmp0(property_name, "ScrollTop") == 0) {
+    if(g_strcmp0(property_name, "ScrollTop") == 0 ||
+            g_strcmp0(property_name, "ScrollTargetTop") == 0) {
         webkit_dom_element_set_scroll_top(e, g_variant_get_int64(value));
         return TRUE;
-    } else if(g_strcmp0(property_name, "ScrollLeft") == 0) {
+    } else if(g_strcmp0(property_name, "ScrollLeft") == 0 ||
+            g_strcmp0(property_name, "ScrollTargetLeft") == 0) {
         webkit_dom_element_set_scroll_left(e, g_variant_get_int64(value));
         return TRUE;
     }
@@ -212,33 +261,6 @@ poll_status(gpointer user_data)
         e = webkit_dom_document_get_active_element(dom);
     }
 
-    // Check whether the currently active element is an input element.
-    // If this has changed, signal DBus.
-    //
-    // Input elements: 
-    //
-    // WebKitDOMHTMLAppletElement
-    // WebKitDOMHTMLEmbedElement
-    // WebKitDOMHTMLInputElement
-    // WebKitDOMHTMLTextAreaElement
-    if(e != NULL) {
-        gboolean input_focus = (
-                WEBKIT_DOM_IS_HTML_APPLET_ELEMENT(e) ||
-                WEBKIT_DOM_IS_HTML_EMBED_ELEMENT(e) ||
-                WEBKIT_DOM_IS_HTML_INPUT_ELEMENT(e) ||
-                WEBKIT_DOM_IS_HTML_TEXT_AREA_ELEMENT(e));
-        if(input_focus != exten->last_input_focus) {
-            exten->last_input_focus = input_focus;
-            g_dbus_connection_emit_signal(
-                    exten->connection,
-                    NULL,
-                    exten->object_path,
-                    "com.github.tkerber.golem.WebExtension",
-                    "InputFocusChanged",
-                    g_variant_new("(b)", input_focus),
-                    NULL);
-        }
-    }
 
     return G_SOURCE_CONTINUE;
 }
@@ -279,6 +301,113 @@ golem_request_handler(WebKitWebPage     *page,
     return golem_is_blocked(uri, exten);
 }
 
+static gboolean
+is_scroll_target(WebKitDOMElement *elem)
+{
+    WebKitDOMElement *parent = webkit_dom_element_get_offset_parent(elem);
+    if(parent == NULL) {
+        return true;
+    }
+    glong height = webkit_dom_element_get_scroll_height(elem);
+    glong width = webkit_dom_element_get_scroll_width(elem);
+    glong parentHeight = webkit_dom_element_get_scroll_height(parent);
+    glong parentWidth = webkit_dom_element_get_scroll_width(parent);
+    return parentHeight < height || parentWidth < width;
+}
+
+static WebKitDOMElement *
+get_scroll_target(WebKitDOMElement *elem)
+{
+    WebKitDOMElement *prev = elem;
+    while(!is_scroll_target(elem)) {
+        elem = webkit_dom_element_get_offset_parent(elem);
+    }
+    return elem;
+}
+
+static void
+active_element_change_cb(WebKitDOMEventTarget *target,
+                         WebKitDOMEvent       *event,
+                         gpointer              user_data)
+{
+    struct Exten *exten = user_data;
+    WebKitDOMDocument *document;
+    g_object_get(target, "document", &document, NULL);
+    WebKitDOMElement *active = webkit_dom_document_get_active_element(document);
+    if(active == NULL || active == exten->active) {
+        return;
+    }
+    if(WEBKIT_DOM_IS_HTML_IFRAME_ELEMENT(active)) {
+        WebKitDOMDocument *doc =
+            webkit_dom_html_iframe_element_get_content_document(
+                    WEBKIT_DOM_HTML_IFRAME_ELEMENT(active));
+        watch_document(doc, exten);
+        active_element_change_cb(
+                WEBKIT_DOM_EVENT_TARGET(webkit_dom_document_get_default_view(doc)),
+                NULL,
+                exten);
+        return;
+    }
+    exten->active = active;
+    exten->scroll_target = get_scroll_target(active);
+
+    // Check whether the currently active element is an input element.
+    // If this has changed, signal DBus.
+    //
+    // Input elements:
+    //
+    // WebKitDOMHTMLAppletElement
+    // WebKitDOMHTMLEmbedElement
+    // WebKitDOMHTMLInputElement
+    // WebKitDOMHTMLTextAreaElement
+    gboolean input_focus = (
+            WEBKIT_DOM_IS_HTML_APPLET_ELEMENT(active) ||
+            WEBKIT_DOM_IS_HTML_EMBED_ELEMENT(active) ||
+            WEBKIT_DOM_IS_HTML_INPUT_ELEMENT(active) ||
+            WEBKIT_DOM_IS_HTML_TEXT_AREA_ELEMENT(active));
+    if(input_focus != exten->last_input_focus) {
+        exten->last_input_focus = input_focus;
+        g_dbus_connection_emit_signal(
+                exten->connection,
+                NULL,
+                exten->object_path,
+                "com.github.tkerber.golem.WebExtension",
+                "InputFocusChanged",
+                g_variant_new("(b)", input_focus),
+                NULL);
+    }
+}
+
+static void
+watch_document(WebKitDOMDocument *doc,
+               struct Exten      *exten)
+{
+    WebKitDOMEventTarget *target = WEBKIT_DOM_EVENT_TARGET(
+            webkit_dom_document_get_default_view(doc));
+    webkit_dom_event_target_add_event_listener(
+            target,
+            "blur",
+            G_CALLBACK(active_element_change_cb),
+            true,
+            exten);
+    webkit_dom_event_target_add_event_listener(
+            target,
+            "focus",
+            G_CALLBACK(active_element_change_cb),
+            true,
+            exten);
+    active_element_change_cb(target, NULL, exten);
+}
+
+static void
+document_loaded_cb(WebKitWebPage *page,
+                   gpointer       user_data)
+{
+    struct Exten *exten = user_data;
+    exten->document = webkit_web_page_get_dom_document(page);
+    watch_document(exten->document, exten);
+}
+
 static void
 on_bus_acquired(GDBusConnection *connection,
                 const gchar     *name,
@@ -306,6 +435,11 @@ on_bus_acquired(GDBusConnection *connection,
     // Register 100ms loop polling the current status and sending updates as
     // required.
     g_timeout_add(100, poll_status, exten);
+    g_signal_connect(
+            exten->web_page,
+            "document-loaded",
+            G_CALLBACK(document_loaded_cb),
+            exten);
     // Register the request signal...
     g_signal_connect(
             exten->web_page,
@@ -337,6 +471,9 @@ web_page_created_callback(WebKitWebExtension *extension,
 {
     struct Exten *exten = malloc(sizeof(struct Exten));
     exten->web_page = web_page;
+    exten->document = NULL;
+    exten->active = NULL;
+    exten->scroll_target = NULL;
     exten->profile = user_data;
     exten->golem_name = g_strdup_printf(
             "com.github.tkerber.Golem.%s", exten->profile);
