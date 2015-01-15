@@ -4,8 +4,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+// Error stuff
+
 #define GOLEM_WEB_ERROR golem_web_error_quark()
 
+// golem_web_error_quark returns the quark for a golem web error.
 GQuark
 golem_web_error_quark()
 {
@@ -14,6 +17,7 @@ golem_web_error_quark()
 
 #define GOLEM_WEB_ERROR_NULL_BODY 0
 
+// The DBus introspection xml for the WebExtension interface.
 static const gchar introspection_xml[] =
     "<node>"
     "    <interface name='com.github.tkerber.golem.WebExtension'>"
@@ -35,7 +39,53 @@ static const gchar introspection_xml[] =
     "    </interface>"
     "</node>";
 
-struct Exten {
+// handle_method_call handles a DBus method call on the WebExtension.
+static void
+handle_method_call(GDBusConnection       *connection,
+                   const gchar           *sender,
+                   const gchar           *object_path,
+                   const gchar           *interface_name,
+                   const gchar           *method_name,
+                   GVariant              *parameters,
+                   GDBusMethodInvocation *invocation,
+                   gpointer               user_data);
+
+// handle_get_property handles a DBus property get call.
+static GVariant *
+handle_get_property(GDBusConnection *connection,
+                    const gchar     *sender,
+                    const gchar     *object_path,
+                    const gchar     *interface_name,
+                    const gchar     *property_name,
+                    GError         **error,
+                    gpointer         user_data);
+
+// handle_set_property handles a DBus property set call.
+static gboolean
+handle_set_property(GDBusConnection *connection,
+                    const gchar     *sender,
+                    const gchar     *object_path,
+                    const gchar     *interface_name,
+                    const gchar     *property_name,
+                    GVariant        *value,
+                    GError         **error,
+                    gpointer         user_data);
+
+// introspection_data contains the DBus introspection data for the
+// WebExtension.
+static GDBusNodeInfo *introspection_data = NULL;
+
+// interface_vtable references the methods used for DBus calls to the
+// WebExtension.
+static const GDBusInterfaceVTable interface_vtable =
+{
+    handle_method_call,
+    handle_get_property,
+    handle_set_property
+};
+
+// Exten contains all data the web extension requires.
+typedef struct _Exten {
     WebKitWebPage     *web_page;
     WebKitDOMDocument *document;
     WebKitDOMElement  *active;
@@ -47,58 +97,14 @@ struct Exten {
     gchar             *object_path;
     gchar             *profile;
     gchar             *golem_name;
-};
+} Exten;
 
-static void
-handle_method_call(GDBusConnection       *connection,
-                   const gchar           *sender,
-                   const gchar           *object_path,
-                   const gchar           *interface_name,
-                   const gchar           *method_name,
-                   GVariant              *parameters,
-                   GDBusMethodInvocation *invocation,
-                   gpointer               user_data);
-
-static GVariant *
-handle_get_property(GDBusConnection *connection,
-                    const gchar     *sender,
-                    const gchar     *object_path,
-                    const gchar     *interface_name,
-                    const gchar     *property_name,
-                    GError         **error,
-                    gpointer         user_data);
-
-static gboolean
-handle_set_property(GDBusConnection *connection,
-                    const gchar     *sender,
-                    const gchar     *object_path,
-                    const gchar     *interface_name,
-                    const gchar     *property_name,
-                    GVariant        *value,
-                    GError         **error,
-                    gpointer         user_data);
-
-static void
-scroll_delta(gpointer web_page_p, gint64 delta, gboolean vertical);
-
-static void
-scroll_to_top(gpointer web_page_p);
-
-static void
-scroll_to_bottom(gpointer web_page_p);
-
+// watch_document watches signals emitted from the given document.
 static void
 watch_document(WebKitDOMDocument *doc,
-               struct Exten      *exten);
+               Exten             *exten);
 
-static GDBusNodeInfo *introspection_data = NULL;
-static const GDBusInterfaceVTable interface_vtable =
-{
-    handle_method_call,
-    handle_get_property,
-    handle_set_property
-};
-
+// handle_method_call handles a DBus method call on the WebExtension.
 static void
 handle_method_call(GDBusConnection       *connection,
                    const gchar           *sender,
@@ -112,6 +118,7 @@ handle_method_call(GDBusConnection       *connection,
     // No methods currently.
 }
 
+// handle_get_property handles a DBus property get call.
 static GVariant *
 handle_get_property(GDBusConnection *connection,
                     const gchar     *sender,
@@ -121,7 +128,7 @@ handle_get_property(GDBusConnection *connection,
                     GError         **error,
                     gpointer         user_data)
 {
-    struct Exten *exten = user_data;
+    Exten *exten = user_data;
     GVariant *ret = NULL;
     WebKitWebPage *wp = exten->web_page;
     WebKitDOMDocument *dom = webkit_web_page_get_dom_document(wp);
@@ -176,6 +183,7 @@ handle_get_property(GDBusConnection *connection,
     return ret;
 }
 
+// handle_set_property handles a DBus property set call.
 static gboolean
 handle_set_property(GDBusConnection *connection,
                     const gchar     *sender,
@@ -186,7 +194,7 @@ handle_set_property(GDBusConnection *connection,
                     GError         **error,
                     gpointer         user_data)
 {
-    struct Exten *exten = user_data;
+    Exten *exten = user_data;
     WebKitDOMDocument *dom = webkit_web_page_get_dom_document(exten->web_page);
     if(dom == NULL) {
         g_set_error(
@@ -228,8 +236,9 @@ handle_set_property(GDBusConnection *connection,
     return FALSE;
 }
 
+// uri_is_blocked queries if a uri is blocked.
 static gboolean
-golem_is_blocked(const char *uri, struct Exten *exten)
+uri_is_blocked(const char *uri, Exten *exten)
 {
     GError *err = NULL;
     GVariant *ret = g_dbus_connection_call_sync(
@@ -254,16 +263,21 @@ golem_is_blocked(const char *uri, struct Exten *exten)
     return blocked;
 }
 
+// uri_request_cb is called when a uri request is issued, and determines
+// whether to allow it to proceed or not.
 static gboolean
-golem_request_handler(WebKitWebPage     *page,
-                      WebKitURIRequest  *req,
-                      WebKitURIResponse *resp,
-                      gpointer           exten)
+uri_request_cb(WebKitWebPage     *page,
+               WebKitURIRequest  *req,
+               WebKitURIResponse *resp,
+               gpointer           exten)
 {
     const gchar *uri = webkit_uri_request_get_uri(req);
-    return golem_is_blocked(uri, exten);
+    return uri_is_blocked(uri, exten);
 }
 
+// is_scroll_target checks if a DOM element can be scrolled in.
+//
+// TODO: The way this is done now doesn't *really* work in all cases.
 static gboolean
 is_scroll_target(WebKitDOMElement *elem)
 {
@@ -278,6 +292,8 @@ is_scroll_target(WebKitDOMElement *elem)
     return parentHeight < height || parentWidth < width;
 }
 
+// get_scroll_target gets the first parent of the passed element which is a
+// scroll target.
 static WebKitDOMElement *
 get_scroll_target(WebKitDOMElement *elem)
 {
@@ -288,12 +304,14 @@ get_scroll_target(WebKitDOMElement *elem)
     return elem;
 }
 
+// document_scroll_cb is called when the document is scrolled, and updates
+// the main processes knowledge of the document.
 static void
 document_scroll_cb(WebKitDOMEventTarget *target,
                    WebKitDOMEvent       *event,
                    gpointer              user_data)
 {
-    struct Exten *exten = user_data;
+    Exten *exten = user_data;
     WebKitDOMDocument *dom = WEBKIT_DOM_DOCUMENT(target);
     WebKitDOMElement *e = NULL;
     if(dom != NULL) {
@@ -323,12 +341,14 @@ document_scroll_cb(WebKitDOMEventTarget *target,
     }
 }
 
+// active_element_change_cb is called when the active element is changed, and
+// updates bookkeeping and the main process.
 static void
 active_element_change_cb(WebKitDOMEventTarget *target,
                          WebKitDOMEvent       *event,
                          gpointer              user_data)
 {
-    struct Exten *exten = user_data;
+    Exten *exten = user_data;
     WebKitDOMDocument *document;
     g_object_get(target, "document", &document, NULL);
     WebKitDOMElement *active = webkit_dom_document_get_active_element(document);
@@ -376,9 +396,10 @@ active_element_change_cb(WebKitDOMEventTarget *target,
     }
 }
 
+// watch_document watches signals emitted from the given document.
 static void
 watch_document(WebKitDOMDocument *doc,
-               struct Exten      *exten)
+               Exten             *exten)
 {
     WebKitDOMEventTarget *target = WEBKIT_DOM_EVENT_TARGET(
             webkit_dom_document_get_default_view(doc));
@@ -397,11 +418,13 @@ watch_document(WebKitDOMDocument *doc,
     active_element_change_cb(target, NULL, exten);
 }
 
+// document_loaded_cb is called when a document is loaded, and updates
+// internal bookkeeping and attaches to signals from the document.
 static void
 document_loaded_cb(WebKitWebPage *page,
                    gpointer       user_data)
 {
-    struct Exten *exten = user_data;
+    Exten *exten = user_data;
     exten->document = webkit_web_page_get_dom_document(page);
     watch_document(exten->document, exten);
     webkit_dom_event_target_add_event_listener(
@@ -412,12 +435,14 @@ document_loaded_cb(WebKitWebPage *page,
             exten);
 }
 
+// on_bus_acquired is called when a DBus bus is acquired, and proceeds with
+// starting up the web extension.
 static void
 on_bus_acquired(GDBusConnection *connection,
                 const gchar     *name,
                 gpointer         user_data)
 {
-    struct Exten *exten = user_data;
+    Exten *exten = user_data;
     exten->connection = connection;
     exten->last_top = 0;
     exten->last_height = 0;
@@ -446,10 +471,12 @@ on_bus_acquired(GDBusConnection *connection,
     g_signal_connect(
             exten->web_page,
             "send-request",
-            G_CALLBACK(golem_request_handler),
+            G_CALLBACK(uri_request_cb),
             exten);
 }
 
+// on_name_lost is called when a DBus name is lost, and crashes the web
+// extension.
 static void
 on_name_lost(GDBusConnection *connection,
              const gchar     *name,
@@ -459,6 +486,9 @@ on_name_lost(GDBusConnection *connection,
     exit(1);
 }
 
+// web_page_created_callback is called when a web page is created, and creates
+// a DBus connection for this page.
+//
 // NOTE: There appears to be no way to attach to a web page being destroyed.
 // I'm not sure if this means they *aren't* destroyed, or just that it wasn't
 // planned for. Either way, it spews errors on the regular update if used
@@ -471,7 +501,7 @@ web_page_created_callback(WebKitWebExtension *extension,
                           WebKitWebPage      *web_page,
                           gpointer            user_data)
 {
-    struct Exten *exten = malloc(sizeof(struct Exten));
+    Exten *exten = malloc(sizeof(Exten));
     exten->web_page = web_page;
     exten->document = NULL;
     exten->active = NULL;
@@ -498,6 +528,9 @@ web_page_created_callback(WebKitWebExtension *extension,
     free(bus_name);
 }
 
+// webkit_web_extension_initialize_with_user_data initializes the web extension
+//
+// The profile name should be passed as the user data.
 G_MODULE_EXPORT void
 webkit_web_extension_initialize_with_user_data(WebKitWebExtension *extension,
                                                GVariant           *data)
