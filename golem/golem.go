@@ -216,9 +216,7 @@ func (g *Golem) cutWebViews(wvs []*webView) {
 		}
 		text, err := clip.WaitForText()
 		if err != nil {
-			(*Window)(nil).logErrorf(
-				"Failed to retrieve selection text: %v", err)
-			continue
+			text = ""
 		}
 		*(clipboards[i]) = text
 	}
@@ -226,7 +224,9 @@ func (g *Golem) cutWebViews(wvs []*webView) {
 		select {
 		case <-time.After(time.Minute):
 			g.wMutex.Lock()
-			g.webViewCache = make([]*webView, 0)
+			if sliceEquals(g.webViewCache, wvs) {
+				g.webViewCache = make([]*webView, 0)
+			}
 			g.wMutex.Unlock()
 		case free := <-g.webViewCacheFree:
 			if !free {

@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/conformal/gotk3/glib"
+	"github.com/tkerber/golem/gtk"
 )
 
 // A NavigationAction describes the action taken to cause a navigation request.
@@ -25,7 +26,9 @@ func (a *NavigationAction) GetRequest() *URIRequest {
 	creq := C.webkit_navigation_action_get_request(a.native)
 	req := &URIRequest{&glib.Object{glib.ToGObject(unsafe.Pointer(creq))}}
 	req.Object.RefSink()
-	runtime.SetFinalizer(req.Object, (*glib.Object).Unref)
+	runtime.SetFinalizer(req.Object, func(o *glib.Object) {
+		gtk.GlibMainContextInvoke(o.Unref)
+	})
 	return req
 }
 

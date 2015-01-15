@@ -1,6 +1,7 @@
 package golem
 
 import (
+	"reflect"
 	"runtime"
 	"time"
 )
@@ -21,4 +22,19 @@ func schedGc() {
 		runtime.GC()
 		gcIsSched = false
 	}()
+}
+
+// sliceEquals checks if two slices are equal, by doing a shallow comparison.
+func sliceEquals(s1, s2 interface{}) bool {
+	v1 := reflect.ValueOf(s1)
+	v2 := reflect.ValueOf(s2)
+	if v1.Len() != v2.Len() {
+		return false
+	}
+	for i := 0; i < v1.Len(); i++ {
+		if v1.Index(i).Interface() != v2.Index(i).Interface() {
+			return false
+		}
+	}
+	return true
 }

@@ -28,6 +28,7 @@ import (
 	"unsafe"
 
 	"github.com/conformal/gotk3/glib"
+	"github.com/tkerber/golem/gtk"
 )
 
 const (
@@ -81,7 +82,9 @@ func GetDefaultWebContext() *WebContext {
 		}
 		obj := &glib.Object{glib.ToGObject(unsafe.Pointer(wc))}
 		obj.RefSink()
-		runtime.SetFinalizer(obj, (*glib.Object).Unref)
+		runtime.SetFinalizer(obj, func(o *glib.Object) {
+			gtk.GlibMainContextInvoke(o.Unref)
+		})
 		defaultWebContext = &WebContext{
 			obj,
 			nil,
@@ -131,7 +134,9 @@ func cgoURISchemeRequestCallback(req *C.WebKitURISchemeRequest, f C.gpointer) {
 	goFunc := (*func(req *URISchemeRequest))(unsafe.Pointer(f))
 	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(req))}
 	obj.RefSink()
-	runtime.SetFinalizer(obj, (*glib.Object).Unref)
+	runtime.SetFinalizer(obj, func(o *glib.Object) {
+		gtk.GlibMainContextInvoke(o.Unref)
+	})
 	goReq := &URISchemeRequest{obj}
 	(*goFunc)(goReq)
 }
@@ -176,6 +181,8 @@ func (c *WebContext) DownloadURI(uri string) *Download {
 	cdl := C.webkit_web_context_download_uri(c.native(), (*C.gchar)(cURI))
 	dl := &Download{&glib.Object{glib.ToGObject(unsafe.Pointer(cdl))}}
 	dl.Object.RefSink()
-	runtime.SetFinalizer(dl.Object, (*glib.Object).Unref)
+	runtime.SetFinalizer(dl.Object, func(o *glib.Object) {
+		gtk.GlibMainContextInvoke(o.Unref)
+	})
 	return dl
 }

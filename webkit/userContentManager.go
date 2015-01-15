@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/conformal/gotk3/glib"
+	"github.com/tkerber/golem/gtk"
 )
 
 // A UserContentManager is a wrapper around WebKitUserContentManager.
@@ -26,7 +27,9 @@ func NewUserContentManager() (*UserContentManager, error) {
 	}
 	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(ucm))}
 	obj.RefSink()
-	runtime.SetFinalizer(obj, (*glib.Object).Unref)
+	runtime.SetFinalizer(obj, func(o *glib.Object) {
+		gtk.GlibMainContextInvoke(o.Unref)
+	})
 	return &UserContentManager{obj}, nil
 }
 

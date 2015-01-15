@@ -56,7 +56,7 @@ func NewWebView() (*WebView, error) {
 	webView := wrapWebView(obj)
 	obj.RefSink()
 	runtime.SetFinalizer(obj, func(o *glib.Object) {
-		ggtk.GlibMainContextInvoke((*glib.Object).Unref, o)
+		ggtk.GlibMainContextInvoke(o.Unref)
 	})
 	return webView, nil
 }
@@ -75,7 +75,7 @@ func NewWebViewWithUserContentManager(
 	webView := wrapWebView(obj)
 	obj.RefSink()
 	runtime.SetFinalizer(obj, func(o *glib.Object) {
-		ggtk.GlibMainContextInvoke((*glib.Object).Unref, o)
+		ggtk.GlibMainContextInvoke(o.Unref)
 	})
 	return webView, nil
 }
@@ -183,7 +183,9 @@ func (w *WebView) GetBackForwardList() *BackForwardList {
 	bfl := C.webkit_web_view_get_back_forward_list(w.native())
 	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(bfl))}
 	obj.RefSink()
-	runtime.SetFinalizer(obj, (*glib.Object).Unref)
+	runtime.SetFinalizer(obj, func(o *glib.Object) {
+		ggtk.GlibMainContextInvoke(o.Unref)
+	})
 	w.bfl = &BackForwardList{obj}
 	return w.bfl
 }

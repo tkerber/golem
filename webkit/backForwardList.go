@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/conformal/gotk3/glib"
+	"github.com/tkerber/golem/gtk"
 )
 
 // A BackForwardList is a list of elements to go back or forward in browser
@@ -30,7 +31,9 @@ func (bfl *BackForwardList) GetNthItem(n int) (*BackForwardListItem, bool) {
 	}
 	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(cobj))}
 	obj.RefSink()
-	runtime.SetFinalizer(obj, (*glib.Object).Unref)
+	runtime.SetFinalizer(obj, func(o *glib.Object) {
+		gtk.GlibMainContextInvoke(o.Unref)
+	})
 	return &BackForwardListItem{glib.InitiallyUnowned{obj}}, true
 }
 
@@ -70,7 +73,9 @@ func (bfl *BackForwardList) GetNthItemWeak(n int) (*BackForwardListItem, bool) {
 	ptr := C.g_list_nth_data(list, i)
 	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(ptr))}
 	obj.RefSink()
-	runtime.SetFinalizer(obj, (*glib.Object).Unref)
+	runtime.SetFinalizer(obj, func(o *glib.Object) {
+		gtk.GlibMainContextInvoke(o.Unref)
+	})
 	return &BackForwardListItem{glib.InitiallyUnowned{obj}}, true
 }
 

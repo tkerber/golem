@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/conformal/gotk3/glib"
+	"github.com/tkerber/golem/gtk"
 )
 
 // A SecurityManager is a wrapper around WebKitSecurityManager.
@@ -23,7 +24,9 @@ type SecurityManager struct {
 func wrapSecurityManager(cptr *C.WebKitSecurityManager) *SecurityManager {
 	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(cptr))}
 	obj.RefSink()
-	runtime.SetFinalizer(obj, (*glib.Object).Unref)
+	runtime.SetFinalizer(obj, func(o *glib.Object) {
+		gtk.GlibMainContextInvoke(o.Unref)
+	})
 	return &SecurityManager{obj}
 }
 

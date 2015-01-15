@@ -10,6 +10,7 @@ import (
 	"unsafe"
 
 	"github.com/conformal/gotk3/glib"
+	"github.com/tkerber/golem/gtk"
 )
 
 // init registers the Download type marshaler to glib.
@@ -44,7 +45,9 @@ func (d *Download) GetRequest() *URIRequest {
 	cReq := C.webkit_download_get_request(d.native())
 	req := &URIRequest{&glib.Object{glib.ToGObject(unsafe.Pointer(cReq))}}
 	req.Object.RefSink()
-	runtime.SetFinalizer(req.Object, (*glib.Object).Unref)
+	runtime.SetFinalizer(req.Object, func(o *glib.Object) {
+		gtk.GlibMainContextInvoke((*glib.Object).Unref, o)
+	})
 	return req
 }
 
@@ -96,7 +99,9 @@ func (d *Download) GetWebView() (*WebView, error) {
 	}
 	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(cWv))}
 	obj.Ref()
-	runtime.SetFinalizer(obj, (*glib.Object).Unref)
+	runtime.SetFinalizer(obj, func(o *glib.Object) {
+		gtk.GlibMainContextInvoke((*glib.Object).Unref, o)
+	})
 	return wrapWebView(obj), nil
 }
 

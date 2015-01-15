@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/conformal/gotk3/glib"
+	"github.com/tkerber/golem/gtk"
 )
 
 // A ResponsePolicyDecision is a decision of whether or not to load a
@@ -44,6 +45,8 @@ func (d *ResponsePolicyDecision) GetResponse() *URIResponse {
 	cresp := C.webkit_response_policy_decision_get_response(d.native())
 	resp := &URIResponse{&glib.Object{glib.ToGObject(unsafe.Pointer(cresp))}}
 	resp.Object.RefSink()
-	runtime.SetFinalizer(resp.Object, (*glib.Object).Unref)
+	runtime.SetFinalizer(resp.Object, func(o *glib.Object) {
+		gtk.GlibMainContextInvoke(o.Unref)
+	})
 	return resp
 }

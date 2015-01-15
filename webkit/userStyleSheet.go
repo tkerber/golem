@@ -7,6 +7,8 @@ import "C"
 import (
 	"runtime"
 	"unsafe"
+
+	"github.com/tkerber/golem/gtk"
 )
 
 const (
@@ -84,7 +86,9 @@ func NewUserStyleSheet(
 	}
 	css := &UserStyleSheet{uintptr(unsafe.Pointer(ccss))}
 	// It starts with a ref count of 1, so no need to manually ref it.
-	runtime.SetFinalizer(css, (*UserStyleSheet).unref)
+	runtime.SetFinalizer(css, func(s *UserStyleSheet) {
+		gtk.GlibMainContextInvoke(s.unref)
+	})
 	return css, nil
 }
 
