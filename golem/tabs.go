@@ -194,16 +194,6 @@ func (w *Window) tabsClose(i, j int, cut bool) {
 		}
 		w.webViews = w.webViews[:len(w.webViews)-(j-i)]
 		w.Window.CloseTabs(i, j)
-		if cut {
-			for _, wv := range wvs {
-				wv.detach()
-			}
-			w.parent.cutWebViews(wvs)
-		} else {
-			for _, wv := range wvs {
-				wv.close()
-			}
-		}
 		activeWebView := w.currentWebView >= i && w.currentWebView <= j
 		if activeWebView {
 			k := i - 1
@@ -226,6 +216,16 @@ func (w *Window) tabsClose(i, j int, cut bool) {
 				w.HideUI()
 				w.Fullscreen()
 				w.fullscreenHidingUI = true
+			}
+		}
+		if cut {
+			for _, wv := range wvs {
+				wv.detach()
+			}
+			w.parent.cutWebViews(wvs)
+		} else {
+			for _, wv := range wvs {
+				wv.close()
 			}
 		}
 	})
