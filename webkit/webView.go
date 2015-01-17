@@ -20,16 +20,22 @@ import (
 	ggtk "github.com/tkerber/golem/gtk"
 )
 
-// init registers the WebView type marshaler to glib.
+// init registers a type marshaler for WebViews to glib.
+//
+// NOTE: This is only to bypass an unref bug/crash related to the type
+// marshalers. To bypass is, web views are simply marshalled to "false".
+//
+// Unfortunately this means that they have to be kept track of manually
+// in callbacks (by means of closures).
+//
+// If I ever think of a better solution, this may be changed, but for now no
+// crashes are preferable.
 func init() {
 	glib.RegisterGValueMarshalers([]glib.TypeMarshaler{
 		glib.TypeMarshaler{
 			glib.Type(C.webkit_web_view_get_type()),
 			func(ptr uintptr) (interface{}, error) {
-				c := C.g_value_get_object((*C.GValue)(unsafe.Pointer(ptr)))
-				obj := &glib.Object{glib.ToGObject(unsafe.Pointer(c))}
-				webView := wrapWebView(obj)
-				return webView, nil
+				return false, nil
 			},
 		},
 	})

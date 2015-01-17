@@ -66,7 +66,7 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 
 	// Attach to the create signal, which creates new tabs on demand.
 	handle, err := ret.WebView.Connect("create",
-		func(wv *webkit.WebView, ptr uintptr) {
+		func(_ interface{}, ptr uintptr) {
 			// TODO clean this up. It should probably be somewhere in the
 			// webkit package.
 			boxed := (*C.WebKitNavigationAction)(unsafe.Pointer(ptr))
@@ -96,7 +96,7 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 	// Attach to decision policies.
 	handle, err = ret.WebView.Connect("decide-policy",
 		func(
-			wv *webkit.WebView,
+			_ interface{},
 			decision webkit.PolicyDecision,
 			t C.WebKitPolicyDecisionType) bool {
 
@@ -176,7 +176,7 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 	ret.handles = append(ret.handles, handle)
 	// history handle
 	handle, err = ret.WebView.Connect("load-changed",
-		func(wv *webkit.WebView, e C.WebKitLoadEvent) {
+		func(_ interface{}, e C.WebKitLoadEvent) {
 			switch e {
 			case C.WEBKIT_LOAD_FINISHED:
 				go ret.parent.updateHistory(wv.GetURI(), wv.GetTitle())
@@ -187,7 +187,7 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 	}
 	// tab ui handles.
 	handle, err = ret.WebView.Connect("notify::title",
-		func(wv *webkit.WebView) {
+		func() {
 			if ret.tabUI != nil {
 				ret.tabUI.SetTitle(wv.GetTitle())
 			}
@@ -196,7 +196,7 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 		ret.handles = append(ret.handles, handle)
 	}
 	handle, err = ret.WebView.Connect("notify::estimated-load-progress",
-		func(wv *webkit.WebView) {
+		func() {
 			if ret.tabUI != nil {
 				ret.tabUI.SetLoadProgress(wv.GetEstimatedLoadProgress())
 			}
