@@ -5,11 +5,13 @@ package adblock
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 )
 
@@ -25,11 +27,17 @@ type Blocker struct {
 	// We (more or less) use adblock pluses technique for rule matching.
 	blockRuleMap       map[[8]byte][]*BlockRule
 	trailingBlockRules []*BlockRule
+
+	elemHideRuleMap map[string][]*ElemHideRule
 }
 
 // NewBlocker creates a new ad blocker.
 func NewBlocker(dir string) *Blocker {
-	b := &Blocker{make(map[[8]byte][]*BlockRule, 1000), make([]*BlockRule, 10)}
+	b := &Blocker{
+		make(map[[8]byte][]*BlockRule, 1000),
+		make([]*BlockRule, 10),
+		make(map[string][]*ElemHideRule, 1000),
+	}
 	go func() {
 		err := filepath.Walk(
 			dir,
@@ -63,6 +71,7 @@ func NewBlocker(dir string) *Blocker {
 						}
 						b.parseLine(line)
 					}
+					runtime.Gosched()
 				}
 				return nil
 			})
@@ -73,6 +82,57 @@ func NewBlocker(dir string) *Blocker {
 		}
 	}()
 	return b
+}
+
+// DomainElemHideCSS returns the css string to hide the elements on a given
+// domain.
+func (b *Blocker) DomainElemHideCSS(domain string) string {
+	superdomains := strings.Split(domain, ".")
+	for i := range superdomains {
+		superdomains[i] = strings.Join(superdomains[i:], ".")
+	}
+	superdomains = append(superdomains, "")
+
+	var selectors []string
+	exemptSelectors := make(map[string]bool)
+	for _, superdomain := range superdomains {
+		for _, rule := range b.elemHideRuleMap[superdomain] {
+			switch rule.RuleType {
+			case RuleTypeBlock:
+				selectors = append(selectors, rule.cssSelector)
+			case RuleTypeException:
+				exemptSelectors[rule.cssSelector] = true
+			}
+		}
+	}
+
+	trueSelectors := make([]string, 0, len(selectors))
+	for _, selector := range selectors {
+		if exemptSelectors[selector] {
+			continue
+		}
+		trueSelectors = append(trueSelectors, selector)
+	}
+
+	size := len("{display:none!important;}")
+	for _, selector := range trueSelectors {
+		size += len(selector)
+	}
+	size += len(trueSelectors) - 1
+
+	css := make([]byte, 0, size)
+	first := true
+	for _, selector := range selectors {
+		if first {
+			first = false
+		} else {
+			css = append(css, ',')
+		}
+		css = append(css, []byte(selector)...)
+	}
+	css = append(css, []byte("{display:none!important;}")...)
+
+	return string(css)
 }
 
 // Blocks checks if a specific uri is blocked or not.
@@ -102,18 +162,25 @@ func (b *Blocker) parseLine(line []byte) {
 	if len(line) == 0 || line[0] == '!' {
 		return
 	}
-	// For now, we don't handle element hiders.
-	// For now, we also completely ignore rules with $ signs.
-	if strings.Contains(string(line), "##") {
-		return
-	}
-	split := strings.SplitN(string(line), "$", 2)
-	line = []byte(split[0])
-	// TODO handle $ options.
-	line = []byte(strings.ToLower(string(line)))
-	rule, err := NewBlockRule(line)
-	if err == nil {
-		b.addRule(rule, line)
+	if strings.Contains(string(line), "#@#") ||
+		strings.Contains(string(line), "##") {
+
+		rules, err := NewElemHideRules(line)
+		if err == nil {
+			for _, rule := range rules {
+				b.addRule(rule, line)
+			}
+		}
+	} else {
+		line = []byte(strings.ToLower(string(line)))
+		// For now, we completely ignore rules with $ signs.
+		split := strings.SplitN(string(line), "$", 2)
+		line = []byte(split[0])
+		// TODO handle $ options.
+		rule, err := NewBlockRule(line)
+		if err == nil {
+			b.addRule(rule, line)
+		}
 	}
 }
 
@@ -154,6 +221,13 @@ func (b *Blocker) addRule(rule Rule, src []byte) {
 		} else {
 			b.blockRuleMap[key] = append(rules, rule)
 		}
+	case *ElemHideRule:
+		rules := b.elemHideRuleMap[rule.domain]
+		if rules == nil {
+			b.elemHideRuleMap[rule.domain] = []*ElemHideRule{rule}
+		} else {
+			b.elemHideRuleMap[rule.domain] = append(rules, rule)
+		}
 	}
 }
 
@@ -174,6 +248,55 @@ func candidateSubstrings(str []byte) [][8]byte {
 // A Rule is either a BlockRule or a HideRule.
 type Rule interface {
 	isRule()
+}
+
+// A ElemHideRule filters a single element on a single domain.
+//
+// If domain is empty, all domains are filtered.
+type ElemHideRule struct {
+	domain      string
+	cssSelector string
+	RuleType
+}
+
+// isRule adherence to the Rule interface.
+func (r *ElemHideRule) isRule() {}
+
+// NewElemHideRules creates new rules for hiding elements from a given line.
+func NewElemHideRules(rule []byte) ([]*ElemHideRule, error) {
+	ruleType := RuleTypeBlock
+	var split []string
+	if strings.Contains(string(rule), "#@#") {
+		ruleType = RuleTypeException
+		split = strings.SplitN(string(rule), "#@#", 2)
+	} else {
+		split = strings.SplitN(string(rule), "##", 2)
+	}
+	if len(split) != 2 {
+		return nil, fmt.Errorf(
+			"Failed parsing element hide rule: '%s'",
+			string(rule))
+	}
+	domainsSplit := strings.Split(strings.ToLower(split[0]), ",")
+	rules := make([]*ElemHideRule, 0, len(domainsSplit))
+	for _, domain := range domainsSplit {
+		domainRuleType := ruleType
+		// correctly invert.
+		if len(domain) != 0 && domain[0] == '~' {
+			if ruleType == RuleTypeBlock {
+				domainRuleType = RuleTypeException
+			} else {
+				domainRuleType = RuleTypeBlock
+			}
+			domain = domain[1:]
+		}
+		rules = append(rules, &ElemHideRule{
+			domain,
+			split[1],
+			domainRuleType,
+		})
+	}
+	return rules, nil
 }
 
 // A BlockRule is a single filter in the filterlist.

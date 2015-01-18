@@ -254,7 +254,7 @@ uri_is_blocked(const char *uri, Exten *exten)
             NULL,
             &err);
     if(err != NULL) {
-        printf("%s\n", err->message);
+        printf("Failed to check if uri is blocked: %s\n", err->message);
         g_error_free(err);
         return false;
     }
@@ -418,6 +418,66 @@ watch_document(WebKitDOMDocument *doc,
     active_element_change_cb(target, NULL, exten);
 }
 
+static void
+inject_adblock_css(WebKitDOMDocument *doc,
+                   Exten             *exten)
+{
+    // Get css rules
+    gchar *domain = webkit_dom_document_get_domain(doc);
+    GError *err = NULL;
+    GVariant *ret = g_dbus_connection_call_sync(
+            exten->connection,
+            exten->golem_name,
+            "/com/github/tkerber/Golem",
+            "com.github.tkerber.Golem",
+            "DomainElemHideCSS",
+            g_variant_new("(s)", domain),
+            G_VARIANT_TYPE("(s)"),
+            G_DBUS_CALL_FLAGS_NONE,
+            -1,
+            NULL,
+            &err);
+    if(err != NULL) {
+        printf("Failed to retrieve element hide CSS: %s\n", err->message);
+        g_error_free(err);
+        return;
+    }
+    gchar *css = g_variant_dup_string(
+            g_variant_get_child_value(ret, 0),
+            NULL);
+    g_variant_unref(ret);
+
+    // Add CSS
+    WebKitDOMElement *style_elem = webkit_dom_document_create_element(
+            doc,
+            "STYLE",
+            &err);
+    if(err != NULL) {
+        printf("Failed to inject style: %s\n", err->message);
+        g_error_free(err);
+        return;
+    }
+    webkit_dom_html_element_set_inner_html(
+            WEBKIT_DOM_HTML_ELEMENT(style_elem),
+            css,
+            &err);
+    if(err != NULL) {
+        printf("Failed to inject style: %s\n", err->message);
+        g_error_free(err);
+        return;
+    }
+    WebKitDOMHTMLHeadElement *head = webkit_dom_document_get_head(doc);
+    webkit_dom_node_append_child(
+            WEBKIT_DOM_NODE(head),
+            WEBKIT_DOM_NODE(style_elem),
+            &err);
+    if(err != NULL) {
+        printf("Failed to inject style: %s\n", err->message);
+        g_error_free(err);
+        return;
+    }
+}
+
 // document_loaded_cb is called when a document is loaded, and updates
 // internal bookkeeping and attaches to signals from the document.
 static void
@@ -433,6 +493,7 @@ document_loaded_cb(WebKitWebPage *page,
             G_CALLBACK(document_scroll_cb),
             false,
             exten);
+    inject_adblock_css(exten->document, exten);
 }
 
 // on_bus_acquired is called when a DBus bus is acquired, and proceeds with

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"runtime"
 
 	"github.com/conformal/gotk3/gtk"
 	"github.com/guelfey/go.dbus"
@@ -30,6 +31,7 @@ func main() {
 		}
 		panic(rec)
 	}()
+	runtime.GOMAXPROCS(runtime.NumCPU())
 	// Init command line flags.
 	var profile string
 	flag.StringVar(

@@ -101,6 +101,12 @@ func (g *DBusGolem) Blocks(uri string) (bool, *dbus.Error) {
 	return g.golem.adblocker.Blocks(uri), nil
 }
 
+// DomainElemHideCSS retrieves the css string to hide the elements on a given
+// domain.
+func (g *DBusGolem) DomainElemHideCSS(domain string) (string, *dbus.Error) {
+	return g.golem.adblocker.DomainElemHideCSS(domain), nil
+}
+
 // webExtension is the DBus object for a specific web extension.
 type webExtension struct {
 	*dbus.Object
