@@ -70,7 +70,6 @@ handle_set_property(GDBusConnection *connection,
                     GVariant        *value,
                     GError         **error,
                     gpointer         user_data);
-
 // introspection_data contains the DBus introspection data for the
 // WebExtension.
 static GDBusNodeInfo *introspection_data = NULL;
@@ -99,10 +98,14 @@ typedef struct _Exten {
     gchar             *golem_name;
 } Exten;
 
-// watch_document watches signals emitted from the given document.
+// frame_document_loaded watches signals emitted from the given document.
 static void
-watch_document(WebKitDOMDocument *doc,
-               Exten             *exten);
+frame_document_loaded(WebKitDOMDocument *doc,
+                      Exten             *exten);
+
+static void
+inject_adblock_css(WebKitDOMDocument *doc,
+                   Exten             *exten);
 
 // handle_method_call handles a DBus method call on the WebExtension.
 static void
@@ -350,20 +353,18 @@ active_element_change_cb(WebKitDOMEventTarget *target,
 {
     Exten *exten = user_data;
     WebKitDOMDocument *document;
-    g_object_get(target, "document", &document, NULL);
+    if(WEBKIT_DOM_IS_DOCUMENT(target)) {
+        document = WEBKIT_DOM_DOCUMENT(target);
+    } else {
+        // target is a window.
+        g_object_get(target, "document", &document, NULL);
+    }
     WebKitDOMElement *active = webkit_dom_document_get_active_element(document);
     if(active == NULL || active == exten->active) {
         return;
     }
     if(WEBKIT_DOM_IS_HTML_IFRAME_ELEMENT(active)) {
-        WebKitDOMDocument *doc =
-            webkit_dom_html_iframe_element_get_content_document(
-                    WEBKIT_DOM_HTML_IFRAME_ELEMENT(active));
-        watch_document(doc, exten);
-        active_element_change_cb(
-                WEBKIT_DOM_EVENT_TARGET(webkit_dom_document_get_default_view(doc)),
-                NULL,
-                exten);
+        // The iframe document handles this.
         return;
     }
     exten->active = active;
@@ -396,13 +397,79 @@ active_element_change_cb(WebKitDOMEventTarget *target,
     }
 }
 
-// watch_document watches signals emitted from the given document.
+// document_load_cb is called when a document load event occurs.
+//
+// It scans the document for iframes, and registers them.
 static void
-watch_document(WebKitDOMDocument *doc,
-               Exten             *exten)
+document_load_cb(WebKitDOMEventTarget *doc,
+                 WebKitDOMEvent       *event,
+                 gpointer              user_data)
+{
+    WebKitDOMNodeList *nodes = webkit_dom_document_get_elements_by_tag_name(
+            WEBKIT_DOM_DOCUMENT(doc),
+            "IFRAME");
+    gulong i;
+    gulong len = webkit_dom_node_list_get_length(nodes);
+    for(i = 0; i < len; i++) {
+        WebKitDOMDocument *subdoc =
+            webkit_dom_html_iframe_element_get_content_document(
+                    WEBKIT_DOM_HTML_IFRAME_ELEMENT(
+                        webkit_dom_node_list_item(nodes, i)));
+        frame_document_loaded(subdoc, user_data);
+    }
+}
+
+// adblock_before_load_cb is triggered when 
+static void
+adblock_before_load_cb(WebKitDOMEventTarget *doc,
+                       WebKitDOMEvent       *event,
+                       gpointer              user_data)
+{
+    WebKitDOMEventTarget *target = webkit_dom_event_get_target(event);
+
+    gchar *uri = NULL;
+    if(WEBKIT_DOM_IS_HTML_LINK_ELEMENT(target)) {
+        WebKitDOMHTMLLinkElement *e = WEBKIT_DOM_HTML_LINK_ELEMENT(target);
+        gboolean isCSS = 0;
+        isCSS |= g_strcmp0(
+                webkit_dom_html_link_element_get_rel(e),
+                "stylesheet") == 0;
+        isCSS |= g_strcmp0(
+                webkit_dom_html_link_element_get_type_attr(e),
+                "text/css") == 0;
+        if(!isCSS) {
+            return;
+        }
+        uri = webkit_dom_html_link_element_get_href(e);
+    } else if(WEBKIT_DOM_IS_HTML_OBJECT_ELEMENT(target)) {
+        WebKitDOMHTMLObjectElement *e = WEBKIT_DOM_HTML_OBJECT_ELEMENT(target);
+        uri = webkit_dom_html_object_element_get_data(e);
+    } else if(WEBKIT_DOM_IS_HTML_EMBED_ELEMENT(target)) {
+        WebKitDOMHTMLEmbedElement *e = WEBKIT_DOM_HTML_EMBED_ELEMENT(target);
+        uri = webkit_dom_html_embed_element_get_src(e);
+    } else if(WEBKIT_DOM_IS_HTML_IMAGE_ELEMENT(target)) {
+        WebKitDOMHTMLImageElement *e = WEBKIT_DOM_HTML_IMAGE_ELEMENT(target);
+        uri = webkit_dom_html_image_element_get_src(e);
+    } else if(WEBKIT_DOM_IS_HTML_SCRIPT_ELEMENT(target)) {
+        WebKitDOMHTMLScriptElement *e = WEBKIT_DOM_HTML_SCRIPT_ELEMENT(target);
+        uri = webkit_dom_html_script_element_get_src(e);
+    }
+    if(uri == NULL) {
+        return;
+    }
+    if(uri_is_blocked(uri, user_data)) {
+        webkit_dom_event_prevent_default(event);
+    }
+}
+
+// frame_document_loaded watches signals emitted from the given document.
+static void
+frame_document_loaded(WebKitDOMDocument *doc,
+                      Exten             *exten)
 {
     WebKitDOMEventTarget *target = WEBKIT_DOM_EVENT_TARGET(
             webkit_dom_document_get_default_view(doc));
+    // listen for focus changes
     webkit_dom_event_target_add_event_listener(
             target,
             "blur",
@@ -415,7 +482,25 @@ watch_document(WebKitDOMDocument *doc,
             G_CALLBACK(active_element_change_cb),
             true,
             exten);
-    active_element_change_cb(target, NULL, exten);
+
+    // listen for resource loads.
+    webkit_dom_event_target_add_event_listener(
+            target,
+            "beforeload",
+            G_CALLBACK(adblock_before_load_cb),
+            true,
+            exten);
+
+    target = WEBKIT_DOM_EVENT_TARGET(doc);
+    // listen for load changes, on which the document is scanned for
+    // sub-documents.
+    webkit_dom_event_target_add_event_listener(
+            target,
+            "load",
+            G_CALLBACK(document_load_cb),
+            true,
+            exten);
+    document_load_cb(target, NULL, exten);
 }
 
 static void
@@ -486,13 +571,21 @@ document_loaded_cb(WebKitWebPage *page,
 {
     Exten *exten = user_data;
     exten->document = webkit_web_page_get_dom_document(page);
-    watch_document(exten->document, exten);
+    frame_document_loaded(exten->document, exten);
+    active_element_change_cb(
+            WEBKIT_DOM_EVENT_TARGET(exten->document),
+            NULL,
+            exten);
+    // listen for scroll changes.
     webkit_dom_event_target_add_event_listener(
             WEBKIT_DOM_EVENT_TARGET(exten->document),
             "scroll",
             G_CALLBACK(document_scroll_cb),
             false,
             exten);
+
+    // Element hider
+    // TODO: inject into every frame.
     inject_adblock_css(exten->document, exten);
 }
 
