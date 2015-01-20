@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	Script uint = 1 << iota
+	Script uint64 = 1 << iota
 	Image
 	StyleSheet
 	Object
@@ -149,7 +149,7 @@ func (b *Blocker) DomainElemHideCSS(domain string) string {
 }
 
 // Blocks checks if a specific uri is blocked or not.
-func (b *Blocker) Blocks(uri string, flags uint) bool {
+func (b *Blocker) Blocks(uri string, flags uint64) bool {
 	blocked := false
 	exception := false
 	for _, candidate := range candidateSubstrings([]byte(uri)) {
@@ -323,8 +323,8 @@ type BlockRule struct {
 	RuleType
 	IsSimple     bool
 	ThirdParty   *bool
-	EnableFlags  uint
-	DisableFlags uint
+	EnableFlags  uint64
+	DisableFlags uint64
 }
 
 // isRule adherence to the Rule interface.
@@ -348,8 +348,8 @@ func NewBlockRule(rule []byte) (*BlockRule, error) {
 	rule = []byte(split[0])
 	var thirdParty *bool = nil
 	matchCase := false
-	var enableFlags uint = 0
-	var disableFlags uint = 0
+	var enableFlags uint64 = 0
+	var disableFlags uint64 = 0
 	if len(split) == 2 {
 		options := split[1]
 		split = strings.Split(options, ",")
@@ -389,7 +389,7 @@ func NewBlockRule(rule []byte) (*BlockRule, error) {
 		}
 	}
 	if enableFlags == 0 {
-		enableFlags = ^uint(0)
+		enableFlags = ^uint64(0)
 	}
 
 	simple := true

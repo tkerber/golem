@@ -97,7 +97,7 @@ func (g *DBusGolem) NewTabs(uris []string) *dbus.Error {
 }
 
 // Blocks checks whether a uri is blocked by the adblocker or not.
-func (g *DBusGolem) Blocks(uri string, flags uint) (bool, *dbus.Error) {
+func (g *DBusGolem) Blocks(uri string, flags uint64) (bool, *dbus.Error) {
 	return g.golem.adblocker.Blocks(uri, flags), nil
 }
 

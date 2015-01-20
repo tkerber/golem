@@ -253,7 +253,7 @@ handle_set_property(GDBusConnection *connection,
 
 // uri_is_blocked queries if a uri is blocked.
 static gboolean
-uri_is_blocked(const char *uri, guint flags, Exten *exten)
+uri_is_blocked(const char *uri, guint64 flags, Exten *exten)
 {
     GError *err = NULL;
     GVariant *ret = g_dbus_connection_call_sync(
@@ -262,7 +262,7 @@ uri_is_blocked(const char *uri, guint flags, Exten *exten)
             "/com/github/tkerber/Golem",
             "com.github.tkerber.Golem",
             "Blocks",
-            g_variant_new("(sx)", uri, flags),
+            g_variant_new("(st)", uri, flags),
             G_VARIANT_TYPE("(b)"),
             G_DBUS_CALL_FLAGS_NONE,
             -1,
@@ -417,7 +417,7 @@ adblock_before_load_cb(WebKitDOMEventTarget *doc,
 {
     WebKitDOMEventTarget *target = webkit_dom_event_get_target(event);
 
-    guint flags = 0;
+    guint64 flags = 0;
     gchar *uri = NULL;
     if(WEBKIT_DOM_IS_HTML_LINK_ELEMENT(target)) {
         WebKitDOMHTMLLinkElement *e = WEBKIT_DOM_HTML_LINK_ELEMENT(target);
