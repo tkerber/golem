@@ -4,6 +4,18 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+// Adblock constants
+#define ADBLOCK_SCRIPT            (1<<0)
+#define ADBLOCK_IMAGE             (1<<1)
+#define ADBLOCK_STYLE_SHEET       (1<<2)
+#define ADBLOCK_OBJECT            (1<<3)
+#define ADBLOCK_XML_HTTP_REQUEST  (1<<4)
+#define ADBLOCK_OBJECT_SUBREQUEST (1<<5)
+#define ADBLOCK_SUBDOCUMENT       (1<<6)
+#define ADBLOCK_DOCUMENT          (1<<7)
+#define ADBLOCK_ELEMHIDE          (1<<8)
+#define ADBLOCK_OTHER             (1<<9)
+
 // Error stuff
 
 #define GOLEM_WEB_ERROR golem_web_error_quark()
@@ -241,7 +253,7 @@ handle_set_property(GDBusConnection *connection,
 
 // uri_is_blocked queries if a uri is blocked.
 static gboolean
-uri_is_blocked(const char *uri, Exten *exten)
+uri_is_blocked(const char *uri, guint flags, Exten *exten)
 {
     GError *err = NULL;
     GVariant *ret = g_dbus_connection_call_sync(
@@ -250,7 +262,7 @@ uri_is_blocked(const char *uri, Exten *exten)
             "/com/github/tkerber/Golem",
             "com.github.tkerber.Golem",
             "Blocks",
-            g_variant_new("(s)", uri),
+            g_variant_new("(sx)", uri, flags),
             G_VARIANT_TYPE("(b)"),
             G_DBUS_CALL_FLAGS_NONE,
             -1,
@@ -275,7 +287,7 @@ uri_request_cb(WebKitWebPage     *page,
                gpointer           exten)
 {
     const gchar *uri = webkit_uri_request_get_uri(req);
-    return uri_is_blocked(uri, exten);
+    return uri_is_blocked(uri, ADBLOCK_OTHER, exten);
 }
 
 // is_scroll_target checks if a DOM element can be scrolled in.
@@ -397,28 +409,6 @@ active_element_change_cb(WebKitDOMEventTarget *target,
     }
 }
 
-// document_load_cb is called when a document load event occurs.
-//
-// It scans the document for iframes, and registers them.
-static void
-document_load_cb(WebKitDOMEventTarget *doc,
-                 WebKitDOMEvent       *event,
-                 gpointer              user_data)
-{
-    WebKitDOMNodeList *nodes = webkit_dom_document_get_elements_by_tag_name(
-            WEBKIT_DOM_DOCUMENT(doc),
-            "IFRAME");
-    gulong i;
-    gulong len = webkit_dom_node_list_get_length(nodes);
-    for(i = 0; i < len; i++) {
-        WebKitDOMDocument *subdoc =
-            webkit_dom_html_iframe_element_get_content_document(
-                    WEBKIT_DOM_HTML_IFRAME_ELEMENT(
-                        webkit_dom_node_list_item(nodes, i)));
-        frame_document_loaded(subdoc, user_data);
-    }
-}
-
 // adblock_before_load_cb is triggered when 
 static void
 adblock_before_load_cb(WebKitDOMEventTarget *doc,
@@ -427,6 +417,7 @@ adblock_before_load_cb(WebKitDOMEventTarget *doc,
 {
     WebKitDOMEventTarget *target = webkit_dom_event_get_target(event);
 
+    guint flags = 0;
     gchar *uri = NULL;
     if(WEBKIT_DOM_IS_HTML_LINK_ELEMENT(target)) {
         WebKitDOMHTMLLinkElement *e = WEBKIT_DOM_HTML_LINK_ELEMENT(target);
@@ -441,23 +432,40 @@ adblock_before_load_cb(WebKitDOMEventTarget *doc,
             return;
         }
         uri = webkit_dom_html_link_element_get_href(e);
+        flags |= ADBLOCK_STYLE_SHEET;
     } else if(WEBKIT_DOM_IS_HTML_OBJECT_ELEMENT(target)) {
         WebKitDOMHTMLObjectElement *e = WEBKIT_DOM_HTML_OBJECT_ELEMENT(target);
         uri = webkit_dom_html_object_element_get_data(e);
+        flags |= ADBLOCK_OBJECT;
     } else if(WEBKIT_DOM_IS_HTML_EMBED_ELEMENT(target)) {
         WebKitDOMHTMLEmbedElement *e = WEBKIT_DOM_HTML_EMBED_ELEMENT(target);
         uri = webkit_dom_html_embed_element_get_src(e);
+        flags |= ADBLOCK_OBJECT;
     } else if(WEBKIT_DOM_IS_HTML_IMAGE_ELEMENT(target)) {
         WebKitDOMHTMLImageElement *e = WEBKIT_DOM_HTML_IMAGE_ELEMENT(target);
         uri = webkit_dom_html_image_element_get_src(e);
+        flags |= ADBLOCK_IMAGE;
     } else if(WEBKIT_DOM_IS_HTML_SCRIPT_ELEMENT(target)) {
         WebKitDOMHTMLScriptElement *e = WEBKIT_DOM_HTML_SCRIPT_ELEMENT(target);
         uri = webkit_dom_html_script_element_get_src(e);
+        flags |= ADBLOCK_SCRIPT;
+    } else if(WEBKIT_DOM_IS_HTML_IFRAME_ELEMENT(target)) {
+        WebKitDOMHTMLIFrameElement *e = WEBKIT_DOM_HTML_IFRAME_ELEMENT(target);
+        uri = webkit_dom_html_iframe_element_get_src(e);
+        flags |= ADBLOCK_SUBDOCUMENT;
+        if(uri_is_blocked(uri, flags, user_data)) {
+            webkit_dom_event_prevent_default(event);
+        } else {
+            frame_document_loaded(
+                    webkit_dom_html_iframe_element_get_content_document(e),
+                    user_data);
+        }
+        return;
     }
     if(uri == NULL) {
         return;
     }
-    if(uri_is_blocked(uri, user_data)) {
+    if(uri_is_blocked(uri, flags, user_data)) {
         webkit_dom_event_prevent_default(event);
     }
 }
@@ -490,17 +498,6 @@ frame_document_loaded(WebKitDOMDocument *doc,
             G_CALLBACK(adblock_before_load_cb),
             true,
             exten);
-
-    target = WEBKIT_DOM_EVENT_TARGET(doc);
-    // listen for load changes, on which the document is scanned for
-    // sub-documents.
-    webkit_dom_event_target_add_event_listener(
-            target,
-            "load",
-            G_CALLBACK(document_load_cb),
-            true,
-            exten);
-    document_load_cb(target, NULL, exten);
 }
 
 static void

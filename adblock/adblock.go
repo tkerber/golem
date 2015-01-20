@@ -15,6 +15,19 @@ import (
 	"strings"
 )
 
+const (
+	Script uint = 1 << iota
+	Image
+	StyleSheet
+	Object
+	XMLHTTPRequest
+	ObjectSubrequest
+	Subdocument
+	Document
+	Elemhide
+	Other
+)
+
 // regexpReplacer is a replacer for strings in the basic filter regexps.
 var regexpReplacer = strings.NewReplacer(
 	`\*`,
@@ -136,20 +149,30 @@ func (b *Blocker) DomainElemHideCSS(domain string) string {
 }
 
 // Blocks checks if a specific uri is blocked or not.
-func (b *Blocker) Blocks(uri string) bool {
-	uri = strings.ToLower(uri)
+func (b *Blocker) Blocks(uri string, flags uint) bool {
 	blocked := false
 	exception := false
 	for _, candidate := range candidateSubstrings([]byte(uri)) {
 		for _, rule := range b.blockRuleMap[candidate] {
+			if blocked && exception {
+				return false
+			}
+			if !(!blocked && rule.RuleType == RuleTypeBlock) &&
+				!(!exception && rule.RuleType == RuleTypeException) {
+
+				continue
+			}
+			if !rule.MatchString(uri) {
+				continue
+			}
+			if (flags&rule.EnableFlags) == 0 || (flags&rule.DisableFlags) != 0 {
+				continue
+			}
 			if !blocked && rule.RuleType == RuleTypeBlock && rule.MatchString(uri) {
 				blocked = true
 			}
 			if !exception && rule.RuleType == RuleTypeException && rule.MatchString(uri) {
 				exception = true
-			}
-			if blocked && exception {
-				return false
 			}
 		}
 	}
@@ -172,11 +195,6 @@ func (b *Blocker) parseLine(line []byte) {
 			}
 		}
 	} else {
-		line = []byte(strings.ToLower(string(line)))
-		// For now, we completely ignore rules with $ signs.
-		split := strings.SplitN(string(line), "$", 2)
-		line = []byte(split[0])
-		// TODO handle $ options.
 		rule, err := NewBlockRule(line)
 		if err == nil {
 			b.addRule(rule, line)
@@ -303,7 +321,10 @@ func NewElemHideRules(rule []byte) ([]*ElemHideRule, error) {
 type BlockRule struct {
 	*regexp.Regexp
 	RuleType
-	IsSimple bool
+	IsSimple     bool
+	ThirdParty   *bool
+	EnableFlags  uint
+	DisableFlags uint
 }
 
 // isRule adherence to the Rule interface.
@@ -322,9 +343,55 @@ func NewBlockRule(rule []byte) (*BlockRule, error) {
 			return nil, errors.New("empty rule")
 		}
 	}
-	if strings.Contains(string(rule), "##") || strings.Contains(string(rule), "$") || strings.Contains(string(rule), "||") {
-		return nil, errors.New("currently unsupported ruletype")
+
+	split := strings.SplitN(string(rule), "$", 2)
+	rule = []byte(split[0])
+	var thirdParty *bool = nil
+	matchCase := false
+	var enableFlags uint = 0
+	var disableFlags uint = 0
+	if len(split) == 2 {
+		options := split[1]
+		split = strings.Split(options, ",")
+		for _, option := range split {
+			flagPtr := &enableFlags
+			if option[0] == '~' {
+				flagPtr = &disableFlags
+				option = option[1:]
+			}
+			switch option {
+			case "script":
+				*flagPtr |= Script
+			case "image":
+				*flagPtr |= Image
+			case "stylesheet":
+				*flagPtr |= StyleSheet
+			case "object":
+				*flagPtr |= Object
+			case "xmlhttprequest":
+				*flagPtr |= XMLHTTPRequest
+			case "object-subrequest":
+				*flagPtr |= ObjectSubrequest
+			case "subdocument":
+				*flagPtr |= Subdocument
+			case "document":
+				*flagPtr |= Document
+			case "elemhide":
+				*flagPtr |= Elemhide
+			case "other":
+				*flagPtr |= Other
+			case "third-party":
+				thirdParty = new(bool)
+				*thirdParty = flagPtr == &enableFlags
+			case "match-case":
+				matchCase = true
+			}
+		}
 	}
+	if enableFlags == 0 {
+		enableFlags = ^uint(0)
+	}
+
 	simple := true
 	if len(rule) >= 2 && rule[0] == '/' && rule[len(rule)-1] == '/' {
 		simple = false
@@ -337,6 +404,9 @@ func NewBlockRule(rule []byte) (*BlockRule, error) {
 	var err error
 	if simple {
 		reg := ``
+		if !matchCase {
+			reg += `(?i)`
+		}
 		if len(rule) >= 2 && string(rule[0:2]) == "||" {
 			reg += `^[^:]*://`
 			rule = rule[2:]
@@ -368,12 +438,16 @@ func NewBlockRule(rule []byte) (*BlockRule, error) {
 		}
 		r, err = regexp.Compile(reg)
 	} else {
-		r, err = regexp.Compile(string(rule))
+		if !matchCase {
+			r, err = regexp.Compile(`(?i)` + string(rule))
+		} else {
+			r, err = regexp.Compile(string(rule))
+		}
 	}
 	if err != nil {
 		return nil, err
 	}
-	return &BlockRule{r, rt, simple}, nil
+	return &BlockRule{r, rt, simple, thirdParty, enableFlags, disableFlags}, nil
 }
 
 // The RuleType of a Rule is what the rule does when it matches.

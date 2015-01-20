@@ -97,8 +97,8 @@ func (g *DBusGolem) NewTabs(uris []string) *dbus.Error {
 }
 
 // Blocks checks whether a uri is blocked by the adblocker or not.
-func (g *DBusGolem) Blocks(uri string) (bool, *dbus.Error) {
-	return g.golem.adblocker.Blocks(uri), nil
+func (g *DBusGolem) Blocks(uri string, flags uint) (bool, *dbus.Error) {
+	return g.golem.adblocker.Blocks(uri, flags), nil
 }
 
 // DomainElemHideCSS retrieves the css string to hide the elements on a given
