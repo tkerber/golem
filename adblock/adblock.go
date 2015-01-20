@@ -81,6 +81,7 @@ func NewBlocker(dir string) *Blocker {
 					} else {
 						if len(prefix) != 0 {
 							line = append(prefix, line...)
+							prefix = make([]byte, 0)
 						}
 						b.parseLine(line)
 					}
