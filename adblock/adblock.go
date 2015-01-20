@@ -356,7 +356,7 @@ func NewBlockRule(rule []byte) (*BlockRule, error) {
 		split = strings.Split(options, ",")
 		for _, option := range split {
 			flagPtr := &enableFlags
-			if option[0] == '~' {
+			if len(option) > 1 && option[0] == '~' {
 				flagPtr = &disableFlags
 				option = option[1:]
 			}
