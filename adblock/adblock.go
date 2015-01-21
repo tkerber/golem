@@ -149,8 +149,36 @@ func (b *Blocker) DomainElemHideCSS(domain string) string {
 	return string(css)
 }
 
+// domain retrieves the domain of a uri.
+func domain(uri string) string {
+	// The domain is everything after the :// up to either :, / or the end.
+	split := strings.SplitN(uri, "://", 2)
+	if len(split) < 2 {
+		return ""
+	}
+	uri = split[1]
+	split = strings.SplitN(uri, "/", 2)
+	if len(split) < 2 {
+		return uri
+	}
+	uri = split[0]
+	split = strings.SplitN(uri, ":", 2)
+	return split[0]
+}
+
+// moreSpecificDomain checks if domain a is more specific than b.
+func moreSpecificDomain(a, b string) bool {
+	if !strings.HasSuffix(a, b) {
+		return false
+	}
+	a = strings.TrimSuffix(a, b)
+	return len(a) == 0 || a[len(a)-1] == '.'
+}
+
 // Blocks checks if a specific uri is blocked or not.
-func (b *Blocker) Blocks(uri string, flags uint64) bool {
+func (b *Blocker) Blocks(uri, firstPartyURI string, flags uint64) bool {
+	firstPartyDomain := domain(firstPartyURI)
+	// TODO add third-party option support.
 	blocked := false
 	exception := false
 	for _, candidate := range candidateSubstrings([]byte(uri)) {
@@ -169,6 +197,26 @@ func (b *Blocker) Blocks(uri string, flags uint64) bool {
 			if (flags&rule.EnableFlags) == 0 || (flags&rule.DisableFlags) != 0 {
 				continue
 			}
+			// check the domain rules to see if this rule matches.
+			// If there are no domain rules, it defaults to matching.
+			// Exceptions override matches.
+			domainAccept := len(rule.Domains) == 0
+			for _, domain := range rule.Domains {
+				if moreSpecificDomain(firstPartyDomain, domain) {
+					domainAccept = true
+					break
+				}
+			}
+			domainReject := false
+			for _, domain := range rule.DomainsExcept {
+				if moreSpecificDomain(firstPartyDomain, domain) {
+					domainReject = true
+					break
+				}
+			}
+			if domainReject || !domainAccept {
+				continue
+			}
 			if !blocked && rule.RuleType == RuleTypeBlock && rule.MatchString(uri) {
 				blocked = true
 			}
@@ -177,7 +225,12 @@ func (b *Blocker) Blocks(uri string, flags uint64) bool {
 			}
 		}
 	}
-	return blocked && !exception
+	abbrevUri := uri
+	if len(abbrevUri) > 150 {
+		abbrevUri = abbrevUri[:150]
+	}
+	blocked = blocked && !exception
+	return blocked
 }
 
 // parseLine parses a single line of a filterlist and adds it to the blocker.
@@ -211,13 +264,14 @@ func (b *Blocker) addRule(rule Rule, src []byte) {
 			b.trailingBlockRules = append(b.trailingBlockRules, rule)
 			return
 		}
+		srcNoOpts := strings.SplitN(string(src), "$", 2)[0]
 		// Find the key for our rule.
-		candidates := candidateSubstrings(src)
+		candidates := candidateSubstrings([]byte(srcNoOpts))
 		var key [8]byte
 		var competing uint
 		competing = ^uint(0)
 		for _, candidate := range candidates {
-			if strings.ContainsAny(string(candidate[:]), "*^") {
+			if strings.ContainsAny(string(candidate[:]), "*^|@") {
 				continue
 			}
 			if competing == 0 {
@@ -322,10 +376,13 @@ func NewElemHideRules(rule []byte) ([]*ElemHideRule, error) {
 type BlockRule struct {
 	*regexp.Regexp
 	RuleType
-	IsSimple     bool
-	ThirdParty   *bool
-	EnableFlags  uint64
-	DisableFlags uint64
+	IsSimple      bool
+	ThirdParty    *bool
+	EnableFlags   uint64
+	DisableFlags  uint64
+	str           string
+	Domains       []string
+	DomainsExcept []string
 }
 
 // isRule adherence to the Rule interface.
@@ -333,6 +390,7 @@ func (r *BlockRule) isRule() {}
 
 // NewBlockRule creates a new rule from the corresponding line in the filterlist.
 func NewBlockRule(rule []byte) (*BlockRule, error) {
+	origRule := string(rule)
 	rt := RuleTypeBlock
 	if len(rule) == 0 {
 		return nil, errors.New("empty rule")
@@ -345,17 +403,32 @@ func NewBlockRule(rule []byte) (*BlockRule, error) {
 		}
 	}
 
+	// parse $ options
 	split := strings.SplitN(string(rule), "$", 2)
 	rule = []byte(split[0])
 	var thirdParty *bool = nil
 	matchCase := false
 	var enableFlags uint64 = 0
 	var disableFlags uint64 = 0
+	var domains []string
+	var domainsExcept []string
 	if len(split) == 2 {
 		options := split[1]
 		split = strings.Split(options, ",")
 		for _, option := range split {
 			flagPtr := &enableFlags
+			if strings.HasPrefix(option, "domain=") {
+				domainStrs := strings.Split(option[len("domain="):], "|")
+				for _, domain := range domainStrs {
+					slicePtr := &domains
+					if len(domain) > 1 && domain[0] == '~' {
+						slicePtr = &domainsExcept
+						domain = domain[1:]
+					}
+					*slicePtr = append(*slicePtr, domain)
+				}
+				continue
+			}
 			if len(option) > 1 && option[0] == '~' {
 				flagPtr = &disableFlags
 				option = option[1:]
@@ -409,7 +482,7 @@ func NewBlockRule(rule []byte) (*BlockRule, error) {
 			reg += `(?i)`
 		}
 		if len(rule) >= 2 && string(rule[0:2]) == "||" {
-			reg += `^[^:]*://`
+			reg += `^[^:]*://([^:/]*\.)?`
 			rule = rule[2:]
 			if len(rule) == 0 {
 				return nil, errors.New("empty rule")
@@ -448,7 +521,22 @@ func NewBlockRule(rule []byte) (*BlockRule, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &BlockRule{r, rt, simple, thirdParty, enableFlags, disableFlags}, nil
+	return &BlockRule{
+		r,
+		rt,
+		simple,
+		thirdParty,
+		enableFlags,
+		disableFlags,
+		origRule,
+		domains,
+		domainsExcept,
+	}, nil
+}
+
+// String returns the original rule text.
+func (r *BlockRule) String() string {
+	return r.str
 }
 
 // The RuleType of a Rule is what the rule does when it matches.

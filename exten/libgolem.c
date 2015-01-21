@@ -262,7 +262,11 @@ uri_is_blocked(const char *uri, guint64 flags, Exten *exten)
             "/com/github/tkerber/Golem",
             "com.github.tkerber.Golem",
             "Blocks",
-            g_variant_new("(st)", uri, flags),
+            g_variant_new(
+                "(sst)",
+                uri,
+                webkit_web_page_get_uri(exten->web_page),
+                flags),
             G_VARIANT_TYPE("(b)"),
             G_DBUS_CALL_FLAGS_NONE,
             -1,
@@ -460,6 +464,7 @@ adblock_before_load_cb(WebKitDOMEventTarget *doc,
                     webkit_dom_html_iframe_element_get_content_document(e),
                     user_data);
         }
+        g_free(uri);
         return;
     }
     if(uri == NULL) {
@@ -468,6 +473,7 @@ adblock_before_load_cb(WebKitDOMEventTarget *doc,
     if(uri_is_blocked(uri, flags, user_data)) {
         webkit_dom_event_prevent_default(event);
     }
+    g_free(uri);
 }
 
 // frame_document_loaded watches signals emitted from the given document.
@@ -537,6 +543,8 @@ inject_adblock_css(WebKitDOMDocument *doc,
     if(err != NULL) {
         printf("Failed to inject style: %s\n", err->message);
         g_error_free(err);
+        g_free(domain);
+        g_free(css);
         return;
     }
     webkit_dom_html_element_set_inner_html(
@@ -546,6 +554,8 @@ inject_adblock_css(WebKitDOMDocument *doc,
     if(err != NULL) {
         printf("Failed to inject style: %s\n", err->message);
         g_error_free(err);
+        g_free(domain);
+        g_free(css);
         return;
     }
     WebKitDOMHTMLHeadElement *head = webkit_dom_document_get_head(doc);
@@ -556,6 +566,8 @@ inject_adblock_css(WebKitDOMDocument *doc,
     if(err != NULL) {
         printf("Failed to inject style: %s\n", err->message);
         g_error_free(err);
+        g_free(domain);
+        g_free(css);
         return;
     }
 }
@@ -676,7 +688,7 @@ web_page_created_callback(WebKitWebExtension *extension,
             on_name_lost,
             exten,
             NULL);
-    free(bus_name);
+    g_free(bus_name);
 }
 
 // webkit_web_extension_initialize_with_user_data initializes the web extension
