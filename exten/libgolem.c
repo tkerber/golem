@@ -284,14 +284,16 @@ uri_is_blocked(const char *uri, guint64 flags, Exten *exten)
 
 // uri_request_cb is called when a uri request is issued, and determines
 // whether to allow it to proceed or not.
-static gboolean
+static void
 uri_request_cb(WebKitWebPage     *page,
                WebKitURIRequest  *req,
                WebKitURIResponse *resp,
                gpointer           exten)
 {
     const gchar *uri = webkit_uri_request_get_uri(req);
-    return uri_is_blocked(uri, ADBLOCK_OTHER, exten);
+    if(uri_is_blocked(uri, ADBLOCK_OTHER, exten)) {
+        webkit_uri_request_set_uri(req, "about:blank");
+    }
 }
 
 // is_scroll_target checks if a DOM element can be scrolled in.
