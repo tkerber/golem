@@ -108,6 +108,8 @@ typedef struct _Exten {
     gchar             *object_path;
     gchar             *profile;
     gchar             *golem_name;
+    // Used as a set for documents which have had handlers added.
+    GHashTable        *registered_documents;
 } Exten;
 
 // frame_document_loaded watches signals emitted from the given document.
@@ -483,6 +485,10 @@ static void
 frame_document_loaded(WebKitDOMDocument *doc,
                       Exten             *exten)
 {
+    // Track document, and don't register multiple times.
+    if(!g_hash_table_add(exten->registered_documents, doc)) {
+        return;
+    }
     WebKitDOMEventTarget *target = WEBKIT_DOM_EVENT_TARGET(
             webkit_dom_document_get_default_view(doc));
     // listen for focus changes
@@ -506,6 +512,20 @@ frame_document_loaded(WebKitDOMDocument *doc,
             G_CALLBACK(adblock_before_load_cb),
             true,
             exten);
+
+    // Scan for existing iframes, and add them as new frames.
+    WebKitDOMNodeList *nodes = webkit_dom_document_get_elements_by_tag_name(
+            WEBKIT_DOM_DOCUMENT(doc),
+            "IFRAME");
+    gulong i;
+    gulong len = webkit_dom_node_list_get_length(nodes);
+    for(i = 0; i < len; i++) {
+        WebKitDOMDocument *subdoc =
+            webkit_dom_html_iframe_element_get_content_document(
+                    WEBKIT_DOM_HTML_IFRAME_ELEMENT(
+                        webkit_dom_node_list_item(nodes, i)));
+        frame_document_loaded(subdoc, exten);
+    }
 }
 
 static void
@@ -581,6 +601,10 @@ document_loaded_cb(WebKitWebPage *page,
                    gpointer       user_data)
 {
     Exten *exten = user_data;
+    if(exten->registered_documents) {
+        g_hash_table_unref(exten->registered_documents);
+    }
+    exten->registered_documents = g_hash_table_new(NULL, NULL);
     exten->document = webkit_web_page_get_dom_document(page);
     frame_document_loaded(exten->document, exten);
     active_element_change_cb(
@@ -674,6 +698,7 @@ web_page_created_callback(WebKitWebExtension *extension,
     exten->profile = user_data;
     exten->golem_name = g_strdup_printf(
             "com.github.tkerber.Golem.%s", exten->profile);
+    exten->registered_documents = NULL;
     guint owner_id;
 
     introspection_data = g_dbus_node_info_new_for_xml(introspection_xml, NULL);
