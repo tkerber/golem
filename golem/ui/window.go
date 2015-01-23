@@ -7,17 +7,22 @@ package ui
 import "C"
 import (
 	"errors"
+	"runtime"
 	"unsafe"
 
+	"github.com/conformal/gotk3/glib"
 	"github.com/conformal/gotk3/gtk"
 	"github.com/conformal/gotk3/pango"
 	ggtk "github.com/tkerber/golem/gtk"
 )
 
+var errNilPtr = errors.New("Unexpected nil pointer.")
+
 // A Window is one of golem's windows.
 type Window struct {
 	*StatusBar
 	*TabBar
+	*CompletionBar
 	WebView
 	*gtk.Window
 	*ColorScheme
@@ -58,6 +63,7 @@ func newWindow(webView WebView, callback Callback) (*Window, error) {
 	)
 
 	w := &Window{
+		nil,
 		nil,
 		nil,
 		webView,
@@ -161,12 +167,31 @@ func newWindow(webView WebView, callback Callback) (*Window, error) {
 	w.webViewStack = webViewStack
 	webViewStack.Add(webView.GetWebView())
 
+	completions, err := w.newCompletionBar()
+	if err != nil {
+		return nil, err
+	}
+	w.CompletionBar = completions
+
+	mainOverlayPtr := unsafe.Pointer(C.gtk_overlay_new())
+	if mainOverlayPtr == nil {
+		return nil, errNilPtr
+	}
+	mainOverlay := &gtk.Container{gtk.Widget{glib.InitiallyUnowned{
+		&glib.Object{glib.ToGObject(mainOverlayPtr)}}}}
+	mainOverlay.Object.RefSink()
+	runtime.SetFinalizer(mainOverlay.Object, (*glib.Object).Unref)
+	mainOverlay.Add(webViewStack)
+	C.gtk_overlay_add_overlay(
+		(*C.GtkOverlay)(mainOverlayPtr),
+		(*C.GtkWidget)(unsafe.Pointer(completions.Container.Native())))
+
 	contentBox, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
 	if err != nil {
 		return nil, err
 	}
 	contentBox.PackStart(tabBar.EventBox, false, false, 0)
-	contentBox.PackStart(webViewStack, true, true, 0)
+	contentBox.PackStart(mainOverlay, true, true, 0)
 
 	box.PackStart(contentBox, true, true, 0)
 	box.PackStart(statusBarEventBox, false, false, 0)

@@ -107,6 +107,10 @@ func (w *Window) setState(state cmd.State) {
 		}
 	}
 	w.State = state
+	// Update completion bar
+	if cm, ok := w.State.(*cmd.CompletionMode); ok {
+		w.Window.CompletionBar.UpdateAt(cm.CurrentCompletion)
+	}
 	w.UpdateState(w.State)
 }
 

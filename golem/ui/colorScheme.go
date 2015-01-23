@@ -32,7 +32,7 @@ type ColorScheme struct {
 }
 
 const cssFormatString = `
-GtkBox#statusbar, GtkBox#tabbar GtkLabel {
+GtkBox#statusbar, GtkBox#tabbar GtkLabel, GtkGrid#completionbar {
 	background-color: #%06x;
 	color: #%06x;
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/mattn/go-shellwords"
 	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/golem/states"
+	"github.com/tkerber/golem/gtk"
 	"github.com/tkerber/golem/webkit"
 )
 
@@ -30,18 +31,23 @@ func (w *Window) completeState(
 			select {
 			case <-cancel:
 				cancel2 <- true
-				// destroy UI
+				w.Window.CompletionBar.Clear()
+				w.Window.CompletionBar.UpdateCompletions(nil)
+				w.Window.CompletionBar.UpdateAt(0)
+				gtk.GlibMainContextInvoke(
+					w.Window.CompletionBar.Container.Hide)
 				return
 			case done := <-update:
+				w.Window.CompletionBar.UpdateCompletions(strs)
 				if !updated {
 					first <- !done
 					updated = true
+					gtk.GlibMainContextInvoke(
+						w.Window.CompletionBar.Container.Show)
 				}
-				// update UI
 			}
 		}
 	}()
-	// init UI
 }
 
 // complete retrieves the possible completions for a state and started them
@@ -140,7 +146,7 @@ func (g *Golem) completeCommand(command string) func() (string, string, bool) {
 	if trailingWhitespaceRegex.MatchString(command) {
 		parts = append(parts, "")
 	}
-	if len(parts) == 1 {
+	if len(parts) <= 1 {
 		// Silly name. But we actually complete the "command" part of the
 		// command here.
 		return g.completeCommandCommand(command)
