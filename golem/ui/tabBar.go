@@ -1,7 +1,9 @@
 package ui
 
 // #cgo pkg-config: gdk-3.0
+// #cgo pkg-config: gtk+-3.0
 // #include <gdk/gdk.h>
+// #include <gtk/gtk.h>
 import "C"
 import (
 	"fmt"
@@ -13,13 +15,13 @@ import (
 	"github.com/conformal/gotk3/gdk"
 	"github.com/conformal/gotk3/glib"
 	"github.com/conformal/gotk3/gtk"
-	"github.com/conformal/gotk3/pango"
 	ggtk "github.com/tkerber/golem/gtk"
 )
 
 // A TabBar is a bar containing tab displays.
 type TabBar struct {
 	*gtk.EventBox
+	scrollWin            *gtk.ScrolledWindow
 	box                  *gtk.Box
 	tabs                 []*TabBarTab
 	parent               *Window
@@ -39,15 +41,30 @@ func NewTabBar(parent *Window) (*TabBar, error) {
 	}
 	ebox.AddEvents(C.GDK_SCROLL_MASK)
 
+	scrollWin, err := gtk.ScrolledWindowNew(nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	scrollWin.SetSizeRequest(100, -1)
+	cScrollWin := (*C.GtkScrolledWindow)(unsafe.Pointer(scrollWin.Native()))
+	cScrollbar := C.gtk_scrolled_window_get_hscrollbar(cScrollWin)
+	C.gtk_widget_hide(cScrollbar)
+	C.gtk_widget_set_no_show_all(cScrollbar, C.TRUE)
+	cScrollbar = C.gtk_scrolled_window_get_vscrollbar(cScrollWin)
+	C.gtk_widget_hide(cScrollbar)
+	C.gtk_widget_set_no_show_all(cScrollbar, C.TRUE)
+	ebox.Add(scrollWin)
+
 	box, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 1)
 	if err != nil {
 		return nil, err
 	}
 	box.SetName("tabbar")
-	ebox.Add(box)
+	scrollWin.Add(box)
 
 	tabBar := &TabBar{
 		ebox,
+		scrollWin,
 		box,
 		make([]*TabBarTab, 0, 100),
 		parent,
@@ -256,16 +273,15 @@ func newTabBarTab(parent *TabBar, index int) (*TabBarTab, error) {
 	if err != nil {
 		return nil, err
 	}
+	box.SetHAlign(gtk.ALIGN_FILL)
+
 	l, err := gtk.LabelNew("")
 	if err != nil {
 		return nil, err
 	}
+	l.SetHAlign(gtk.ALIGN_START)
 	box.Add(l)
-	l.SetEllipsize(pango.ELLIPSIZE_END)
 	l.OverrideFont("monospace")
-	// Seriously? Is this the only way to limit the width?
-	l.SetMaxWidthChars(15)
-	l.SetWidthChars(15)
 	l.SetUseMarkup(true)
 	t := &TabBarTab{
 		box,
