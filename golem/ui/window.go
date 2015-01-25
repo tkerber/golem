@@ -190,7 +190,7 @@ func newWindow(webView WebView, callback Callback) (*Window, error) {
 	if err != nil {
 		return nil, err
 	}
-	contentBox.PackStart(tabBar.EventBox, false, false, 0)
+	contentBox.PackStart(tabBar.ScrolledWindow, false, false, 0)
 	contentBox.PackStart(mainOverlay, true, true, 0)
 
 	box.PackStart(contentBox, true, true, 0)

@@ -53,8 +53,8 @@ import (
 
 // A TabBar is a bar containing tab displays.
 type TabBar struct {
-	*gtk.EventBox
-	scrollWin            *gtk.ScrolledWindow
+	*gtk.ScrolledWindow
+	ebox                 *gtk.EventBox
 	box                  *gtk.Box
 	tabs                 []*TabBarTab
 	parent               *Window
@@ -68,12 +68,6 @@ type TabBar struct {
 
 // NewTabBar creates a new TabBar for a Window.
 func NewTabBar(parent *Window) (*TabBar, error) {
-	ebox, err := gtk.EventBoxNew()
-	if err != nil {
-		return nil, err
-	}
-	ebox.AddEvents(C.GDK_SCROLL_MASK)
-
 	scrollWin, err := gtk.ScrolledWindowNew(nil, nil)
 	if err != nil {
 		return nil, err
@@ -86,18 +80,24 @@ func NewTabBar(parent *Window) (*TabBar, error) {
 	cScrollbar = C.gtk_scrolled_window_get_vscrollbar(cScrollWin)
 	C.gtk_widget_hide(cScrollbar)
 	C.gtk_widget_set_no_show_all(cScrollbar, C.TRUE)
-	ebox.Add(scrollWin)
+
+	ebox, err := gtk.EventBoxNew()
+	if err != nil {
+		return nil, err
+	}
+	ebox.AddEvents(C.GDK_SCROLL_MASK)
+	scrollWin.Add(ebox)
 
 	box, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 1)
 	if err != nil {
 		return nil, err
 	}
 	box.SetName("tabbar")
-	scrollWin.Add(box)
+	ebox.Add(box)
 
 	tabBar := &TabBar{
-		ebox,
 		scrollWin,
+		ebox,
 		box,
 		make([]*TabBarTab, 0, 100),
 		parent,
@@ -274,7 +274,7 @@ func (tb *TabBar) popTabs(n int) {
 		tb.tabs = tb.tabs[:len(tb.tabs)-n]
 		if len(tb.tabs) == 0 {
 			for _, handle := range tb.handles {
-				tb.EventBox.HandlerDisconnect(handle)
+				tb.ebox.HandlerDisconnect(handle)
 			}
 		}
 	})
