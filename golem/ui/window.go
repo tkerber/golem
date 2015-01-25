@@ -212,7 +212,7 @@ func (w *Window) Show() {
 func (w *Window) HideUI() {
 	ggtk.GlibMainContextInvoke(func() {
 		w.StatusBar.Container.Hide()
-		w.TabBar.box.Hide()
+		w.TabBar.Hide()
 	})
 }
 
@@ -220,7 +220,7 @@ func (w *Window) HideUI() {
 func (w *Window) ShowUI() {
 	ggtk.GlibMainContextInvoke(func() {
 		w.StatusBar.Container.Show()
-		w.TabBar.box.Show()
+		w.TabBar.Show()
 	})
 }
 
