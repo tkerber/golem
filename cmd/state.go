@@ -70,6 +70,16 @@ type ContainerState interface {
 // SubstateDefault, and left for the main program to define.
 type Substate uint
 
+// A CompletionFunction is a function called to complete a state.
+//
+// It takes the state to complete, a function to be called when the first
+// completion is found (with true, or false if none is found), and a pointer to
+// the slice of completed states which will be generated concurrently.
+//
+// It returns a function which can be called to cancel completion. Completion
+// should always be cancelled eventually.
+type CompleterFunction func(s State, firstFunc func(ok bool), states *[]State) (cancel func())
+
 // SubstateDefault is a substate marking that the "default" substate is being
 // used. It is not defined more specifically (that is up to the application
 // to decide), except that NormalMode's SubstateDefault should be the single
@@ -80,7 +90,7 @@ const SubstateDefault Substate = 0
 func NewState(
 	bindings map[Substate]*BindingTree,
 	setState func(State),
-	completer func(State, <-chan bool, chan<- bool, *[]State)) State {
+	completer CompleterFunction) State {
 
 	return &NormalMode{
 		&StateIndependant{bindings, setState, completer},
@@ -99,7 +109,7 @@ func NewState(
 type StateIndependant struct {
 	Bindings  map[Substate]*BindingTree
 	SetState  func(s State)
-	Completer func(State, <-chan bool, chan<- bool, *[]State)
+	Completer CompleterFunction
 }
 
 // NormalMode is a mode which mostly deals with key sequence bindings.
@@ -806,7 +816,7 @@ type CompletionMode struct {
 	Substate
 	CompletionStates  *[]State
 	CurrentCompletion int
-	CancelChan        chan<- bool
+	CancelFunc        func()
 }
 
 // NewCompletion schedules a completion to start once calculations have found
@@ -814,24 +824,21 @@ type CompletionMode struct {
 //
 // If no completions are found, nothing is done.
 func NewCompletion(s State) {
-	cancelChan := make(chan bool, 1)
 	var completionStates []State
+	var cancelFunc func()
 	si := s.GetStateIndependant()
-	first := make(chan bool)
-	go func() {
-		si.Completer(
-			s, cancelChan, first, &completionStates)
-		exists := <-first
+	firstFunc := func(exists bool) {
 		if exists {
 			si.SetState(&CompletionMode{
 				s,
 				SubstateDefault,
 				&completionStates,
 				0,
-				cancelChan,
+				cancelFunc,
 			})
 		}
-	}()
+	}
+	cancelFunc = si.Completer(s, firstFunc, &completionStates)
 }
 
 // GetSubstate gets the substate of the current state.
@@ -847,7 +854,7 @@ func (s *CompletionMode) GetSubstate() Substate {
 func (s *CompletionMode) ProcessKeyPress(key RealKey) (State, bool) {
 	switch key.Keyval {
 	case KeyEscape:
-		s.CancelChan <- true
+		s.CancelFunc()
 		return s.State, true
 	case KeyTab, KeyDown, KeyKPDown:
 		comp := s.CurrentCompletion + 1
@@ -859,7 +866,7 @@ func (s *CompletionMode) ProcessKeyPress(key RealKey) (State, bool) {
 			s.Substate,
 			s.CompletionStates,
 			comp,
-			s.CancelChan,
+			s.CancelFunc,
 		}, true
 	case KeyLeftTab, KeyUp, KeyKPUp:
 		comp := s.CurrentCompletion - 1
@@ -871,10 +878,10 @@ func (s *CompletionMode) ProcessKeyPress(key RealKey) (State, bool) {
 			s.Substate,
 			s.CompletionStates,
 			comp,
-			s.CancelChan,
+			s.CancelFunc,
 		}, true
 	default:
-		s.CancelChan <- true
+		s.CancelFunc()
 		return (*s.CompletionStates)[s.CurrentCompletion].ProcessKeyPress(key)
 	}
 }
@@ -891,6 +898,6 @@ func (s *CompletionMode) SwapChildState(newState State) ContainerState {
 		s.Substate,
 		s.CompletionStates,
 		s.CurrentCompletion,
-		s.CancelChan,
+		s.CancelFunc,
 	}
 }

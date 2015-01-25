@@ -100,9 +100,9 @@ func (w *Window) setState(state cmd.State) {
 			// If the new container is also a completion mode, and the cancel
 			// channels are the same, we DO NOT CANCEL.
 			if cm2, ok := cont.(*cmd.CompletionMode); !ok ||
-				cm.CancelChan != cm2.CancelChan {
+				cm.CompletionStates != cm2.CompletionStates {
 
-				cm.CancelChan <- true
+				cm.CancelFunc()
 			}
 		}
 	}

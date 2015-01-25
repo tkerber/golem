@@ -17,37 +17,31 @@ var trailingWhitespaceRegex = regexp.MustCompile(`.*\s`)
 // completeState starts completing a state.
 func (w *Window) completeState(
 	s cmd.State,
-	cancel <-chan bool,
-	first chan<- bool,
-	compStates *[]cmd.State) {
+	firstFunc func(bool),
+	compStates *[]cmd.State) (cancel func()) {
 
-	cancel2 := make(chan bool, 1)
 	var strs []string
-	update := make(chan bool, 1)
-	go w.parent.complete(s, cancel2, update, compStates, &strs)
-	go func() {
-		updated := false
-		for {
-			select {
-			case <-cancel:
-				cancel2 <- true
-				w.Window.CompletionBar.Clear()
-				w.Window.CompletionBar.UpdateCompletions(nil)
-				w.Window.CompletionBar.UpdateAt(0)
-				gtk.GlibMainContextInvoke(
-					w.Window.CompletionBar.Container.Hide)
-				return
-			case done := <-update:
-				w.Window.CompletionBar.UpdateCompletions(strs)
-				if !updated {
-					first <- !done
-					updated = true
-					gtk.GlibMainContextInvoke(
-						w.Window.CompletionBar.Container.Show)
-				}
-			}
+	updated := false
+	update := func(done bool) {
+		w.Window.CompletionBar.UpdateCompletions(strs)
+		if !updated {
+			firstFunc(!done)
+			updated = true
+			gtk.GlibMainContextInvoke(
+				w.Window.CompletionBar.Container.Show)
 		}
-	}()
+	}
+	cancelled := false
+	go w.parent.complete(s, &cancelled, update, compStates, &strs)
+	cancel = func() {
+		cancelled = true
+		w.Window.CompletionBar.Clear()
+		w.Window.CompletionBar.UpdateCompletions(nil)
+		w.Window.CompletionBar.UpdateAt(0)
+		gtk.GlibMainContextInvoke(
+			w.Window.CompletionBar.Container.Hide)
+	}
+	return cancel
 }
 
 // complete retrieves the possible completions for a state and started them
@@ -63,14 +57,14 @@ func (w *Window) completeState(
 // Passing nil for ptr is a fatal error.
 func (g *Golem) complete(
 	s cmd.State,
-	cancel <-chan bool,
-	update chan<- bool,
+	cancelled *bool,
+	update func(bool),
 	compStates *[]cmd.State,
 	compStrings *[]string) {
 
 	switch s := s.(type) {
 	case *cmd.NormalMode:
-		g.completeNormalMode(s, cancel, update, compStates, compStrings)
+		g.completeNormalMode(s, cancelled, update, compStates, compStrings)
 	case *cmd.CommandLineMode:
 		f := g.completeCommandLineMode(s)
 		for {
@@ -78,16 +72,14 @@ func (g *Golem) complete(
 			if !ok {
 				break
 			}
-			select {
-			case <-cancel:
+			if *cancelled {
 				return
-			default:
-				*compStates = append(*compStates, s)
-				*compStrings = append(*compStrings, str)
-				update <- false
 			}
+			*compStates = append(*compStates, s)
+			*compStrings = append(*compStrings, str)
+			update(false)
 		}
-		update <- true
+		update(true)
 	default:
 		return
 	}
@@ -373,16 +365,14 @@ func (g *Golem) completeCommandCommand(
 // completeNormalMode completes a normal mode state.
 func (g *Golem) completeNormalMode(
 	s *cmd.NormalMode,
-	cancel <-chan bool,
-	update chan<- bool,
+	cancelled *bool,
+	update func(bool),
 	compStates *[]cmd.State,
 	compStrings *[]string) {
 
 	for b := range s.CurrentTree.IterLeaves() {
-		select {
-		case <-cancel:
+		if *cancelled {
 			return
-		default:
 		}
 		// We can't complete virtual keys.
 		if _, ok := b.From[len(b.From)-1].(cmd.VirtualKey); ok {
@@ -408,7 +398,7 @@ func (g *Golem) completeNormalMode(
 		}
 		*compStates = append(*compStates, s.PredictState(b.From))
 		*compStrings = append(*compStrings, str)
-		update <- false
+		update(false)
 	}
-	update <- true
+	update(true)
 }
