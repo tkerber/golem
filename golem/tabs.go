@@ -86,6 +86,7 @@ func (w *Window) newTabsWithWebViews(wvs ...*webView) ([]*webView, error) {
 		for i := 0; i < len(wvs); i++ {
 			wvs[i].tabUI = tabs[i]
 			wvs[i].tabUI.SetTitle(wvs[i].GetTitle())
+			wvs[i].faviconChanged()
 		}
 		w.wMutex.Lock()
 		defer w.wMutex.Unlock()

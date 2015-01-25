@@ -2,13 +2,46 @@ package ui
 
 // #cgo pkg-config: gdk-3.0
 // #cgo pkg-config: gtk+-3.0
+// #cgo pkg-config: cairo
 // #include <gdk/gdk.h>
 // #include <gtk/gtk.h>
+// #include <cairo.h>
+/*
+
+// cairoSize retrieves the size of a cairo surface.
+static void inline
+cairoSize(cairo_surface_t *s, double *width, double *height) {
+	double x1, x2, y1, y2;
+	cairo_t *cr = cairo_create(s);
+	cairo_clip_extents(cr, &x1, &y1, &x2, &y2);
+	cairo_destroy(cr);
+	*width = x2 - x1;
+	*height = y2 - y1;
+}
+
+// scaleSurface scales a cairo surface to the given dimensions.
+static cairo_surface_t *
+scaleSurface(cairo_surface_t *s, double width, double height) {
+	double oldWidth, oldHeight;
+	cairoSize(s, &oldWidth, &oldHeight);
+	cairo_surface_t *ret = cairo_surface_create_similar(
+		s, CAIRO_CONTENT_COLOR_ALPHA, (int)width, (int)height);
+	cairo_t *cr = cairo_create(ret);
+	cairo_scale(cr, width/oldWidth, height/oldHeight);
+	cairo_set_source_surface(cr, s, 0, 0);
+	cairo_pattern_set_extend(cairo_get_source(cr), CAIRO_EXTEND_PAD);
+	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+	cairo_paint(cr);
+	cairo_destroy(cr);
+	return ret;
+}
+*/
 import "C"
 import (
 	"fmt"
 	"html"
 	"math"
+	"runtime"
 	"unicode/utf8"
 	"unsafe"
 
@@ -45,7 +78,7 @@ func NewTabBar(parent *Window) (*TabBar, error) {
 	if err != nil {
 		return nil, err
 	}
-	scrollWin.SetSizeRequest(100, -1)
+	scrollWin.SetSizeRequest(120, -1)
 	cScrollWin := (*C.GtkScrolledWindow)(unsafe.Pointer(scrollWin.Native()))
 	cScrollbar := C.gtk_scrolled_window_get_hscrollbar(cScrollWin)
 	C.gtk_widget_hide(cScrollbar)
@@ -217,10 +250,10 @@ func (tb *TabBar) moveTabs(toStart, fromStart, fromEnd int) {
 func (tb *TabBar) FocusTab(i int) {
 	ggtk.GlibMainContextInvoke(func() {
 		if tb.focused != nil {
-			tb.focused.focused = false
+			tb.focused.box.SetName("")
 			tb.focused.redraw()
 		}
-		tb.tabs[i].focused = true
+		tb.tabs[i].box.SetName("focused")
 		tb.tabs[i].redraw()
 		tb.focused = tb.tabs[i]
 	})
@@ -258,11 +291,12 @@ func (tb *TabBar) CloseTabs(i, j int) {
 // A TabBarTab is the display of a single tab name.
 type TabBarTab struct {
 	*gtk.EventBox
+	box          *gtk.Box
+	image        *gtk.Widget
 	label        *gtk.Label
 	parent       *TabBar
 	title        string
 	index        int
-	focused      bool
 	loadProgress float64
 	handles      []glib.SignalHandle
 }
@@ -275,21 +309,39 @@ func newTabBarTab(parent *TabBar, index int) (*TabBarTab, error) {
 	}
 	box.SetHAlign(gtk.ALIGN_FILL)
 
+	hbox, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 3)
+	if err != nil {
+		return nil, err
+	}
+	box.Add(hbox)
+
+	cImage := C.gtk_image_new_from_surface(nil)
+	if cImage == nil {
+		return nil, errNilPtr
+	}
+	image := &gtk.Widget{glib.InitiallyUnowned{&glib.Object{
+		glib.ToGObject(unsafe.Pointer(cImage))}}}
+	image.Object.RefSink()
+	runtime.SetFinalizer(image.Object, (*glib.Object).Unref)
+	image.SetSizeRequest(16, 16)
+	hbox.PackStart(image, false, false, 0)
+
 	l, err := gtk.LabelNew("")
 	if err != nil {
 		return nil, err
 	}
 	l.SetHAlign(gtk.ALIGN_START)
-	box.Add(l)
+	hbox.PackStart(l, false, false, 0)
 	l.OverrideFont("monospace")
 	l.SetUseMarkup(true)
 	t := &TabBarTab{
 		box,
+		hbox,
+		image,
 		l,
 		parent,
 		"",
 		index,
-		false,
 		1.0,
 		make([]glib.SignalHandle, 0, 5),
 	}
@@ -318,6 +370,17 @@ func (t *TabBarTab) SetTitle(title string) {
 func (t *TabBarTab) SetLoadProgress(to float64) {
 	t.loadProgress = to
 	ggtk.GlibMainContextInvoke(t.redraw)
+}
+
+// SetIcon sets the icon the the supplied pointer to a cairo_surface_t.
+func (t *TabBarTab) SetIcon(to uintptr) {
+	surface := C.scaleSurface((*C.cairo_surface_t)(unsafe.Pointer(to)), 16, 16)
+	ggtk.GlibMainContextInvoke(func() {
+		cimage := (*C.GtkImage)(unsafe.Pointer(t.image.Native()))
+		C.gtk_image_set_from_surface(
+			cimage,
+			surface)
+	})
 }
 
 // Free ensures that all connections which could keep the tab from being GC'd
@@ -355,9 +418,6 @@ func (t *TabBarTab) redraw() {
 	}
 	for i := length; i < 15; i++ {
 		text += " "
-	}
-	if t.focused {
-		text = fmt.Sprintf("<focus>%s</focus>", text)
 	}
 	t.label.SetMarkup(t.parent.parent.MarkupReplacer.Replace(text))
 }

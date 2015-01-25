@@ -151,6 +151,17 @@ func (w *WebView) GetURI() string {
 	return C.GoString((*C.char)(cstr))
 }
 
+// GetFavicon retrieves the pointer to the cairo_surface_t of the favicon.
+//
+// Returns an error if favicon is nil.
+func (w *WebView) GetFavicon() (uintptr, error) {
+	favicon := C.webkit_web_view_get_favicon(w.native())
+	if favicon == nil {
+		return 0, errNilPtr
+	}
+	return uintptr(unsafe.Pointer(favicon)), nil
+}
+
 // CanGoBack checks whether it is possible to currently go back.
 func (w *WebView) CanGoBack() bool {
 	return gobool(C.webkit_web_view_can_go_back(w.native()))

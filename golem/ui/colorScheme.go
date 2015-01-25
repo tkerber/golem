@@ -32,11 +32,15 @@ type ColorScheme struct {
 }
 
 const cssFormatString = `
-GtkBox#statusbar, GtkBox#tabbar GtkLabel, GtkGrid#completionbar {
+#statusbar, #tabbar GtkBox, #completionbar {
 	background-color: #%06x;
 	color: #%06x;
 }
-GtkBox#tabbar {
+#tabbar #focused {
+	background-color: #%06x;
+	color: #%06x;
+}
+#tabbar {
 	background-color: #%06x;
 }`
 
@@ -89,12 +93,6 @@ func NewColorScheme(
 			fmt.Sprintf(`<span color="#%06x">`, num),
 			"</num>",
 			"</span>",
-			"<focus>",
-			fmt.Sprintf(`<span bgcolor="#%06x" color="#%06x">`,
-				bgFocus,
-				fgFocus),
-			"</focus>",
-			"</span>",
 			"<load>",
 			fmt.Sprintf(`<span color="#%06x">`, load),
 			"</load>",
@@ -104,7 +102,7 @@ func NewColorScheme(
 			"</cursor>",
 			"</span>",
 		),
-		fmt.Sprintf(cssFormatString, bg, unemphasized, tabbarBg),
+		fmt.Sprintf(cssFormatString, bg, unemphasized, bgFocus, fgFocus, tabbarBg),
 	}
 }
 

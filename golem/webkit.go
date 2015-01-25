@@ -39,6 +39,7 @@ func (g *Golem) webkitInit() {
 
 	c := webkit.GetDefaultWebContext()
 	c.SetWebExtensionsDirectory(extenDir)
+	c.SetFaviconDatabaseDirectory("")
 
 	// Set the profile string to be passed to the web extensions.
 	cProfile := C.CString(g.profile)

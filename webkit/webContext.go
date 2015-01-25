@@ -186,3 +186,22 @@ func (c *WebContext) DownloadURI(uri string) *Download {
 	})
 	return dl
 }
+
+// SetFaviconDatabaseDirectory sets the directory for the favicon database.
+//
+// It also serves to enable said database in the first place.
+//
+// Passing the empty string indicates using the default directory.
+func (c *WebContext) SetFaviconDatabaseDirectory(path string) {
+	if path == "" {
+		C.webkit_web_context_set_favicon_database_directory(
+			c.native(),
+			nil)
+	} else {
+		cStr := C.CString(path)
+		defer C.free(unsafe.Pointer(cStr))
+		C.webkit_web_context_set_favicon_database_directory(
+			c.native(),
+			(*C.gchar)(cStr))
+	}
+}

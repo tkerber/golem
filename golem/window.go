@@ -150,6 +150,7 @@ func (w *Window) initWindowWebView(wv *webView) error {
 	}
 	tabUI.SetTitle(wv.GetTitle())
 	wv.tabUI = tabUI
+	wv.faviconChanged()
 	wv.window = w
 	w.Window.FocusTab(0)
 

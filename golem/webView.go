@@ -204,6 +204,10 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 	if err == nil {
 		ret.handles = append(ret.handles, handle)
 	}
+	handle, err = ret.WebView.Connect("notify::favicon", ret.faviconChanged)
+	if err == nil {
+		ret.handles = append(ret.handles, handle)
+	}
 	// fullscreen handles
 	handle, err = wv.Connect("enter-fullscreen", func() bool {
 		ret.fullscreen = true
@@ -238,6 +242,17 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 	defer w.parent.wMutex.Unlock()
 	w.parent.webViews[ret.id] = ret
 	return ret, nil
+}
+
+// faviconChanged resets the favicon in the tab bar display.
+func (wv *webView) faviconChanged() {
+	if wv.tabUI != nil {
+		favicon, err := wv.GetFavicon()
+		if err != nil {
+			return
+		}
+		wv.tabUI.SetIcon(favicon)
+	}
 }
 
 // GetTop retrieves the scroll distance from the top of the web view.
