@@ -398,6 +398,8 @@ type CommandLineMode struct {
 	Substate
 	CurrentKeys []Key
 	CursorPos   int
+	CursorHome  int
+	CursorEnd   int
 	Finalizer   func(string)
 }
 
@@ -415,6 +417,8 @@ func NewCommandLineMode(
 		s.GetStateIndependant(),
 		st,
 		make([]Key, 0),
+		0,
+		0,
 		0,
 		f,
 	}
@@ -441,6 +445,8 @@ func NewPartialCommandLineMode(
 		st,
 		keys,
 		len(keysBC),
+		len(keysBC),
+		len(keysAC),
 		f}
 }
 
@@ -459,6 +465,8 @@ func (s *CommandLineMode) Paste(str string) State {
 		s.Substate,
 		newKeys,
 		s.CursorPos + len(insertKeys),
+		s.CursorHome,
+		s.CursorEnd,
 		s.Finalizer}
 }
 
@@ -510,7 +518,9 @@ func (s *CommandLineMode) ProcessKeyPress(key RealKey) (State, bool) {
 			s.StateIndependant,
 			s.Substate,
 			s.CurrentKeys,
-			0,
+			s.CursorHome,
+			s.CursorHome,
+			s.CursorEnd,
 			s.Finalizer}, true
 	// Move cursor to end
 	case KeyKPEnd:
@@ -523,7 +533,9 @@ func (s *CommandLineMode) ProcessKeyPress(key RealKey) (State, bool) {
 			s.StateIndependant,
 			s.Substate,
 			s.CurrentKeys,
-			len(s.CurrentKeys),
+			len(s.CurrentKeys) - s.CursorEnd,
+			s.CursorHome,
+			s.CursorEnd,
 			s.Finalizer}, true
 	// Execute command line
 	case KeyKPEnter:
@@ -538,22 +550,28 @@ func (s *CommandLineMode) ProcessKeyPress(key RealKey) (State, bool) {
 	case KeyKPLeft:
 		fallthrough
 	case KeyLeft:
+		pos := max(s.CursorPos-1, 0)
 		return &CommandLineMode{
 			s.StateIndependant,
 			s.Substate,
 			s.CurrentKeys,
-			max(s.CursorPos-1, 0),
+			pos,
+			min(pos, s.CursorHome),
+			s.CursorEnd,
 			s.Finalizer,
 		}, true
 	// Move cursor right
 	case KeyKPRight:
 		fallthrough
 	case KeyRight:
+		pos := min(s.CursorPos+1, len(s.CurrentKeys))
 		return &CommandLineMode{
 			s.StateIndependant,
 			s.Substate,
 			s.CurrentKeys,
-			min(s.CursorPos+1, len(s.CurrentKeys)),
+			pos,
+			s.CursorHome,
+			min(len(s.CurrentKeys)-pos, s.CursorEnd),
 			s.Finalizer,
 		}, true
 	// Delete last key.
@@ -576,6 +594,8 @@ func (s *CommandLineMode) ProcessKeyPress(key RealKey) (State, bool) {
 				s.Substate,
 				newKeys,
 				s.CursorPos,
+				s.CursorHome,
+				min(len(newKeys)-s.CursorPos, s.CursorEnd),
 				s.Finalizer,
 			}, true
 		} else if len(s.CurrentKeys) == 0 {
@@ -600,6 +620,8 @@ func (s *CommandLineMode) ProcessKeyPress(key RealKey) (State, bool) {
 				s.Substate,
 				newKeys,
 				s.CursorPos - 1,
+				min(s.CursorPos-1, s.CursorHome),
+				s.CursorEnd,
 				s.Finalizer,
 			}, true
 		} else if len(s.CurrentKeys) == 0 {
@@ -623,6 +645,8 @@ func (s *CommandLineMode) ProcessKeyPress(key RealKey) (State, bool) {
 			s.Substate,
 			newKeys,
 			s.CursorPos + 1,
+			s.CursorHome,
+			s.CursorEnd,
 			s.Finalizer,
 		}, true
 	}

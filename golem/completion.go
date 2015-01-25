@@ -126,6 +126,8 @@ func (g *Golem) completionWrapCommandLine(
 				s.Substate,
 				keys,
 				len(keys),
+				s.CursorHome,
+				0,
 				s.Finalizer,
 			},
 			desc,
