@@ -125,7 +125,7 @@ func golemSchemeHandler(req *webkit.URISchemeRequest) {
 		req.Finish(data, mime)
 	} else {
 		switch {
-		case strings.Contains(rPath, "/loop/"):
+		case strings.HasPrefix(rPath, "/pdf.js/loop/"):
 			handleLoopRequest(req)
 		default:
 			// TODO finish w/ error
