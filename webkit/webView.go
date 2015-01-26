@@ -50,6 +50,8 @@ type WebView struct {
 	// The back forward list of the WebView, may be nil if it was never
 	// accessed.
 	bfl *BackForwardList
+	// The find controller of the WebView, may be nil if it was never accessed.
+	findController *FindController
 }
 
 // NewWebView creates and returns a new webkit webview.
@@ -91,7 +93,9 @@ func wrapWebView(obj *glib.Object) *WebView {
 	return &WebView{
 		gtk.Container{gtk.Widget{glib.InitiallyUnowned{obj}}},
 		nil,
-		nil}
+		nil,
+		nil,
+	}
 }
 
 // native retrieves (a properly casted) pointer the native C WebKitWebView.
@@ -237,4 +241,17 @@ func (w *WebView) LoadAlternateHTML(
 	cburi := (*C.gchar)(C.CString(baseURI))
 	defer C.free(unsafe.Pointer(cburi))
 	C.webkit_web_view_load_alternate_html(w.native(), ccont, ccuri, cburi)
+}
+
+// GetFindController retrieves the find controller used to control searches in
+// this web view.
+func (w *WebView) GetFindController() *FindController {
+	if w.findController == nil {
+		cptr := C.webkit_web_view_get_find_controller(w.native())
+		w.findController = &FindController{&glib.Object{
+			glib.ToGObject(unsafe.Pointer(cptr))}}
+		w.findController.Object.RefSink()
+		runtime.SetFinalizer(w.findController.Object, (*glib.Object).Unref)
+	}
+	return w.findController
 }

@@ -35,6 +35,8 @@ var commands map[string]func(*Window, *Golem, []string)
 // (which is executed after constant/variabel initialization.
 func init() {
 	commands = map[string]func(*Window, *Golem, []string){
+		"noh":             cmdNoHLSearch,
+		"nohlsearch":      cmdNoHLSearch,
 		"aqm":             cmdAddQuickmark,
 		"addquickmark":    cmdAddQuickmark,
 		"o":               cmdOpen,
@@ -78,6 +80,15 @@ func (w *Window) logInvalidArgs(args []string) {
 // not have been executed in a global context (i.e. in golem's rc)
 func logNonGlobalCommand() {
 	(*Window)(nil).logError("Non global command executed in a global context.")
+}
+
+// cmdNoHLSearch removes all active highlighting from the page.
+func cmdNoHLSearch(w *Window, g *Golem, args []string) {
+	if w == nil {
+		logNonGlobalCommand()
+		return
+	}
+	w.getWebView().GetFindController().SearchFinish()
 }
 
 // cmdBackgroundOpen opens a new tab in the background.

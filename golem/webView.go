@@ -21,15 +21,16 @@ import (
 type webView struct {
 	*webkit.WebView
 	*webExtension
-	id         uint64
-	top        int64
-	height     int64
-	parent     *Golem
-	settings   *webkit.Settings
-	window     *Window
-	tabUI      *ui.TabBarTab
-	fullscreen bool
-	handles    []glib.SignalHandle
+	id            uint64
+	top           int64
+	height        int64
+	parent        *Golem
+	settings      *webkit.Settings
+	window        *Window
+	tabUI         *ui.TabBarTab
+	fullscreen    bool
+	searchForward bool
+	handles       []glib.SignalHandle
 }
 
 // newWebView creates a new webView using given settings as a template.
@@ -61,6 +62,7 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 		w,
 		nil,
 		false,
+		true,
 		make([]glib.SignalHandle, 0, 4),
 	}
 

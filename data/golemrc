@@ -60,6 +60,11 @@ bind B       builtin:quickmarksTab
 bind wb      builtin:quickmarksWindow
 bind ,b      builtin:quickmarksRapid
 
+bind /       builtin:searchMode
+bind ?       builtin:searchModeBackwards
+bind n       builtin:searchNext
+bind N       builtin:searchPrevious
+
 bind m       builtin:toggleQuickmark
 
 " Mediasource isn't supported enough for YouTube yet :(

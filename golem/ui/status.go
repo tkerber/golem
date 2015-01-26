@@ -87,10 +87,20 @@ func (w *Window) UpdateState(state cmd.State) {
 	case *cmd.InsertMode:
 		newStatus = "-- <em>insert</em> --"
 	case *cmd.CommandLineMode:
+		var substateStr string
+		switch s.Substate {
+		case states.CommandLineSubstateCommand:
+			substateStr = ":"
+		case states.CommandLineSubstateSearch:
+			substateStr = "/"
+		case states.CommandLineSubstateBackSearch:
+			substateStr = "?"
+		}
 		beforeCursor := s.CurrentKeys[:s.CursorPos]
 		afterCursor := s.CurrentKeys[s.CursorPos:]
 		newStatus = fmt.Sprintf(
-			":<em>%v</em><cursor>_</cursor><em>%v</em>",
+			"%s<em>%v</em><cursor>_</cursor><em>%v</em>",
+			substateStr,
 			keysToMarkupString(beforeCursor, false, false),
 			keysToMarkupString(afterCursor, false, false))
 	case *cmd.StatusMode:

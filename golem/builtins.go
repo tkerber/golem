@@ -10,6 +10,7 @@ import (
 	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/golem/states"
 	ggtk "github.com/tkerber/golem/gtk"
+	"github.com/tkerber/golem/webkit"
 )
 
 var builtinNames []string
@@ -34,6 +35,7 @@ func builtinsFor(w *Window) cmd.Builtins {
 		"goBack":               w.builtinGoBack,
 		"goForward":            w.builtinGoForward,
 		"insertMode":           w.builtinInsertMode,
+		"noh":                  w.builtinNoh,
 		"nop":                  w.builtinNop,
 		"open":                 w.builtinOpen,
 		"panic":                w.builtinPanic,
@@ -53,6 +55,10 @@ func builtinsFor(w *Window) cmd.Builtins {
 		"scrollToBottom":       w.builtinScrollToBottom,
 		"scrollToTop":          w.builtinScrollToTop,
 		"scrollUp":             w.builtinScrollUp,
+		"searchMode":           w.builtinSearchMode,
+		"searchModeBackwards":  w.builtinSearchModeBackwards,
+		"searchNext":           w.builtinSearchNext,
+		"searchPrevious":       w.builtinSearchPrevious,
 		"tabClose":             w.builtinTabClose,
 		"tabEditURI":           w.builtinTabEditURI,
 		"tabGo":                w.builtinTabGo,
@@ -174,6 +180,11 @@ func (w *Window) builtinGoForward(n *int) {
 // builtinInsertMode initiates insert mode.
 func (w *Window) builtinInsertMode(_ *int) {
 	w.setState(cmd.NewInsertMode(w.State, cmd.SubstateDefault))
+}
+
+// builtinNoh removes all active highlighting from the page.
+func (w *Window) builtinNoh(_ *int) {
+	cmdNoHLSearch(w, w.parent, nil)
 }
 
 // builtinNop does nothing. It is occasionally useful as a binding.
@@ -344,6 +355,62 @@ func (w *Window) builtinScrollToTop(_ *int) {
 // builtinScrollUp scrolls up.
 func (w *Window) builtinScrollUp(n *int) {
 	w.scrollDelta(-w.parent.scrollDelta*getWithDefault(n, 1, 0, 1<<20), true)
+}
+
+// search searches for a specific term.
+func (w *Window) search(term string) {
+	wv := w.getWebView()
+	wv.GetFindController().Search(
+		term, webkit.FindOptionsWrapAround)
+	wv.searchForward = true
+}
+
+// search searches backwards for a specific term.
+func (w *Window) backSearch(term string) {
+	wv := w.getWebView()
+	wv.GetFindController().Search(
+		term, webkit.FindOptionsWrapAround|webkit.FindOptionsBackwards)
+	wv.searchForward = false
+}
+
+// builtinSearchMode initiates search mode.
+func (w *Window) builtinSearchMode(_ *int) {
+	w.setState(cmd.NewCommandLineMode(
+		w.State, states.CommandLineSubstateSearch, w.search))
+}
+
+// builtinSearchModeBackwards initiates search mode in reverse.
+func (w *Window) builtinSearchModeBackwards(_ *int) {
+	w.setState(cmd.NewCommandLineMode(
+		w.State, states.CommandLineSubstateBackSearch, w.backSearch))
+}
+
+// builtinSearchNext moves to the next found search element.
+func (w *Window) builtinSearchNext(n *int) {
+	num := getWithDefault(n, 1, 1, 25)
+	wv := w.getWebView()
+	fc := wv.GetFindController()
+	for i := 0; i < num; i++ {
+		if wv.searchForward {
+			fc.SearchNext()
+		} else {
+			fc.SearchPrevious()
+		}
+	}
+}
+
+// builtinSearchPrevious moves to the previous found search element.
+func (w *Window) builtinSearchPrevious(n *int) {
+	num := getWithDefault(n, 1, 1, 25)
+	wv := w.getWebView()
+	fc := wv.GetFindController()
+	for i := 0; i < num; i++ {
+		if wv.searchForward {
+			fc.SearchPrevious()
+		} else {
+			fc.SearchNext()
+		}
+	}
 }
 
 // builtinTabClose closes the current tab.
