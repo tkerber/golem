@@ -285,6 +285,8 @@ func (g *Golem) completeURI(
 	i = -1
 	return func() (string, string, bool) {
 		var uri string
+		// Where the uri came from (quickmarks, bookmarks, history)
+		var uriType string
 	outer:
 		for {
 			switch stage {
@@ -302,6 +304,7 @@ func (g *Golem) completeURI(
 					}
 				}
 				uri = qmArr[i]
+				uriType = "Quickmark"
 				break outer
 			// complete history
 			case 1:
@@ -319,6 +322,7 @@ func (g *Golem) completeURI(
 					}
 				}
 				uri = item.uri
+				uriType = "History"
 				break outer
 			// end iteration
 			default:
@@ -326,7 +330,9 @@ func (g *Golem) completeURI(
 			}
 		}
 		// Won't always cleanly work. But it doesn't have to.
-		return strings.Join(parts[:startFrom], " ") + " " + uri, uri, true
+		return strings.Join(parts[:startFrom], " ") + " " + uri,
+			fmt.Sprintf("%s\t%s", uri, uriType),
+			true
 	}
 }
 

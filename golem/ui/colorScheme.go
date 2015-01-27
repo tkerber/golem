@@ -36,7 +36,7 @@ const cssFormatString = `
 	background-color: #%06x;
 	color: #%06x;
 }
-#tabbar #focused {
+#tabbar #focused, #completionbar #active {
 	background-color: #%06x;
 	color: #%06x;
 }
