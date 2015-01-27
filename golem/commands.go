@@ -15,7 +15,7 @@ import (
 )
 
 // hasProtocolRegex matches if a "uri" has what looks like a protocol.
-var hasProtocolRegex = regexp.MustCompile(`(http|https|file|golem):.*`)
+var hasProtocolRegex = regexp.MustCompile(`(http|https|file|golem|about):.*`)
 
 // looksLikeURIRegex matches if (despite no protocol existing), a "uri" looks
 // like a uri.
