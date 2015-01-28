@@ -376,13 +376,16 @@ func (g *Golem) completeNormalMode(
 	compStates *[]cmd.State,
 	compStrings *[]string) {
 
+outer:
 	for b := range s.CurrentTree.IterLeaves() {
 		if *cancelled {
 			return
 		}
 		// We can't complete virtual keys.
-		if _, ok := b.From[len(b.From)-1].(cmd.VirtualKey); ok {
-			continue
+		for _, key := range b.From {
+			if _, ok := key.(cmd.VirtualKey); ok {
+				continue outer
+			}
 		}
 		// Get the new tree
 		t := s.CurrentTree
@@ -393,8 +396,7 @@ func (g *Golem) completeNormalMode(
 		keysStr := cmd.KeysString(b.From)
 		switch s.Substate {
 		case states.NormalSubstateNormal:
-			// TODO attach a short descriptive text/name/both to bindings.
-			str = fmt.Sprintf("%s\t?????", keysStr)
+			str = fmt.Sprintf("%s\t%s\t%s", keysStr, b.Name, b.Desc)
 		case states.NormalSubstateQuickmark,
 			states.NormalSubstateQuickmarkTab,
 			states.NormalSubstateQuickmarkWindow,

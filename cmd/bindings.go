@@ -16,7 +16,14 @@ func (e *bindingConflict) Error() string {
 }
 
 // Builtins are a collection of functions, which are accessible by their name.
-type Builtins map[string]func(*int)
+type Builtins map[string]*Builtin
+
+// A Builtin is a builtin function.
+type Builtin struct {
+	Func func(*int)
+	Name string
+	Desc string
+}
 
 // A RawBinding map one string (representing the keysequence to be pressed) to
 // another (representing what the binding should do).
@@ -73,13 +80,20 @@ func (b RawBinding) ParseBinding(
 		}
 		return &Binding{
 			keys,
-			func(_ []Key, i *int, _ Substate) { builtin(i) },
+			func(_ []Key, i *int, _ Substate) { builtin.Func(i) },
+			builtin.Name,
+			builtin.Desc,
 		}, nil
 	} else if hasPrefixes(b.To, "command:", "cmd:", "c:") {
 		cmd := stripPrefixes(b.To, "command:", "cmd:", "c:")
-		return &Binding{keys, func(_ []Key, _ *int, _ Substate) {
-			runCmd(cmd)
-		}}, nil
+		return &Binding{
+			keys,
+			func(_ []Key, _ *int, _ Substate) {
+				runCmd(cmd)
+			},
+			"Command",
+			"Execute command",
+		}, nil
 	}
 	// TODO maybe add other mapping types.
 	return nil, fmt.Errorf("Unkown mapping: %v", b.To)
@@ -118,13 +132,15 @@ func ParseRawBindings(
 type Binding struct {
 	From []Key
 	To   func([]Key, *int, Substate)
+	Name string
+	Desc string
 }
 
 // A BindingTree is a tree structure for a set of bindings. Each key sequence
 // corresponds to a node in the tree, (the empty sequence being the root),
 // with a binding function optionally attached to any node.
 type BindingTree struct {
-	Binding  func([]Key, *int, Substate)
+	Binding  *Binding
 	Subtrees map[Key]*BindingTree
 }
 
@@ -153,14 +169,11 @@ func (t *BindingTree) IterLeaves() <-chan *Binding {
 	ret := make(chan *Binding)
 	go func() {
 		if t.Binding != nil {
-			ret <- &Binding{make([]Key, 0), t.Binding}
+			ret <- t.Binding
 		}
-		for key, tree := range t.Subtrees {
+		for _, tree := range t.Subtrees {
 			for b := range tree.IterLeaves() {
-				keys := make([]Key, len(b.From)+1)
-				keys[0] = key
-				copy(keys[1:], b.From)
-				ret <- &Binding{keys, b.To}
+				ret <- b
 			}
 		}
 		close(ret)
@@ -184,6 +197,6 @@ func (t *BindingTree) Append(binding *Binding) error {
 	if t.Binding != nil {
 		return (*bindingConflict)(binding)
 	}
-	t.Binding = binding.To
+	t.Binding = binding
 	return nil
 }

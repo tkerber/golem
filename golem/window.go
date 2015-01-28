@@ -370,7 +370,7 @@ func (w *Window) rebuildQuickmarks() {
 	for keyStr := range w.parent.quickmarks {
 		bindings = append(
 			bindings,
-			&cmd.Binding{cmd.ParseKeys(keyStr), w.quickmarkCallback})
+			&cmd.Binding{cmd.ParseKeys(keyStr), w.quickmarkCallback, "Quickmark", "Load Quickmark"})
 	}
 	bindingTree, errs := cmd.NewBindingTree(bindings)
 	if errs != nil {

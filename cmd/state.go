@@ -258,7 +258,7 @@ func (s *NormalMode) ProcessKeyPress(key RealKey) (State, bool) {
 			} else {
 				nump = nil
 			}
-			go subtree.Binding(
+			go subtree.Binding.To(
 				s.CurrentKeys,
 				nump,
 				s.Substate)
@@ -329,7 +329,7 @@ func (s *NormalMode) ProcessKeyPress(key RealKey) (State, bool) {
 				log.Printf("Executing binding for %v...",
 					KeysString(statefulAppend(s.CurrentKeys, key)))
 			}
-			go subtree.Binding(
+			go subtree.Binding.To(
 				statefulAppend(s.CurrentKeys, key),
 				nump,
 				s.Substate)
@@ -338,7 +338,7 @@ func (s *NormalMode) ProcessKeyPress(key RealKey) (State, bool) {
 		// Otherwise, we wait for another keypress.
 		go executeAfterTimeout(
 			timeoutChan,
-			subtree.Binding,
+			subtree.Binding.To,
 			nump,
 			s,
 			statefulAppend(s.CurrentKeys, key))
