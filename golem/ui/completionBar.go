@@ -14,11 +14,16 @@ import (
 // current option should be displayed.
 const SurroundingCompletions = 5
 
+// MaxWidth is the maximum number of tabs in the completions (i.e. the
+// maximum table width.)
+const MaxWidth = 3
+
 // A CompletionBar is a horizontal bar for displaying the current completion
 // a some context surrounding it.
 type CompletionBar struct {
 	Container   *gtk.Grid
-	widgets     []*gtk.Widget
+	boxes       [SurroundingCompletions*2 + 1][MaxWidth]*gtk.Box
+	labels      [SurroundingCompletions*2 + 1][MaxWidth]*gtk.Label
 	completions []string
 	at          int
 	parent      *Window
@@ -38,9 +43,38 @@ func (w *Window) newCompletionBar() (*CompletionBar, error) {
 	grid.SetNoShowAll(true)
 	grid.SetName("completionbar")
 
+	// Set up the grid contents.
+	var labels [SurroundingCompletions*2 + 1][MaxWidth]*gtk.Label
+	var boxes [SurroundingCompletions*2 + 1][MaxWidth]*gtk.Box
+	for i, row := range labels {
+		for j, _ := range row {
+			b, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
+			if err != nil {
+				return nil, err
+			}
+			b.SetSizeRequest(100, -1)
+			b.SetHExpand(true)
+			grid.Attach(b, j, i, 1, 1)
+			boxes[i][j] = b
+			l, err := gtk.LabelNew("")
+			if err != nil {
+				return nil, err
+			}
+			l.SetHAlign(gtk.ALIGN_START)
+			l.SetMaxWidthChars(70)
+			l.SetEllipsize(pango.ELLIPSIZE_MIDDLE)
+			l.OverrideFont("monospace")
+			l.SetUseMarkup(true)
+			b.PackStart(l, false, false, 0)
+			l.Show()
+			labels[i][j] = l
+		}
+	}
+
 	return &CompletionBar{
 		grid,
-		make([]*gtk.Widget, 0, (SurroundingCompletions*2+1)*5),
+		boxes,
+		labels,
 		make([]string, 0),
 		0,
 		w,
@@ -60,11 +94,10 @@ func (cb *CompletionBar) UpdateAt(at int) {
 }
 
 // Update updates the display of completions
-func (cb *CompletionBar) Update() error {
-	var ret error
+func (cb *CompletionBar) Update() {
 	ggtk.GlibMainContextInvoke(func() {
 		if len(cb.completions) < 2*SurroundingCompletions+1 {
-			ret = cb.update(cb.completions, cb.at)
+			cb.update(cb.completions, cb.at)
 		} else {
 			start := cb.at - SurroundingCompletions
 			end := cb.at + SurroundingCompletions
@@ -75,63 +108,46 @@ func (cb *CompletionBar) Update() error {
 				start -= end - len(cb.completions)
 				end = len(cb.completions)
 			}
-			ret = cb.update(cb.completions[start:end], cb.at-start)
+			cb.update(cb.completions[start:end], cb.at-start)
 		}
 	})
-	return ret
 }
 
 // Clear detaches all active completions.
 func (cb *CompletionBar) Clear() {
 	ggtk.GlibMainContextInvoke(func() {
-		for i, w := range cb.widgets {
-			w.Destroy()
-			cb.widgets[i] = nil
+		for _, row := range cb.boxes {
+			for _, box := range row {
+				box.Hide()
+			}
 		}
-		cb.widgets = cb.widgets[0:0]
+		for _, row := range cb.labels {
+			for _, label := range row {
+				label.SetMarkup("")
+			}
+		}
 	})
 }
 
 // update updates the display of completions with the specified context.
 //
 // Must be invoked from glib's main context.
-func (cb *CompletionBar) update(completions []string, at int) error {
-	widgets := make([]*gtk.Widget, 0, (SurroundingCompletions*2+1)*5)
-	var retErr error
+func (cb *CompletionBar) update(completions []string, at int) {
+	cb.Clear()
 	for i, completion := range completions {
-		split := strings.Split(completion, "\t")
+		split := strings.SplitN(completion, "\t", MaxWidth)
 		for j, str := range split {
-			b, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
-			if err != nil {
-				retErr = err
-				continue
-			}
-			b.SetHExpand(true)
-			cb.Container.Attach(b, j, i, 1, 1)
-			widgets = append(widgets, &b.Widget)
-			l, err := gtk.LabelNew("")
-			if err != nil {
-				retErr = err
-				continue
-			}
-			b.PackStart(l, false, false, 0)
-			l.SetUseMarkup(true)
+			cb.boxes[i][j].Show()
 			if i == at {
-				l.SetMarkup(cb.parent.MarkupReplacer.Replace(
+				cb.labels[i][j].SetMarkup(cb.parent.MarkupReplacer.Replace(
 					fmt.Sprintf("<em>%s</em>", html.EscapeString(str))))
-				b.SetName("active")
+				cb.boxes[i][j].SetName("active")
 			} else {
-				l.SetMarkup(cb.parent.MarkupReplacer.Replace(
+				cb.labels[i][j].SetMarkup(cb.parent.MarkupReplacer.Replace(
 					fmt.Sprintf("%s", html.EscapeString(str))))
+				cb.boxes[i][j].SetName("")
 			}
-			l.SetMaxWidthChars(50)
-			l.SetEllipsize(pango.ELLIPSIZE_MIDDLE)
-			l.OverrideFont("monospace")
-			b.ShowAll()
+			cb.boxes[i][j].Show()
 		}
 	}
-	cb.Clear()
-	cb.widgets = widgets
-
-	return retErr
 }
