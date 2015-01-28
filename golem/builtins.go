@@ -361,7 +361,7 @@ func (w *Window) builtinScrollUp(n *int) {
 func (w *Window) search(term string) {
 	wv := w.getWebView()
 	wv.GetFindController().Search(
-		term, webkit.FindOptionsWrapAround)
+		term, webkit.FindOptionsWrapAround|webkit.FindOptionsCaseInsensitive)
 	wv.searchForward = true
 }
 
@@ -369,7 +369,10 @@ func (w *Window) search(term string) {
 func (w *Window) backSearch(term string) {
 	wv := w.getWebView()
 	wv.GetFindController().Search(
-		term, webkit.FindOptionsWrapAround|webkit.FindOptionsBackwards)
+		term,
+		webkit.FindOptionsWrapAround|
+			webkit.FindOptionsBackwards|
+			webkit.FindOptionsCaseInsensitive)
 	wv.searchForward = false
 }
 
