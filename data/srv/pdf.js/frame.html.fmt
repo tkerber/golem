@@ -23,7 +23,7 @@
     </head>
     <body>
         <div>
-            <iframe src="golem:///pdf.js/web/viewer.html?file=golem:///pdf.js/loop/%s" ></iframe>
+            <iframe src="golem-unsafe://pdf.js/web/viewer.html?file=golem-unsafe://pdf.js/loop/%s" ></iframe>
         </div>
     </body>
 </html>

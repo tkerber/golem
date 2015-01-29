@@ -5,6 +5,7 @@ package golem
 // #include <stdlib.h>
 import "C"
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -101,9 +102,9 @@ func (g *Golem) webkitInit() {
 			})
 	})
 
-	// TODO this is temporary.
+	c.RegisterURIScheme("golem-unsafe", golemUnsafeSchemeHandler)
 	c.RegisterURIScheme("golem", golemSchemeHandler)
-	c.GetSecurityManager().RegisterURISchemeAsCorsEnabled("golem")
+	c.GetSecurityManager().RegisterURISchemeAsLocal("golem")
 }
 
 // WebkitCleanup removes the temporary webkit extension directory.
@@ -113,7 +114,12 @@ func (g *Golem) WebkitCleanup() {
 
 // golemSchemeHandler handles request to the 'golem:' scheme.
 func golemSchemeHandler(req *webkit.URISchemeRequest) {
-	rPath := strings.TrimPrefix(req.GetURI(), "golem://")
+	req.FinishError(errors.New("Invalid request"))
+}
+
+// golemUnsafeSchemeHandler handles request to the 'golem-unsafe:' scheme.
+func golemUnsafeSchemeHandler(req *webkit.URISchemeRequest) {
+	rPath := strings.TrimPrefix(req.GetURI(), "golem-unsafe://")
 	// If we have a ? or # suffix, we discard it.
 	splitPath := strings.SplitN(rPath, "#", 2)
 	rPath = splitPath[0]
@@ -125,11 +131,11 @@ func golemSchemeHandler(req *webkit.URISchemeRequest) {
 		req.Finish(data, mime)
 	} else {
 		switch {
-		case strings.HasPrefix(rPath, "/pdf.js/loop/"):
+		case strings.HasPrefix(rPath, "pdf.js/loop/"):
 			handleLoopRequest(req)
 		default:
 			// TODO finish w/ error
-			req.Finish(nil, "application/octet-stream")
+			req.FinishError(errors.New("Invalid request"))
 		}
 	}
 }
@@ -138,7 +144,8 @@ func golemSchemeHandler(req *webkit.URISchemeRequest) {
 //
 // Any request to a golem protocol containing the path /loop/ (which is not an
 // existing asset) will be treated as a loop request, with the URI after the
-// loop/ part. E.g. golem:///pdf.js/loop/http://example.com/example-pdf.pdf
+// loop/ part.
+// E.g. golem-unsafe:///pdf.js/loop/http://example.com/example-pdf.pdf
 func handleLoopRequest(req *webkit.URISchemeRequest) {
 	// We loop a page request from another scheme into the golem scheme
 	// Ever-so-slightly dangerous.
