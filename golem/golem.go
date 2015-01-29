@@ -20,10 +20,26 @@ import (
 
 // scrollbarHideCSS is the CSS to hide the scroll bars for webkit.
 const scrollbarHideCSS = `
-html::-webkit-scrollbar{
-	height:0px!important;
-	width:0px!important;
+html::-webkit-scrollbar {
+	height: 0 !important;
+	width:  0 !important;
 }`
+
+// injectedHTMLCSS is CSS governing the display of specifically injected
+// html code from golem.
+const injectedHTMLCSS = `
+.__golem-hint {
+	padding: 1px;
+	border: 1px solid rgba(0, 0, 0, 0.7);
+	background-color: rgba(255, 255, 255, 0.4);
+	position: absolute;
+	font: 9pt monospace;
+	color: rgba(0, 0, 0, 0.7);
+}
+.__golem-highlight {
+	background-color: rgba(255, 255, 0, 0.5);
+}
+`
 
 // A historyEntry is a single entry in the history file.
 type historyEntry struct {
@@ -72,6 +88,16 @@ func New(sBus *dbus.Conn, profile string) (*Golem, error) {
 		scrollbarHideCSS,
 		webkit.UserContentInjectTopFrame,
 		webkit.UserStyleLevelUser,
+		nil,
+		nil)
+	if err != nil {
+		return nil, err
+	}
+	ucm.AddStyleSheet(css)
+	css, err = webkit.NewUserStyleSheet(
+		injectedHTMLCSS,
+		webkit.UserContentInjectAllFrames,
+		webkit.UserStyleLevelAuthor,
 		nil,
 		nil)
 	if err != nil {

@@ -526,6 +526,48 @@ frame_document_loaded(WebKitDOMDocument *doc,
                         webkit_dom_node_list_item(nodes, i)));
         frame_document_loaded(subdoc, exten);
     }
+    
+    // TODO: tmp
+    // Scan for links, and highlight them and add a hint to them. (testing)
+    nodes = webkit_dom_document_get_elements_by_tag_name(
+            WEBKIT_DOM_DOCUMENT(doc),
+            "A");
+    len = webkit_dom_node_list_get_length(nodes);
+    for(i = 0; i < len; i++) {
+        // highlight
+        // TODO err
+        WebKitDOMElement *hl_span = webkit_dom_document_create_element(
+                WEBKIT_DOM_DOCUMENT(doc),
+                "SPAN",
+                NULL);
+        webkit_dom_element_set_class_name(hl_span, "__golem-highlight");
+        WebKitDOMNode *node = webkit_dom_node_list_item(nodes, i);
+        WebKitDOMNode *parent = webkit_dom_node_get_parent_node(node);
+        // TODO err
+        webkit_dom_node_replace_child(parent, WEBKIT_DOM_NODE(hl_span), node, NULL);
+        // TODO err
+        webkit_dom_node_append_child(WEBKIT_DOM_NODE(hl_span), node, NULL);
+
+        // TODO err
+        WebKitDOMElement *hint_div = webkit_dom_document_create_element(
+                WEBKIT_DOM_DOCUMENT(doc),
+                "DIV",
+                NULL);
+        webkit_dom_element_set_class_name(hint_div, "__golem-hint");
+        // TODO err
+        gchar *style = g_strdup_printf("left:%fpx;top:%fpx",
+                webkit_dom_element_get_offset_left(WEBKIT_DOM_ELEMENT(node)),
+                webkit_dom_element_get_offset_top(WEBKIT_DOM_ELEMENT(node)));
+        webkit_dom_element_set_attribute(hint_div, "style", style, NULL);
+        g_free(style);
+        // TODO err
+        webkit_dom_node_append_child(
+                WEBKIT_DOM_NODE(hint_div),
+                WEBKIT_DOM_NODE(webkit_dom_document_create_text_node(WEBKIT_DOM_DOCUMENT(doc), "FG")),
+                NULL);
+        // TODO err
+        webkit_dom_node_append_child(parent, WEBKIT_DOM_NODE(hint_div), NULL);
+    }
 }
 
 static void
