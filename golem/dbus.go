@@ -2,12 +2,15 @@ package golem
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/guelfey/go.dbus"
 	"github.com/guelfey/go.dbus/introspect"
 	"github.com/mattn/go-shellwords"
 	"github.com/tkerber/golem/webkit"
 )
+
+const HintsChars = "FDSARTGBVECWXQZIOPMNHYULKJ"
 
 const (
 	// webExtenDBusInterface is the interface name of golem's web extensions.
@@ -105,6 +108,26 @@ func (g *DBusGolem) Blocks(uri, firstParty string, flags uint64) (bool, *dbus.Er
 // domain.
 func (g *DBusGolem) DomainElemHideCSS(domain string) (string, *dbus.Error) {
 	return g.golem.adblocker.DomainElemHideCSS(domain), nil
+}
+
+// GetHintsLabels gets n labels for hints.
+func (g *DBusGolem) GetHintsLabels(n int64) ([]string, *dbus.Error) {
+	ret := make([]string, n)
+	if n == 0 {
+		return ret, nil
+	}
+	length := int(math.Ceil(
+		math.Log(float64(n)) / math.Log(float64(len(HintsChars)))))
+	for i := range ret {
+		bytes := make([]byte, length)
+		divI := i
+		for j := range bytes {
+			bytes[j] = HintsChars[divI%len(HintsChars)]
+			divI /= len(HintsChars)
+		}
+		ret[i] = string(bytes)
+	}
+	return ret, nil
 }
 
 // webExtension is the DBus object for a specific web extension.

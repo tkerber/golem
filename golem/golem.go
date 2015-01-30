@@ -35,9 +35,13 @@ const injectedHTMLCSS = `
 	position: absolute;
 	font: 9pt monospace;
 	color: rgba(0, 0, 0, 0.7);
+	z-index: 100000;
 }
 .__golem-highlight {
 	background-color: rgba(255, 255, 0, 0.5);
+}
+.__golem-hide {
+	display: none;
 }
 `
 

@@ -25,6 +25,11 @@ static const gchar introspection_xml[] =
     "        <signal name='InputFocusChanged'>"
     "            <arg type='b' name='InputFocused' />"
     "        </signal>"
+    "        <method name='LinkHintsMode' />"
+    "        <method name='EndHintsMode' />"
+    "        <method name='FilterHintsMode'>"
+    "            <arg type='s' name='Prefix' direction='in' />"
+    "        </method>"
     "    </interface>"
     "</node>";
 
@@ -112,7 +117,19 @@ handle_method_call(GDBusConnection       *connection,
                    GDBusMethodInvocation *invocation,
                    gpointer               user_data)
 {
-    // No methods currently.
+    Exten *exten = user_data;
+    if(g_strcmp0(method_name, "LinkHintsMode") == 0) {
+        start_hints_mode(select_links, hint_call_by_href, exten);
+        g_dbus_method_invocation_return_value(invocation, NULL);
+    } else if(g_strcmp0(method_name, "EndHintsMode") == 0) {
+        end_hints_mode(exten);
+        g_dbus_method_invocation_return_value(invocation, NULL);
+    } else if(g_strcmp0(method_name, "FilterHintsMode") == 0) {
+        const gchar *str;
+        g_variant_get(parameters, "(&s)", &str);
+        filter_hints_mode(str, exten);
+        g_dbus_method_invocation_return_value(invocation, NULL);
+    }
 }
 
 // handle_get_property handles a DBus property get call.
@@ -460,96 +477,6 @@ adblock_before_load_cb(WebKitDOMEventTarget *doc,
     g_free(uri);
 }
 
-// frame_document_loaded watches signals emitted from the given document.
-static void
-frame_document_loaded(WebKitDOMDocument *doc,
-                      Exten             *exten)
-{
-    // Track document, and don't register multiple times.
-    if(!g_hash_table_add(exten->registered_documents, doc)) {
-        return;
-    }
-    WebKitDOMEventTarget *target = WEBKIT_DOM_EVENT_TARGET(
-            webkit_dom_document_get_default_view(doc));
-    // listen for focus changes
-    webkit_dom_event_target_add_event_listener(
-            target,
-            "blur",
-            G_CALLBACK(active_element_change_cb),
-            true,
-            exten);
-    webkit_dom_event_target_add_event_listener(
-            target,
-            "focus",
-            G_CALLBACK(active_element_change_cb),
-            true,
-            exten);
-
-    // listen for resource loads.
-    webkit_dom_event_target_add_event_listener(
-            target,
-            "beforeload",
-            G_CALLBACK(adblock_before_load_cb),
-            true,
-            exten);
-
-    // Scan for existing iframes, and add them as new frames.
-    WebKitDOMNodeList *nodes = webkit_dom_document_get_elements_by_tag_name(
-            WEBKIT_DOM_DOCUMENT(doc),
-            "IFRAME");
-    gulong i;
-    gulong len = webkit_dom_node_list_get_length(nodes);
-    for(i = 0; i < len; i++) {
-        WebKitDOMDocument *subdoc =
-            webkit_dom_html_iframe_element_get_content_document(
-                    WEBKIT_DOM_HTML_IFRAME_ELEMENT(
-                        webkit_dom_node_list_item(nodes, i)));
-        frame_document_loaded(subdoc, exten);
-    }
-    
-    // TODO: tmp
-    // Scan for links, and highlight them and add a hint to them. (testing)
-    nodes = webkit_dom_document_get_elements_by_tag_name(
-            WEBKIT_DOM_DOCUMENT(doc),
-            "A");
-    len = webkit_dom_node_list_get_length(nodes);
-    for(i = 0; i < len; i++) {
-        // highlight
-        // TODO err
-        WebKitDOMElement *hl_span = webkit_dom_document_create_element(
-                WEBKIT_DOM_DOCUMENT(doc),
-                "SPAN",
-                NULL);
-        webkit_dom_element_set_class_name(hl_span, "__golem-highlight");
-        WebKitDOMNode *node = webkit_dom_node_list_item(nodes, i);
-        WebKitDOMNode *parent = webkit_dom_node_get_parent_node(node);
-        // TODO err
-        webkit_dom_node_replace_child(parent, WEBKIT_DOM_NODE(hl_span), node, NULL);
-        // TODO err
-        webkit_dom_node_append_child(WEBKIT_DOM_NODE(hl_span), node, NULL);
-
-        // TODO err
-        WebKitDOMElement *hint_div = webkit_dom_document_create_element(
-                WEBKIT_DOM_DOCUMENT(doc),
-                "DIV",
-                NULL);
-        webkit_dom_element_set_class_name(hint_div, "__golem-hint");
-        // TODO err
-        gchar *style = g_strdup_printf("left:%fpx;top:%fpx",
-                webkit_dom_element_get_offset_left(WEBKIT_DOM_ELEMENT(node)),
-                webkit_dom_element_get_offset_top(WEBKIT_DOM_ELEMENT(node)));
-        webkit_dom_element_set_attribute(hint_div, "style", style, NULL);
-        g_free(style);
-        // TODO err
-        webkit_dom_node_append_child(
-                WEBKIT_DOM_NODE(hint_div),
-                WEBKIT_DOM_NODE(webkit_dom_document_create_text_node(WEBKIT_DOM_DOCUMENT(doc), "FG")),
-                NULL);
-        // TODO err
-        webkit_dom_node_append_child(parent, WEBKIT_DOM_NODE(hint_div), NULL);
-    }
-}
-
 static void
 inject_adblock_css(WebKitDOMDocument *doc,
                    Exten             *exten)
@@ -616,6 +543,56 @@ inject_adblock_css(WebKitDOMDocument *doc,
     }
 }
 
+// frame_document_loaded watches signals emitted from the given document.
+static void
+frame_document_loaded(WebKitDOMDocument *doc,
+                      Exten             *exten)
+{
+    // Track document, and don't register multiple times.
+    if(!g_hash_table_add(exten->registered_documents, doc)) {
+        return;
+    }
+    WebKitDOMEventTarget *target = WEBKIT_DOM_EVENT_TARGET(
+            webkit_dom_document_get_default_view(doc));
+    // listen for focus changes
+    webkit_dom_event_target_add_event_listener(
+            target,
+            "blur",
+            G_CALLBACK(active_element_change_cb),
+            true,
+            exten);
+    webkit_dom_event_target_add_event_listener(
+            target,
+            "focus",
+            G_CALLBACK(active_element_change_cb),
+            true,
+            exten);
+
+    // listen for resource loads.
+    webkit_dom_event_target_add_event_listener(
+            target,
+            "beforeload",
+            G_CALLBACK(adblock_before_load_cb),
+            true,
+            exten);
+
+    // Scan for existing iframes, and add them as new frames.
+    WebKitDOMNodeList *nodes = webkit_dom_document_get_elements_by_tag_name(
+            WEBKIT_DOM_DOCUMENT(doc),
+            "IFRAME");
+    gulong i;
+    gulong len = webkit_dom_node_list_get_length(nodes);
+    for(i = 0; i < len; i++) {
+        WebKitDOMDocument *subdoc =
+            webkit_dom_html_iframe_element_get_content_document(
+                    WEBKIT_DOM_HTML_IFRAME_ELEMENT(
+                        webkit_dom_node_list_item(nodes, i)));
+        frame_document_loaded(subdoc, exten);
+    }
+    // Element hider
+    inject_adblock_css(doc, exten);
+}
+
 // document_loaded_cb is called when a document is loaded, and updates
 // internal bookkeeping and attaches to signals from the document.
 static void
@@ -640,10 +617,6 @@ document_loaded_cb(WebKitWebPage *page,
             G_CALLBACK(document_scroll_cb),
             false,
             exten);
-
-    // Element hider
-    // TODO: inject into every frame.
-    inject_adblock_css(exten->document, exten);
 }
 
 // on_bus_acquired is called when a DBus bus is acquired, and proceeds with

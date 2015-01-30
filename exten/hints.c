@@ -4,31 +4,81 @@
 #include "hints.h"
 
 static gchar **
-get_hints_texts(guint length) {
-    gchar **ret = g_malloc(sizeof(gchar*) * length);
-    guint i;
-    for(i = 0; i < length; i++) {
-        *(ret + i) = g_strdup("FG");
+get_hints_texts(guint length, Exten *exten, GError **err) {
+    GVariant *retv = g_dbus_connection_call_sync(
+            exten->connection,
+            exten->golem_name,
+            "/com/github/tkerber/Golem",
+            "com.github.tkerber.Golem",
+            "GetHintsLabels",
+            g_variant_new(
+                "(x)",
+                (gint64)length),
+            G_VARIANT_TYPE("(as)"),
+            G_DBUS_CALL_FLAGS_NONE,
+            -1,
+            NULL,
+            err);
+    if(err != NULL && *err != NULL) {
+        return NULL;
     }
+    gchar **ret;
+    g_variant_get(retv, "(^as)", &ret);
+    return ret;
+}
+
+gboolean
+hint_call_by_href(WebKitDOMNode *n, Exten *exten)
+{
+    if(!WEBKIT_DOM_IS_ELEMENT(n)) {
+        return false;
+    }
+    WebKitDOMElement *e = WEBKIT_DOM_ELEMENT(n);
+    printf("Href called: %s\n", webkit_dom_element_get_attribute(e, "HREF"));
+    return false;
+}
+
+GList *
+select_links(Exten *exten)
+{
+    GList *ret = NULL;
+    GList *docs = g_hash_table_get_keys(exten->registered_documents);
+    GList *l;
+    for(l = docs; l != NULL; l = l->next) {
+        WebKitDOMHTMLCollection *coll = webkit_dom_document_get_links(l->data);
+        gulong len = webkit_dom_html_collection_get_length(coll);
+        gulong i;
+        for(i = 0; i < len; i++) {
+            WebKitDOMNode *item = webkit_dom_html_collection_item(coll, i);
+            g_object_ref(item);
+            ret = g_list_prepend(ret, item);
+        }
+    }
+    g_list_free(docs);
     return ret;
 }
 
 void
 start_hints_mode(NodeSelecter ns, NodeExecuter ne, Exten *exten)
 {
-    if(exten->hints != NULL) {
+    if(exten->hints) {
         end_hints_mode(exten);
     }
+    GError *err = NULL;
     GList *nodes = ns(exten);
     guint len = g_list_length(nodes);
-    gchar **hints_texts = get_hints_texts(len);
+    gchar **hints_texts = get_hints_texts(len, exten, &err);
+    if(err != NULL) {
+        printf("Failed to get hints texts: %s\n", err->message);
+        g_error_free(err);
+        return;
+    }
     GHashTable *hints = g_hash_table_new(NULL, NULL);
     GList *l;
     guint i = 0;
     for(l = nodes; l != NULL; l = l->next) {
         Hint *h = g_malloc(sizeof(Hint));
         h->text = *(hints_texts + i++);
-        GError *err = NULL;
         WebKitDOMElement *div = NULL;
         WebKitDOMElement *span = NULL;
         WebKitDOMText *text = NULL;
@@ -118,11 +168,12 @@ err:
     g_free(hints_texts);
     HintsMode *hm = g_malloc(sizeof(HintsMode));
     hm->executer = ne;
+    hm->hints = hints;
     exten->hints = hm;
 }
 
 void
-hints_mode_filter(const gchar *hints, Exten *exten)
+filter_hints_mode(const gchar *hints, Exten *exten)
 {
     if(exten->hints == NULL) {
         return;
@@ -145,7 +196,7 @@ hints_mode_filter(const gchar *hints, Exten *exten)
             webkit_dom_element_set_class_name(h->hl_span, "__golem-highlight");
         } else {
             webkit_dom_element_set_class_name(h->div, "__golem-hide");
-            webkit_dom_element_set_class_name(h->hl_span, NULL);
+            webkit_dom_element_set_class_name(h->hl_span, "");
         }
     }
     g_list_free(nodes);

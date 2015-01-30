@@ -22,11 +22,15 @@ struct _HintsMode {
     GHashTable  *hints;
 };
 
+gboolean hint_call_by_href(WebKitDOMNode*, Exten*);
+
+GList *select_links(Exten*);
+
 void
 start_hints_mode(NodeSelecter ns, NodeExecuter ne, Exten *exten);
 
 void
-hints_mode_filter(const gchar *hints, Exten *exten);
+filter_hints_mode(const gchar *hints, Exten *exten);
 
 void
 end_hints_mode(Exten *exten);
