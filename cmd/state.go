@@ -25,9 +25,9 @@ func min(a, b int) int {
 	return a
 }
 
-// immutableAppend functions like append for a slice of keys, except it is
+// ImmutableAppend functions like append for a slice of keys, except it is
 // guaranteed to return a freshly allocated slice every time.
-func immutableAppend(keys []Key, app ...Key) []Key {
+func ImmutableAppend(keys []Key, app ...Key) []Key {
 	ret := make([]Key, len(keys)+len(app))
 	copy(ret[:len(keys)], keys)
 	copy(ret[len(keys):], app)
@@ -327,10 +327,10 @@ func (s *NormalMode) ProcessKeyPress(key RealKey) (State, bool) {
 			// state.
 			if PrintBindings {
 				log.Printf("Executing binding for %v...",
-					KeysString(immutableAppend(s.CurrentKeys, key)))
+					KeysString(ImmutableAppend(s.CurrentKeys, key)))
 			}
 			go subtree.Binding.To(
-				immutableAppend(s.CurrentKeys, key),
+				ImmutableAppend(s.CurrentKeys, key),
 				nump,
 				s.Substate)
 			return NewNormalMode(s), true
@@ -341,14 +341,14 @@ func (s *NormalMode) ProcessKeyPress(key RealKey) (State, bool) {
 			subtree.Binding.To,
 			nump,
 			s,
-			immutableAppend(s.CurrentKeys, key))
+			ImmutableAppend(s.CurrentKeys, key))
 		// The return is the same as if no binding exists. i.e. Fallthrough.
 	}
 	// We add the key to our list and wait for a new keypress.
 	return &NormalMode{
 		s.StateIndependant,
 		s.Substate,
-		immutableAppend(s.CurrentKeys, key),
+		ImmutableAppend(s.CurrentKeys, key),
 		subtree,
 		timeoutChan,
 		num,

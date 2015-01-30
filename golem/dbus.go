@@ -150,6 +150,26 @@ func webExtensionForWebView(g *Golem, wv *webkit.WebView) *webExtension {
 		dbus.ObjectPath(fmt.Sprintf(webExtenDBusPath, g.profile, page)))}
 }
 
+// LinkHintsMode initializes hints mode for links.
+func (w *webExtension) LinkHintsMode() error {
+	call := w.Call("LinkHintsMode", dbus.FlagNoAutoStart)
+	return call.Err
+}
+
+// EndHintsMode ends hints mode.
+func (w *webExtension) EndHintsMode() error {
+	call := w.Call("EndHintsMode", dbus.FlagNoAutoStart)
+	return call.Err
+}
+
+// FilterHintsMode filters the displayed hints in hints mode.
+//
+// If a hint is matched precicely by a filter, it is hit.
+func (w *webExtension) FilterHintsMode(filter string) error {
+	call := w.Call("FilterHintsMode", dbus.FlagNoAutoStart, filter)
+	return call.Err
+}
+
 // getInt64 retrieves an int64 value.
 func (w *webExtension) getInt64(name string) (int64, error) {
 	v, err := w.GetProperty(webExtenDBusInterface + "." + name)
@@ -207,7 +227,7 @@ func (w *webExtension) getScrollTargetHeight() (int64, error) {
 func (w *webExtension) setInt64(name string, to int64) error {
 	call := w.Call(
 		"org.freedesktop.DBus.Properties.Set",
-		0,
+		dbus.FlagNoAutoStart,
 		webExtenDBusInterface,
 		name,
 		dbus.MakeVariant(to))
