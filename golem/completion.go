@@ -404,7 +404,7 @@ outer:
 
 			str = fmt.Sprintf("%s\t%s", keysStr, g.quickmarks[keysStr])
 		}
-		*compStates = append(*compStates, s.PredictState(b.From))
+		*compStates = append(*compStates, s.PredictState(b.From[len(s.CurrentKeys):]))
 		*compStrings = append(*compStrings, str)
 		update(false)
 	}
