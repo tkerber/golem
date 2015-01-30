@@ -4,6 +4,23 @@
 #include <libsoup/soup.h>
 #include "hints.h"
 
+static void
+dom_get_absolute_position(WebKitDOMElement *e, gdouble *left, gdouble *top)
+{
+    if(e == NULL || WEBKIT_DOM_IS_HTML_BODY_ELEMENT(e)) {
+        *left = 0;
+        *top = 0;
+        return;
+    }
+    gdouble parent_left, parent_top;
+    dom_get_absolute_position(
+            webkit_dom_element_get_offset_parent(e),
+            &parent_left,
+            &parent_top);
+    *left = parent_left + webkit_dom_element_get_offset_left(e);
+    *top = parent_top + webkit_dom_element_get_offset_top(e);
+}
+
 static gchar **
 get_hints_texts(guint length, Exten *exten, GError **err) {
     GVariant *retv = g_dbus_connection_call_sync(
@@ -137,19 +154,21 @@ start_hints_mode(NodeSelecter ns, NodeExecuter ne, Exten *exten)
         g_object_unref(text);
         text = NULL;
         // set hint div position
+        gdouble left, top;
+        dom_get_absolute_position(WEBKIT_DOM_ELEMENT(l->data), &left, &top);
         gchar *style = g_strdup_printf("left:%fpx;top:%fpx",
-                webkit_dom_element_get_offset_left(l->data),
-                webkit_dom_element_get_offset_top(l->data));
+                left,
+                top);
         webkit_dom_element_set_attribute(div, "style", style, &err);
         g_free(style);
         if(err != NULL) {
             printf("Failed to set hint div position: %s\n", err->message);
             goto err;
         }
-        // add hint div to DOM at the nodes parent.
-        WebKitDOMNode *p = webkit_dom_node_get_parent_node(l->data);
+        // add hint div to DOM at the document body
+        WebKitDOMNode *p = WEBKIT_DOM_NODE(webkit_dom_document_get_body(doc));
         if(p == NULL) {
-            printf("Failed to attach hint div: NULL parent\n");
+            printf("Failed to attach hint div: NULL body\n");
             goto err;
         }
         webkit_dom_node_append_child(p, WEBKIT_DOM_NODE(div), &err);
@@ -161,6 +180,7 @@ start_hints_mode(NodeSelecter ns, NodeExecuter ne, Exten *exten)
         // create highlight span
         span =
             webkit_dom_document_create_element(doc, "SPAN", &err);
+        p = webkit_dom_node_get_parent_node(l->data);
         if(err != NULL) {
             printf("Failed to create hint span: %s\n", err->message);
             goto err;
@@ -185,6 +205,7 @@ err:
         g_object_unref(l->data);
         if(err != NULL) {
             g_error_free(err);
+            err = NULL;
         }
         g_free(h->text);
         g_free(h);
