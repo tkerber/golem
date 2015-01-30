@@ -50,6 +50,14 @@ func (s *HintsMode) ProcessKeyPress(key cmd.RealKey) (cmd.State, bool) {
 	// TODO maybe handle tab.
 	case cmd.KeyReturn, cmd.KeyKPEnter, cmd.KeyEscape:
 		return cmd.NewNormalMode(s), true
+	case cmd.KeyBackSpace:
+		return &HintsMode{
+			s.StateIndependant,
+			s.Substate,
+			s.HintsCallback,
+			s.CurrentKeys[:len(s.CurrentKeys)-1],
+			s.ExecuterFunction,
+		}, true
 	default:
 		newKeys := cmd.ImmutableAppend(s.CurrentKeys, key)
 		hitAndEnd, err := s.HintsCallback.FilterHintsMode(cmd.KeysString(newKeys))

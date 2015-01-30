@@ -65,6 +65,8 @@ bind ?       builtin:searchModeBackwards
 bind n       builtin:searchNext
 bind N       builtin:searchPrevious
 
+bind f       builtin:hintsFollow
+
 bind m       builtin:toggleQuickmark
 
 " Mediasource isn't supported enough for YouTube yet :(
