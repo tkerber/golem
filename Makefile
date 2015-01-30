@@ -12,7 +12,7 @@ all: data/libgolem.so data/srv/pdf.js/
 %.o: %.c
 	$(CC) -c -fPIC -o $@ $< $(CFLAGS)
 
-data/libgolem.so: exten/libgolem.o
+data/libgolem.so: exten/libgolem.o exten/hints.o
 	mkdir -p ../data
 	$(CC) -shared -o $@ $^ $(LFLAGS)
 

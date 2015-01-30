@@ -3,26 +3,8 @@
 #include <glib.h>
 #include <stdlib.h>
 #include <stdio.h>
-
-// Adblock constants
-#define ADBLOCK_SCRIPT            (1<<0)
-#define ADBLOCK_IMAGE             (1<<1)
-#define ADBLOCK_STYLE_SHEET       (1<<2)
-#define ADBLOCK_OBJECT            (1<<3)
-#define ADBLOCK_XML_HTTP_REQUEST  (1<<4)
-#define ADBLOCK_OBJECT_SUBREQUEST (1<<5)
-#define ADBLOCK_SUBDOCUMENT       (1<<6)
-#define ADBLOCK_DOCUMENT          (1<<7)
-#define ADBLOCK_ELEMHIDE          (1<<8)
-#define ADBLOCK_OTHER             (1<<9)
-
-// Error stuff
-
-#define GOLEM_WEB_ERROR golem_web_error_quark()
-
-G_DEFINE_QUARK("golem-web-error-quark", golem_web_error);
-
-#define GOLEM_WEB_ERROR_NULL_BODY 0
+#include "libgolem.h"
+#include "hints.h"
 
 // The DBus introspection xml for the WebExtension interface.
 static const gchar introspection_xml[] =
@@ -45,6 +27,26 @@ static const gchar introspection_xml[] =
     "        </signal>"
     "    </interface>"
     "</node>";
+
+// Adblock constants
+#define ADBLOCK_SCRIPT            (1<<0)
+#define ADBLOCK_IMAGE             (1<<1)
+#define ADBLOCK_STYLE_SHEET       (1<<2)
+#define ADBLOCK_OBJECT            (1<<3)
+#define ADBLOCK_XML_HTTP_REQUEST  (1<<4)
+#define ADBLOCK_OBJECT_SUBREQUEST (1<<5)
+#define ADBLOCK_SUBDOCUMENT       (1<<6)
+#define ADBLOCK_DOCUMENT          (1<<7)
+#define ADBLOCK_ELEMHIDE          (1<<8)
+#define ADBLOCK_OTHER             (1<<9)
+
+// Error stuff
+
+#define GOLEM_WEB_ERROR golem_web_error_quark()
+
+G_DEFINE_QUARK("golem-web-error-quark", golem_web_error);
+
+#define GOLEM_WEB_ERROR_NULL_BODY 0
 
 // handle_method_call handles a DBus method call on the WebExtension.
 static void
@@ -89,23 +91,6 @@ static const GDBusInterfaceVTable interface_vtable =
     handle_get_property,
     handle_set_property
 };
-
-// Exten contains all data the web extension requires.
-typedef struct _Exten {
-    WebKitWebPage     *web_page;
-    WebKitDOMDocument *document;
-    WebKitDOMElement  *active;
-    WebKitDOMElement  *scroll_target;
-    GDBusConnection   *connection;
-    glong              last_top;
-    glong              last_height;
-    gboolean           last_input_focus;
-    gchar             *object_path;
-    gchar             *profile;
-    gchar             *golem_name;
-    // Used as a set for documents which have had handlers added.
-    GHashTable        *registered_documents;
-} Exten;
 
 // frame_document_loaded watches signals emitted from the given document.
 static void
@@ -728,6 +713,7 @@ web_page_created_callback(WebKitWebExtension *extension,
                           gpointer            user_data)
 {
     Exten *exten = malloc(sizeof(Exten));
+    exten->hints = NULL;
     exten->web_page = web_page;
     exten->document = NULL;
     exten->active = NULL;
