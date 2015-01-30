@@ -20,12 +20,7 @@
 
 #define GOLEM_WEB_ERROR golem_web_error_quark()
 
-// golem_web_error_quark returns the quark for a golem web error.
-GQuark
-golem_web_error_quark()
-{
-    return g_quark_from_static_string("golem-web-error-quark");
-}
+G_DEFINE_QUARK("golem-web-error-quark", golem_web_error);
 
 #define GOLEM_WEB_ERROR_NULL_BODY 0
 
