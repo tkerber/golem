@@ -130,6 +130,13 @@ func (g *DBusGolem) GetHintsLabels(n int64) ([]string, *dbus.Error) {
 	return ret, nil
 }
 
+// HintCall is called if a hint was hit.
+func (g *DBusGolem) HintCall(uri string) (bool, *dbus.Error) {
+	// TODO this is very much temporary.
+	g.golem.windows[0].getWebView().LoadURI(uri)
+	return false, nil
+}
+
 // webExtension is the DBus object for a specific web extension.
 type webExtension struct {
 	*dbus.Object

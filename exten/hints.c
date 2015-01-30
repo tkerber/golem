@@ -1,6 +1,7 @@
 #include <webkitdom/webkitdom.h>
 #include <glib.h>
 #include <stdio.h>
+#include <libsoup/soup.h>
 #include "hints.h"
 
 static gchar **
@@ -24,6 +25,7 @@ get_hints_texts(guint length, Exten *exten, GError **err) {
     }
     gchar **ret;
     g_variant_get(retv, "(^as)", &ret);
+    g_variant_unref(retv);
     return ret;
 }
 
@@ -31,11 +33,42 @@ gboolean
 hint_call_by_href(WebKitDOMNode *n, Exten *exten)
 {
     if(!WEBKIT_DOM_IS_ELEMENT(n)) {
-        return false;
+        return true;
     }
     WebKitDOMElement *e = WEBKIT_DOM_ELEMENT(n);
-    printf("Href called: %s\n", webkit_dom_element_get_attribute(e, "HREF"));
-    return false;
+    gchar *doc_url = webkit_dom_document_get_url(webkit_dom_node_get_owner_document(n));
+    SoupURI *uri_base = soup_uri_new(doc_url);
+    g_free(doc_url);
+    SoupURI *uri = soup_uri_new_with_base(uri_base, webkit_dom_element_get_attribute(e, "HREF"));
+    soup_uri_free(uri_base);
+    char *str = soup_uri_to_string(uri, false);
+    soup_uri_free(uri);
+
+    GError *err = NULL;
+    GVariant *retv = g_dbus_connection_call_sync(
+            exten->connection,
+            exten->golem_name,
+            "/com/github/tkerber/Golem",
+            "com.github.tkerber.Golem",
+            "HintCall",
+            g_variant_new(
+                "(s)",
+                str),
+            G_VARIANT_TYPE("(b)"),
+            G_DBUS_CALL_FLAGS_NONE,
+            -1,
+            NULL,
+            &err);
+    g_free(str);
+    gboolean ret = FALSE;
+    if(err != NULL) {
+        printf("Failed to call hint: %s\n", err->message);
+        g_error_free(err);
+    } else {
+        g_variant_get(retv, "(b)", &ret);
+        g_variant_unref(retv);
+    }
+    return ret;
 }
 
 GList *
