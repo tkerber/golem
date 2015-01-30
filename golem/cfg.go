@@ -17,7 +17,7 @@ var defaultCfg *cfg
 
 // init initializes the default config.
 func init() {
-	_, err := Asset("srv/pdf.js/web/viewer.html")
+	_, err := Asset("srv/pdf.js/enabled")
 	defaultCfg = &cfg{
 		defaultSearchEngines,
 		"http://github.com/tkerber/golem",
