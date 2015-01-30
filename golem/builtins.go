@@ -39,6 +39,7 @@ func builtinsFor(w *Window) cmd.Builtins {
 		"editURI":              {w.builtinEditURI, "Edits the current URI"},
 		"goBack":               {w.builtinGoBack, "Goes back in browser history"},
 		"goForward":            {w.builtinGoForward, "Goes forward in browser history"},
+		"hintsFollow":          {w.builtinHintsFollow, "Follows a link"},
 		"insertMode":           {w.builtinInsertMode, "Enters intert mode"},
 		"noh":                  {w.builtinNoh, "Removes all highlighting"},
 		"nop":                  {w.builtinNop, "Does nothing"},
@@ -185,6 +186,18 @@ func (w *Window) builtinGoForward(n *int) {
 	if ok {
 		wv.GoToBackForwardListItem(item)
 	}
+}
+
+// builtinHintsFollow enters hints mode to follow a link.
+func (w *Window) builtinHintsFollow(_ *int) {
+	w.setState(states.NewHintsMode(
+		w.State,
+		states.HintsSubstateFollow,
+		w.getWebView(),
+		func(uri string) bool {
+			go w.getWebView().LoadURI(uri)
+			return false
+		}))
 }
 
 // builtinInsertMode initiates insert mode.

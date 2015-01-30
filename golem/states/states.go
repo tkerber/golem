@@ -37,3 +37,8 @@ const (
 	// StatusSubstateError indicates an error status.
 	StatusSubstateError
 )
+
+const (
+	// HintsSubstateFollow indicates to follow a link.
+	HintsSubstateFollow cmd.Substate = iota
+)

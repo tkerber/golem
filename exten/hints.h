@@ -29,7 +29,7 @@ GList *select_links(Exten*);
 void
 start_hints_mode(NodeSelecter ns, NodeExecuter ne, Exten *exten);
 
-void
+gboolean
 filter_hints_mode(const gchar *hints, Exten *exten);
 
 void

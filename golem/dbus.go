@@ -7,6 +7,7 @@ import (
 	"github.com/guelfey/go.dbus"
 	"github.com/guelfey/go.dbus/introspect"
 	"github.com/mattn/go-shellwords"
+	"github.com/tkerber/golem/golem/states"
 	"github.com/tkerber/golem/webkit"
 )
 
@@ -131,10 +132,33 @@ func (g *DBusGolem) GetHintsLabels(n int64) ([]string, *dbus.Error) {
 }
 
 // HintCall is called if a hint was hit.
-func (g *DBusGolem) HintCall(uri string) (bool, *dbus.Error) {
-	// TODO this is very much temporary.
-	g.golem.windows[0].getWebView().LoadURI(uri)
-	return false, nil
+func (g *DBusGolem) HintCall(id uint64, uri string) (bool, *dbus.Error) {
+	wv, ok := g.golem.webViews[id]
+	if !ok {
+		return false, &dbus.Error{
+			fmt.Sprintf(DBusName+".Error", g.golem.profile),
+			[]interface{}{
+				"Invalid web page id recieved.",
+			}}
+	}
+	w := wv.window
+	if w == nil {
+		return false, &dbus.Error{
+			fmt.Sprintf(DBusName+".Error", g.golem.profile),
+			[]interface{}{
+				"WebView is not attached to any window.",
+			}}
+	}
+	hm, ok := w.State.(*states.HintsMode)
+	if !ok {
+		return false, &dbus.Error{
+			fmt.Sprintf(DBusName+".Error", g.golem.profile),
+			[]interface{}{
+				"Window not currently in hints mode.",
+			}}
+	}
+	ret := hm.ExecuterFunction(uri)
+	return ret, nil
 }
 
 // webExtension is the DBus object for a specific web extension.
@@ -152,22 +176,32 @@ func webExtensionForWebView(g *Golem, wv *webkit.WebView) *webExtension {
 
 // LinkHintsMode initializes hints mode for links.
 func (w *webExtension) LinkHintsMode() error {
-	call := w.Call("LinkHintsMode", dbus.FlagNoAutoStart)
+	call := w.Call(
+		webExtenDBusInterface+".LinkHintsMode",
+		dbus.FlagNoAutoStart)
 	return call.Err
 }
 
 // EndHintsMode ends hints mode.
 func (w *webExtension) EndHintsMode() error {
-	call := w.Call("EndHintsMode", dbus.FlagNoAutoStart)
+	call := w.Call(
+		webExtenDBusInterface+".EndHintsMode",
+		dbus.FlagNoAutoStart)
 	return call.Err
 }
 
 // FilterHintsMode filters the displayed hints in hints mode.
 //
 // If a hint is matched precicely by a filter, it is hit.
-func (w *webExtension) FilterHintsMode(filter string) error {
-	call := w.Call("FilterHintsMode", dbus.FlagNoAutoStart, filter)
-	return call.Err
+func (w *webExtension) FilterHintsMode(filter string) (bool, error) {
+	call := w.Call(
+		webExtenDBusInterface+".FilterHintsMode",
+		dbus.FlagNoAutoStart,
+		filter)
+	if call.Err != nil {
+		return false, call.Err
+	}
+	return call.Body[0].(bool), nil
 }
 
 // getInt64 retrieves an int64 value.

@@ -95,7 +95,7 @@ func (w *Window) setState(state cmd.State) {
 		// If we have a container containing exactly this completion, we don't
 		// cancel it. Otherwise, we do.
 		if cont, ok := state.(cmd.ContainerState); !ok ||
-			cont.ChildState() != state {
+			cont.ChildState() != w.State {
 
 			// If the new container is also a completion mode, and the cancel
 			// channels are the same, we DO NOT CANCEL.
@@ -103,6 +103,30 @@ func (w *Window) setState(state cmd.State) {
 				cm.CompletionStates != cm2.CompletionStates {
 
 				cm.CancelFunc()
+			}
+		}
+	}
+	// Start hints mode.
+	if hm, ok := state.(*states.HintsMode); ok {
+		if hm2, ok := w.State.(*states.HintsMode); !ok || hm2.Substate != hm.Substate {
+			switch hm.Substate {
+			case states.HintsSubstateFollow:
+				err := hm.HintsCallback.LinkHintsMode()
+				if err != nil {
+					w.logErrorf("Failed to enter hints mode: %v", err)
+					return
+				}
+			default:
+				w.logErrorf("Unknown hints type: %d", hm.Substate)
+				return
+			}
+		}
+	}
+	// End hints mode.
+	if hm, ok := w.State.(*states.HintsMode); ok {
+		if hm2, ok := state.(*states.HintsMode); !ok || hm2.Substate != hm.Substate {
+			if cont, ok := state.(cmd.ContainerState); !ok || cont.ChildState() != w.State {
+				go hm.HintsCallback.EndHintsMode()
 			}
 		}
 	}

@@ -29,6 +29,7 @@ static const gchar introspection_xml[] =
     "        <method name='EndHintsMode' />"
     "        <method name='FilterHintsMode'>"
     "            <arg type='s' name='Prefix' direction='in' />"
+    "            <arg type='b' name='HitAndEnd' direction='out' />"
     "        </method>"
     "    </interface>"
     "</node>";
@@ -127,8 +128,9 @@ handle_method_call(GDBusConnection       *connection,
     } else if(g_strcmp0(method_name, "FilterHintsMode") == 0) {
         const gchar *str;
         g_variant_get(parameters, "(&s)", &str);
-        filter_hints_mode(str, exten);
-        g_dbus_method_invocation_return_value(invocation, NULL);
+        gboolean ret = filter_hints_mode(str, exten);
+        g_dbus_method_invocation_return_value(invocation,
+                g_variant_new("(b)", ret));
     }
 }
 

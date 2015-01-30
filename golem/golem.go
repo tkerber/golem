@@ -31,9 +31,9 @@ const injectedHTMLCSS = `
 .__golem-hint {
 	padding: 1px;
 	border: 1px solid rgba(0, 0, 0, 0.7);
-	background-color: rgba(255, 255, 255, 0.4);
+	background-color: rgba(255, 255, 255, 0.7);
 	position: absolute;
-	font: 9pt monospace;
+	font: bold 9pt monospace;
 	color: rgba(0, 0, 0, 0.7);
 	z-index: 100000;
 }

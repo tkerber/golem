@@ -1,4 +1,4 @@
-#include <webkitdom/webkitdom.h>
+#include <webkit2/webkit-web-extension.h>
 #include <glib.h>
 #include <stdio.h>
 #include <libsoup/soup.h>
@@ -52,7 +52,8 @@ hint_call_by_href(WebKitDOMNode *n, Exten *exten)
             "com.github.tkerber.Golem",
             "HintCall",
             g_variant_new(
-                "(s)",
+                "(ts)",
+                webkit_web_page_get_id(exten->web_page),
                 str),
             G_VARIANT_TYPE("(b)"),
             G_DBUS_CALL_FLAGS_NONE,
@@ -205,9 +206,10 @@ err:
     exten->hints = hm;
 }
 
-void
+gboolean
 filter_hints_mode(const gchar *hints, Exten *exten)
 {
+    gchar *hints_ci = g_utf8_casefold(hints, -1);
     if(exten->hints == NULL) {
         return;
     }
@@ -215,15 +217,21 @@ filter_hints_mode(const gchar *hints, Exten *exten)
     GList *l;
     for(l = nodes; l != NULL; l = l->next) {
         Hint *h = g_hash_table_lookup(exten->hints->hints, l->data);
-        if(g_str_has_prefix(h->text, hints)) {
+        gchar *text_ci = g_utf8_casefold(h->text, -1);
+        if(g_str_has_prefix(text_ci, hints_ci)) {
             // If the hints exactly match, execute it.
-            if(g_strcmp0(h->text, hints) == 0) {
+            if(g_strcmp0(text_ci, hints_ci) == 0) {
                 if(exten->hints->executer(l->data, exten)) {
                     hints_mode_filter("", exten);
+                    g_free(hints_ci);
+                    g_free(text_ci);
+                    return FALSE;
                 } else {
                     end_hints_mode(exten);
+                    g_free(hints_ci);
+                    g_free(text_ci);
+                    return TRUE;
                 }
-                return;
             }
             webkit_dom_element_set_class_name(h->div, "__golem-hint");
             webkit_dom_element_set_class_name(h->hl_span, "__golem-highlight");
@@ -231,8 +239,11 @@ filter_hints_mode(const gchar *hints, Exten *exten)
             webkit_dom_element_set_class_name(h->div, "__golem-hide");
             webkit_dom_element_set_class_name(h->hl_span, "");
         }
+        g_free(text_ci);
     }
     g_list_free(nodes);
+    g_free(hints_ci);
+    return FALSE;
 }
 
 void

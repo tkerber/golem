@@ -3,6 +3,8 @@ package golem
 import (
 	"fmt"
 
+	"github.com/tkerber/golem/cmd"
+	"github.com/tkerber/golem/golem/states"
 	"github.com/tkerber/golem/golem/ui"
 	"github.com/tkerber/golem/gtk"
 	"github.com/tkerber/golem/webkit"
@@ -139,6 +141,9 @@ func (w *Window) TabGo(index int) error {
 		w.currentWebView = index
 		w.Window.TabNumber = index + 1
 		wv := w.getWebView()
+		if _, ok := w.State.(*states.HintsMode); ok {
+			w.setState(cmd.NewNormalMode(w.State))
+		}
 		w.reconnectWebViewSignals()
 		w.SwitchToWebView(wv)
 		w.Window.TabBar.FocusTab(index)
@@ -204,6 +209,9 @@ func (w *Window) tabsClose(i, j int, cut bool) {
 			w.currentWebView = k
 			w.Window.TabNumber = k + 1
 			wv := w.getWebView()
+			if _, ok := w.State.(*states.HintsMode); ok {
+				w.setState(cmd.NewNormalMode(w.State))
+			}
 			w.reconnectWebViewSignals()
 			w.Window.FocusTab(k)
 			w.Window.SwitchToWebView(wv)

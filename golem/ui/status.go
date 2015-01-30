@@ -118,6 +118,9 @@ func (w *Window) UpdateState(state cmd.State) {
 		newStatus = fmt.Sprintf(
 			"%s <cursor>_</cursor>",
 			html.EscapeString(s.Prompt))
+	case *states.HintsMode:
+		newStatus = fmt.Sprintf("follow: %s",
+			keysToMarkupString(s.CurrentKeys, true, true))
 	}
 	split := strings.SplitN(newStatus, "<cursor>_</cursor>", 2)
 	if len(split) == 1 {
