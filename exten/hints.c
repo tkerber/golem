@@ -2,6 +2,7 @@
 #include <glib.h>
 #include <stdio.h>
 #include <libsoup/soup.h>
+#include <string.h>
 #include "hints.h"
 
 static void
@@ -19,6 +20,55 @@ dom_get_absolute_position(WebKitDOMElement *e, gdouble *left, gdouble *top)
             &parent_top);
     *left = parent_left + webkit_dom_element_get_offset_left(e);
     *top = parent_top + webkit_dom_element_get_offset_top(e);
+}
+
+static void
+highlight(WebKitDOMElement *e)
+{
+    gchar *class_name = webkit_dom_element_get_class_name(e);
+    // not perfect, as classes containing __golem-highlight are also matched.
+    // I assume the class name is sufficiently unique for this not to matter.
+    if(class_name != NULL && strstr(class_name, "__golem-highlight") != NULL) {
+        g_free(class_name);
+        return;
+    }
+    if(class_name == NULL || strlen(class_name) == 0) {
+        g_free(class_name);
+        webkit_dom_element_set_class_name(e, "__golem-highlight");
+    } else {
+        gchar *new_class_name = g_strconcat(class_name, " __golem-highlight", NULL);
+        g_free(class_name);
+        webkit_dom_element_set_class_name(e, new_class_name);
+        g_free(new_class_name);
+    }
+}
+
+static void
+unhighlight(WebKitDOMElement *e)
+{
+    gchar *class_name = webkit_dom_element_get_class_name(e);
+    // not perfect, as seperators apart from space may be used. It will do
+    // for our purposes.
+    gchar **classes = g_strsplit(class_name, " ", 0);
+    g_free(class_name);
+    gchar **class;
+    for(class = classes; *class != NULL; class++) {
+        if(g_strcmp0(*class, "__golem-highlight") == 0) {
+            // remove element
+            g_free(*class);
+            gchar **class2;
+            // shift array
+            for(class2 = class; *class2 != NULL; class2++) {
+                *class2 = *(class2 + 1);
+            }
+            // repeat
+            class--;
+        }
+    }
+    gchar *new_class_name = g_strjoinv(" ", classes);
+    g_strfreev(classes);
+    webkit_dom_element_set_class_name(e, new_class_name);
+    g_free(new_class_name);
 }
 
 static gchar **
@@ -131,7 +181,6 @@ start_hints_mode(NodeSelecter ns, NodeExecuter ne, Exten *exten)
         Hint *h = g_malloc(sizeof(Hint));
         h->text = *(hints_texts + i++);
         WebKitDOMElement *div = NULL;
-        WebKitDOMElement *span = NULL;
         WebKitDOMText *text = NULL;
         WebKitDOMDocument *doc = webkit_dom_node_get_owner_document(l->data);
         // create new hint div.
@@ -155,7 +204,7 @@ start_hints_mode(NodeSelecter ns, NodeExecuter ne, Exten *exten)
         text = NULL;
         // set hint div position
         gdouble left, top;
-        dom_get_absolute_position(WEBKIT_DOM_ELEMENT(l->data), &left, &top);
+        dom_get_absolute_position(l->data, &left, &top);
         gchar *style = g_strdup_printf("left:%fpx;top:%fpx",
                 left,
                 top);
@@ -177,28 +226,10 @@ start_hints_mode(NodeSelecter ns, NodeExecuter ne, Exten *exten)
             goto err;
         }
         webkit_dom_element_set_class_name(div, "__golem-hint");
-        // create highlight span
-        span =
-            webkit_dom_document_create_element(doc, "SPAN", &err);
-        p = webkit_dom_node_get_parent_node(l->data);
-        if(err != NULL) {
-            printf("Failed to create hint span: %s\n", err->message);
-            goto err;
-        }
-        webkit_dom_element_set_class_name(span, "__golem-highlight");
-        webkit_dom_node_replace_child(p, WEBKIT_DOM_NODE(span), l->data, &err);
-        if(err != NULL) {
-            printf("Failed to inject hint span: %s\n", err->message);
-            goto err;
-        }
-        webkit_dom_node_append_child(WEBKIT_DOM_NODE(span), l->data, &err);
-        if(err != NULL) {
-            printf("Failed to inject hint span: %s\n", err->message);
-            goto err;
-        }
+        // highlight the element by adding it to the __golem-highlight class.
+        highlight(l->data);
         // add to hash table
         h->div = div;
-        h->hl_span = span;
         g_hash_table_insert(hints, l->data, h);
         continue;
 err:
@@ -214,9 +245,6 @@ err:
         }
         if(text != NULL) {
             g_object_unref(text);
-        }
-        if(span != NULL) {
-            g_object_unref(span);
         }
     }
     g_list_free(nodes);
@@ -255,10 +283,10 @@ filter_hints_mode(const gchar *hints, Exten *exten)
                 }
             }
             webkit_dom_element_set_class_name(h->div, "__golem-hint");
-            webkit_dom_element_set_class_name(h->hl_span, "__golem-highlight");
+            highlight(l->data);
         } else {
             webkit_dom_element_set_class_name(h->div, "__golem-hide");
-            webkit_dom_element_set_class_name(h->hl_span, "");
+            unhighlight(l->data);
         }
         g_free(text_ci);
     }
@@ -289,26 +317,8 @@ end_hints_mode(Exten *exten)
             }
         }
         g_object_unref(h->div);
-        // remove span
-        p = webkit_dom_node_get_parent_node(WEBKIT_DOM_NODE(h->hl_span));
-        if(p != NULL) {
-            webkit_dom_node_remove_child(
-                    WEBKIT_DOM_NODE(h->hl_span),
-                    l->data,
-                    &err);
-            if(err == NULL) {
-                webkit_dom_node_replace_child(
-                        p,
-                        l->data,
-                        WEBKIT_DOM_NODE(h->hl_span),
-                        &err);
-            }
-            if(err != NULL) {
-                printf("Failed to restructure span div: %s\n", err->message);
-                g_error_free(err);
-            }
-        }
-        g_object_unref(h->hl_span);
+
+        unhighlight(l->data);
         g_free(h);
     }
     g_list_free(nodes);

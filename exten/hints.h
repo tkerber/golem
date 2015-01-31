@@ -14,7 +14,6 @@ typedef gboolean (*NodeExecuter)(WebKitDOMNode*, Exten*);
 typedef struct _Hint {
     gchar            *text;
     WebKitDOMElement *div;
-    WebKitDOMElement *hl_span;
 } Hint;
 
 struct _HintsMode {
