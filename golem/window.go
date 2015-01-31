@@ -111,7 +111,7 @@ func (w *Window) setState(state cmd.State) {
 		if hm2, ok := w.State.(*states.HintsMode); !ok || hm2.Substate != hm.Substate {
 			switch hm.Substate {
 			case states.HintsSubstateFollow:
-				err := hm.HintsCallback.LinkHintsMode()
+				err := hm.HintsCallback.ClickHintsMode()
 				if err != nil {
 					w.logErrorf("Failed to enter hints mode: %v", err)
 					return

@@ -182,6 +182,14 @@ func (w *webExtension) LinkHintsMode() error {
 	return call.Err
 }
 
+// ClickHintsMode initializes hints mode for clickable elements.
+func (w *webExtension) ClickHintsMode() error {
+	call := w.Call(
+		webExtenDBusInterface+".ClickHintsMode",
+		dbus.FlagNoAutoStart)
+	return call.Err
+}
+
 // EndHintsMode ends hints mode.
 func (w *webExtension) EndHintsMode() error {
 	call := w.Call(

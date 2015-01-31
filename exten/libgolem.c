@@ -26,6 +26,7 @@ static const gchar introspection_xml[] =
     "            <arg type='b' name='InputFocused' />"
     "        </signal>"
     "        <method name='LinkHintsMode' />"
+    "        <method name='ClickHintsMode' />"
     "        <method name='EndHintsMode' />"
     "        <method name='FilterHintsMode'>"
     "            <arg type='s' name='Prefix' direction='in' />"
@@ -121,6 +122,9 @@ handle_method_call(GDBusConnection       *connection,
     Exten *exten = user_data;
     if(g_strcmp0(method_name, "LinkHintsMode") == 0) {
         start_hints_mode(select_links, hint_call_by_href, exten);
+        g_dbus_method_invocation_return_value(invocation, NULL);
+    } else if(g_strcmp0(method_name, "ClickHintsMode") == 0) {
+        start_hints_mode(select_clickable, hint_call_by_click, exten);
         g_dbus_method_invocation_return_value(invocation, NULL);
     } else if(g_strcmp0(method_name, "EndHintsMode") == 0) {
         end_hints_mode(exten);

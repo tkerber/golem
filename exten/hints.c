@@ -106,7 +106,9 @@ hint_call_by_href(WebKitDOMNode *n, Exten *exten)
     gchar *doc_url = webkit_dom_document_get_url(webkit_dom_node_get_owner_document(n));
     SoupURI *uri_base = soup_uri_new(doc_url);
     g_free(doc_url);
-    SoupURI *uri = soup_uri_new_with_base(uri_base, webkit_dom_element_get_attribute(e, "HREF"));
+    gchar *href = webkit_dom_element_get_attribute(e, "HREF");
+    SoupURI *uri = soup_uri_new_with_base(uri_base, href);
+    g_free(href);
     soup_uri_free(uri_base);
     char *str = soup_uri_to_string(uri, false);
     soup_uri_free(uri);
@@ -136,6 +138,93 @@ hint_call_by_href(WebKitDOMNode *n, Exten *exten)
         g_variant_get(retv, "(b)", &ret);
         g_variant_unref(retv);
     }
+    return ret;
+}
+
+// Clicks the passed node.
+gboolean
+hint_call_by_click(WebKitDOMNode *n, Exten *exten)
+{
+    WebKitDOMDocument *doc = webkit_dom_node_get_owner_document(n);
+    GError *err = NULL;
+    WebKitDOMEvent *e = webkit_dom_document_create_event(doc, "MouseEvents", &err);
+    if(err != NULL) {
+        printf("Failed to click element: %s\n", err->message);
+        g_error_free(err);
+        return FALSE;
+    }
+    webkit_dom_mouse_event_init_mouse_event(
+            WEBKIT_DOM_MOUSE_EVENT(e),
+            "click",
+            true,
+            true,
+            webkit_dom_document_get_default_view(doc),
+            0,
+            0,
+            0,
+            0,
+            0,
+            false,
+            false,
+            false,
+            false,
+            0,
+            WEBKIT_DOM_EVENT_TARGET(n));
+    webkit_dom_event_target_dispatch_event(
+            WEBKIT_DOM_EVENT_TARGET(n),
+            e,
+            &err);
+    if(err != NULL) {
+        printf("Failed to click element: %s\n", err->message);
+        g_error_free(err);
+    }
+    g_object_unref(e);
+    return FALSE;
+}
+
+// Selects all elements which may normally be clicked.
+// 
+// - Anchor elements
+// - Input elements
+// - Embed elements
+// - Button elements
+// - TextArea elements
+GList *
+select_clickable(Exten *exten)
+{
+    const char* const tags[] = {"A", "INPUT", "EMBED", "BUTTON", "TEXTAREA", NULL};
+    GList *ret = NULL;
+    GList *docs = g_hash_table_get_keys(exten->registered_documents);
+    GList *l;
+    for(l = docs; l != NULL; l = l->next) {
+        guint i;
+        for(i = 0; tags[i] != NULL; i++) {
+            // Special case for A elements: we select links instead of by tag name
+            WebKitDOMNodeList *nl =
+                webkit_dom_document_get_elements_by_tag_name(l->data, tags[i]);
+            gulong len = webkit_dom_node_list_get_length(nl);
+            gulong i;
+            for(i = 0; i < len; i++) {
+                WebKitDOMNode *item = webkit_dom_node_list_item(nl, i);
+                // special case for A elements: ignore those without href.
+                if(i == 0) {
+                    if(!WEBKIT_DOM_IS_HTML_ANCHOR_ELEMENT(item)) {
+                        continue;
+                    }
+                    gchar *href = webkit_dom_html_anchor_element_get_href(
+                            WEBKIT_DOM_HTML_ANCHOR_ELEMENT(item));
+                    if(href == NULL || *href == '\0') {
+                        g_free(href);
+                        continue;
+                    }
+                    g_free(href);
+                }
+                g_object_ref(item);
+                ret = g_list_prepend(ret, item);
+            }
+        }
+    }
+    g_list_free(docs);
     return ret;
 }
 

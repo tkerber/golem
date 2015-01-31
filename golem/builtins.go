@@ -195,7 +195,7 @@ func (w *Window) builtinHintsFollow(_ *int) {
 		states.HintsSubstateFollow,
 		w.getWebView(),
 		func(uri string) bool {
-			go w.getWebView().LoadURI(uri)
+			w.logErrorf("Hints callback on callbackless hint type.")
 			return false
 		}))
 }

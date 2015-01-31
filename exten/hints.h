@@ -23,6 +23,10 @@ struct _HintsMode {
 
 gboolean hint_call_by_href(WebKitDOMNode*, Exten*);
 
+gboolean hint_call_by_click(WebKitDOMNode*, Exten*);
+
+GList *select_clickable(Exten*);
+
 GList *select_links(Exten*);
 
 void
