@@ -159,6 +159,50 @@ hint_call_by_click(WebKitDOMNode *n, Exten *exten)
     return FALSE;
 }
 
+// TODO: For now, this is limited to check if it is visible within its own
+// document.
+static gboolean
+is_visible(WebKitDOMNode *n) {
+    if(!WEBKIT_DOM_IS_ELEMENT(n)) {
+        return FALSE;
+    }
+    gdouble left, top;
+
+    WebKitDOMElement *e = WEBKIT_DOM_ELEMENT(n);
+    dom_get_absolute_position(e, &left, &top);
+
+    glong vp_width, vp_height, vp_x_offset, vp_y_offset;
+    WebKitDOMDOMWindow *vp = webkit_dom_document_get_default_view(
+            webkit_dom_node_get_owner_document(n));
+    g_object_get(vp,
+            "inner-width", &vp_width,
+            "inner-height", &vp_height,
+            "page-x-offset", &vp_x_offset,
+            "page-y-offset", &vp_y_offset,
+            NULL);
+    return
+        left >= vp_x_offset &&
+        left <= vp_x_offset + vp_width &&
+        top  >= vp_y_offset &&
+        top  <= vp_y_offset + vp_height;
+}
+
+static void
+scan_documents(WebKitDOMDocument *doc, GList **l, Exten *exten)
+{
+    *l = g_list_prepend(*l, doc);
+    WebKitDOMNodeList *iframes = webkit_dom_document_get_elements_by_tag_name(doc, "IFRAME");
+    gulong len = webkit_dom_node_list_get_length(iframes);
+    gulong i;
+    for(i = 0; i < len; i++) {
+        scan_documents(webkit_dom_html_iframe_element_get_content_document(
+                WEBKIT_DOM_HTML_IFRAME_ELEMENT(
+                    webkit_dom_node_list_item(iframes, i))),
+                l,
+                exten);
+    }
+}
+
 // Selects all elements which may normally be clicked.
 // 
 // - Anchor elements
@@ -179,18 +223,21 @@ select_clickable(Exten *exten)
         "SELECT",
         NULL};
     GList *ret = NULL;
-    GList *docs = g_hash_table_get_keys(exten->registered_documents);
+    GList *docs = NULL;
+    scan_documents(exten->document, &docs, exten);
     GList *l;
     for(l = docs; l != NULL; l = l->next) {
         guint i;
         for(i = 0; tags[i] != NULL; i++) {
-            // Special case for A elements: we select links instead of by tag name
             WebKitDOMNodeList *nl =
                 webkit_dom_document_get_elements_by_tag_name(l->data, tags[i]);
             gulong len = webkit_dom_node_list_get_length(nl);
             gulong j;
             for(j = 0; j < len; j++) {
                 WebKitDOMNode *item = webkit_dom_node_list_item(nl, j);
+                if(!is_visible(item)) {
+                    continue;
+                }
                 // special case for A elements: ignore those without href.
                 if(i == 0) {
                     if(!WEBKIT_DOM_IS_HTML_ANCHOR_ELEMENT(item)) {
@@ -217,7 +264,8 @@ GList *
 select_links(Exten *exten)
 {
     GList *ret = NULL;
-    GList *docs = g_hash_table_get_keys(exten->registered_documents);
+    GList *docs = NULL;
+    scan_documents(exten->document, &docs, exten);
     GList *l;
     for(l = docs; l != NULL; l = l->next) {
         WebKitDOMHTMLCollection *coll = webkit_dom_document_get_links(l->data);
@@ -225,6 +273,9 @@ select_links(Exten *exten)
         gulong i;
         for(i = 0; i < len; i++) {
             WebKitDOMNode *item = webkit_dom_html_collection_item(coll, i);
+            if(!is_visible(item)) {
+                continue;
+            }
             g_object_ref(item);
             ret = g_list_prepend(ret, item);
         }
