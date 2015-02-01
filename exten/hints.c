@@ -145,40 +145,17 @@ hint_call_by_href(WebKitDOMNode *n, Exten *exten)
 gboolean
 hint_call_by_click(WebKitDOMNode *n, Exten *exten)
 {
-    WebKitDOMDocument *doc = webkit_dom_node_get_owner_document(n);
-    GError *err = NULL;
-    WebKitDOMEvent *e = webkit_dom_document_create_event(doc, "MouseEvents", &err);
-    if(err != NULL) {
-        printf("Failed to click element: %s\n", err->message);
-        g_error_free(err);
-        return FALSE;
+    if(WEBKIT_DOM_IS_HTML_INPUT_ELEMENT(n)) {
+        webkit_dom_html_input_element_select(
+                WEBKIT_DOM_HTML_INPUT_ELEMENT(n));
+    } else if(WEBKIT_DOM_IS_HTML_TEXT_AREA_ELEMENT(n)) {
+        webkit_dom_html_text_area_element_select(
+                WEBKIT_DOM_HTML_TEXT_AREA_ELEMENT(n));
+    } else if(WEBKIT_DOM_IS_HTML_ELEMENT(n)) {
+        webkit_dom_html_element_click(WEBKIT_DOM_HTML_ELEMENT(n));
+    } else if(WEBKIT_DOM_IS_ELEMENT(n)) {
+        webkit_dom_element_focus(WEBKIT_DOM_ELEMENT(n));
     }
-    webkit_dom_mouse_event_init_mouse_event(
-            WEBKIT_DOM_MOUSE_EVENT(e),
-            "click",
-            true,
-            true,
-            webkit_dom_document_get_default_view(doc),
-            0,
-            0,
-            0,
-            0,
-            0,
-            false,
-            false,
-            false,
-            false,
-            0,
-            WEBKIT_DOM_EVENT_TARGET(n));
-    webkit_dom_event_target_dispatch_event(
-            WEBKIT_DOM_EVENT_TARGET(n),
-            e,
-            &err);
-    if(err != NULL) {
-        printf("Failed to click element: %s\n", err->message);
-        g_error_free(err);
-    }
-    g_object_unref(e);
     return FALSE;
 }
 
@@ -189,10 +166,18 @@ hint_call_by_click(WebKitDOMNode *n, Exten *exten)
 // - Embed elements
 // - Button elements
 // - TextArea elements
+// - Select elements
 GList *
 select_clickable(Exten *exten)
 {
-    const char* const tags[] = {"A", "INPUT", "EMBED", "BUTTON", "TEXTAREA", NULL};
+    const char* const tags[] = {
+        "A",
+        "INPUT",
+        "EMBED",
+        "BUTTON",
+        "TEXTAREA",
+        "SELECT",
+        NULL};
     GList *ret = NULL;
     GList *docs = g_hash_table_get_keys(exten->registered_documents);
     GList *l;
@@ -203,9 +188,9 @@ select_clickable(Exten *exten)
             WebKitDOMNodeList *nl =
                 webkit_dom_document_get_elements_by_tag_name(l->data, tags[i]);
             gulong len = webkit_dom_node_list_get_length(nl);
-            gulong i;
-            for(i = 0; i < len; i++) {
-                WebKitDOMNode *item = webkit_dom_node_list_item(nl, i);
+            gulong j;
+            for(j = 0; j < len; j++) {
+                WebKitDOMNode *item = webkit_dom_node_list_item(nl, j);
                 // special case for A elements: ignore those without href.
                 if(i == 0) {
                     if(!WEBKIT_DOM_IS_HTML_ANCHOR_ELEMENT(item)) {
