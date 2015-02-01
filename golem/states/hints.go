@@ -52,6 +52,9 @@ func (s *HintsMode) ProcessKeyPress(key cmd.RealKey) (cmd.State, bool) {
 	case cmd.KeyReturn, cmd.KeyKPEnter, cmd.KeyEscape:
 		return cmd.NewNormalMode(s), true
 	case cmd.KeyBackSpace:
+		if len(s.CurrentKeys) == 0 {
+			return cmd.NewNormalMode(s), true
+		}
 		return &HintsMode{
 			s.StateIndependant,
 			s.Substate,
