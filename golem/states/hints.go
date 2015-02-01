@@ -46,6 +46,7 @@ func NewHintsMode(
 //
 // It returns the new state, and whether the key press was swallowed or not.
 func (s *HintsMode) ProcessKeyPress(key cmd.RealKey) (cmd.State, bool) {
+	var newKeys []cmd.Key
 	switch key.Keyval {
 	// TODO maybe do something on enter. For now, just end hints mode.
 	// TODO maybe handle tab.
@@ -55,31 +56,25 @@ func (s *HintsMode) ProcessKeyPress(key cmd.RealKey) (cmd.State, bool) {
 		if len(s.CurrentKeys) == 0 {
 			return cmd.NewNormalMode(s), true
 		}
-		return &HintsMode{
-			s.StateIndependant,
-			s.Substate,
-			s.HintsCallback,
-			s.CurrentKeys[:len(s.CurrentKeys)-1],
-			s.ExecuterFunction,
-		}, true
+		newKeys = s.CurrentKeys[:len(s.CurrentKeys)-1]
 	default:
-		newKeys := cmd.ImmutableAppend(s.CurrentKeys, key)
-		go func() {
-			hitAndEnd, err := s.HintsCallback.FilterHintsMode(cmd.KeysString(newKeys))
-			if err != nil {
-				log.Printf("Failed to filter hints: %v", err)
-			} else if hitAndEnd {
-				s.StateIndependant.SetState(cmd.NewNormalMode(s))
-			}
-		}()
-		return &HintsMode{
-			s.StateIndependant,
-			s.Substate,
-			s.HintsCallback,
-			newKeys,
-			s.ExecuterFunction,
-		}, true
+		newKeys = cmd.ImmutableAppend(s.CurrentKeys, key)
 	}
+	go func() {
+		hitAndEnd, err := s.HintsCallback.FilterHintsMode(cmd.KeysString(newKeys))
+		if err != nil {
+			log.Printf("Failed to filter hints: %v", err)
+		} else if hitAndEnd {
+			s.StateIndependant.SetState(cmd.NewNormalMode(s))
+		}
+	}()
+	return &HintsMode{
+		s.StateIndependant,
+		s.Substate,
+		s.HintsCallback,
+		newKeys,
+		s.ExecuterFunction,
+	}, true
 }
 
 // GetStateIndependant gets the state independant associated with this state.
