@@ -19,7 +19,7 @@ var defaultCfg *cfg
 func init() {
 	_, err := Asset("srv/pdf.js/enabled")
 	defaultCfg = &cfg{
-		defaultSearchEngines,
+		&searchEngines{make(map[string]*searchEngine, 10), nil},
 		"http://github.com/tkerber/golem",
 		40,
 		"default",

@@ -35,34 +35,42 @@ var commands map[string]func(*Window, *Golem, []string)
 // (which is executed after constant/variabel initialization.
 func init() {
 	commands = map[string]func(*Window, *Golem, []string){
-		"noh":             cmdNoHLSearch,
-		"nohlsearch":      cmdNoHLSearch,
-		"aqm":             cmdAddQuickmark,
-		"addquickmark":    cmdAddQuickmark,
-		"o":               cmdOpen,
-		"open":            cmdOpen,
-		"t":               cmdTabOpen,
-		"topen":           cmdTabOpen,
-		"tabopen":         cmdTabOpen,
-		"newtab":          cmdTabOpen,
-		"bg":              cmdBackgroundOpen,
-		"bgopen":          cmdBackgroundOpen,
-		"backgroundopen":  cmdBackgroundOpen,
-		"w":               cmdWindowOpen,
-		"wopen":           cmdWindowOpen,
-		"winopen":         cmdWindowOpen,
-		"windowopen":      cmdWindowOpen,
-		"newwindow":       cmdWindowOpen,
-		"bind":            cmdBind,
-		"set":             cmdSet,
-		"rmqm":            cmdRemoveQuickmark,
-		"removequickmark": cmdRemoveQuickmark,
-		"q":               cmdQuit,
-		"quit":            cmdQuit,
-		"qall":            cmdQuitAll,
-		"quitall":         cmdQuitAll,
-		"qm":              cmdQuickmark,
-		"quickmark":       cmdQuickmark,
+		"defaultsearchengine": cmdDefaultSearchEngine,
+		"dse":                cmdDefaultSearchEngine,
+		"se":                 cmdSearchEngine,
+		"searchengine":       cmdSearchEngine,
+		"rmse":               cmdRemoveSearchEngine,
+		"rmsearchengine":     cmdRemoveSearchEngine,
+		"removese":           cmdRemoveSearchEngine,
+		"removesearchengine": cmdRemoveSearchEngine,
+		"noh":                cmdNoHLSearch,
+		"nohlsearch":         cmdNoHLSearch,
+		"aqm":                cmdAddQuickmark,
+		"addquickmark":       cmdAddQuickmark,
+		"o":                  cmdOpen,
+		"open":               cmdOpen,
+		"t":                  cmdTabOpen,
+		"topen":              cmdTabOpen,
+		"tabopen":            cmdTabOpen,
+		"newtab":             cmdTabOpen,
+		"bg":                 cmdBackgroundOpen,
+		"bgopen":             cmdBackgroundOpen,
+		"backgroundopen":     cmdBackgroundOpen,
+		"w":                  cmdWindowOpen,
+		"wopen":              cmdWindowOpen,
+		"winopen":            cmdWindowOpen,
+		"windowopen":         cmdWindowOpen,
+		"newwindow":          cmdWindowOpen,
+		"bind":               cmdBind,
+		"set":                cmdSet,
+		"rmqm":               cmdRemoveQuickmark,
+		"removequickmark":    cmdRemoveQuickmark,
+		"q":                  cmdQuit,
+		"quit":               cmdQuit,
+		"qall":               cmdQuitAll,
+		"quitall":            cmdQuitAll,
+		"qm":                 cmdQuickmark,
+		"quickmark":          cmdQuickmark,
 	}
 	commandNames = make([]string, 0, len(commands))
 	for c := range commands {
@@ -80,6 +88,90 @@ func (w *Window) logInvalidArgs(args []string) {
 // not have been executed in a global context (i.e. in golem's rc)
 func logNonGlobalCommand() {
 	(*Window)(nil).logError("Non global command executed in a global context.")
+}
+
+// cmdDefaultSearchEngine sets the default search engine.
+func cmdDefaultSearchEngine(w *Window, g *Golem, args []string) {
+	if len(args) != 2 {
+		w.logInvalidArgs(args)
+		return
+	}
+	if se, ok := g.cfg.searchEngines.searchEngines[args[1]]; ok {
+		g.cfg.searchEngines.defaultSearchEngine = se
+	} else {
+		w.logErrorf("Search engine with shorthand '%s' does not exist.",
+			args[1])
+	}
+}
+
+// cmdRemoveSearchEngine removes a search engine. It will refuse to remove
+// the default search engine.
+func cmdRemoveSearchEngine(w *Window, g *Golem, args []string) {
+	if len(args) != 2 {
+		w.logInvalidArgs(args)
+		return
+	}
+	if se, ok := g.cfg.searchEngines.searchEngines[args[1]]; ok {
+		if se == g.cfg.searchEngines.defaultSearchEngine {
+			w.logErrorf("Cannot remove default search engine. Use " +
+				"'defaultsearchengine SHORTHAND' to set a new default first.")
+		} else {
+			delete(g.cfg.searchEngines.searchEngines, args[1])
+		}
+	} else {
+		w.logErrorf("Search engine with shorthand '%s' does not exist.",
+			args[1])
+	}
+}
+
+// cmdSearchEngine registers a search engine. The arguments passed, in order
+// are: shorthand (e.g. 'g'), full name (e.g. 'Google'), format string
+// (e.g. 'http://google.com/search?q=%s'). Format string is a standard go
+// format string, which will be passed exactly one string argument.
+func cmdSearchEngine(w *Window, g *Golem, args []string) {
+	if len(args) != 4 {
+		w.logInvalidArgs(args)
+		return
+	}
+	if se, ok := g.cfg.searchEngines.searchEngines[args[1]]; ok {
+		if w == nil {
+			w.logErrorf("Attempted interactive search engine replace in " +
+				"non-interactive context. Dropping.")
+			return
+		}
+		b := false
+		w.setState(cmd.NewYesNoConfirmMode(
+			w.State,
+			cmd.SubstateDefault,
+			fmt.Sprintf(
+				"Do you want to replace the existing search engine with "+
+					"shorthand '%s' (%s)?",
+				args[1],
+				se.fullName),
+			&b,
+			func(b bool) {
+				if b {
+					se := &searchEngine{
+						args[2],
+						args[3],
+					}
+					g.cfg.searchEngines.searchEngines[args[1]] = se
+					if g.cfg.searchEngines.defaultSearchEngine == nil {
+						g.cfg.searchEngines.defaultSearchEngine = se
+					}
+				}
+			}))
+		return
+	} else {
+		se := &searchEngine{
+			args[2],
+			args[3],
+		}
+		g.cfg.searchEngines.searchEngines[args[1]] = se
+		if g.cfg.searchEngines.defaultSearchEngine == nil {
+			g.cfg.searchEngines.defaultSearchEngine = se
+		}
+	}
 }
 
 // cmdNoHLSearch removes all active highlighting from the page.
@@ -112,6 +204,11 @@ func cmdAddQuickmark(w *Window, g *Golem, args []string) {
 	}
 	sanitizedKeys := cmd.KeysString(cmd.ParseKeys(args[1]))
 	if uri, ok := g.quickmarks[sanitizedKeys]; ok {
+		if w == nil {
+			w.logErrorf("Attempted interactive quickmark replace in " +
+				"non-interactive context. Dropping.")
+			return
+		}
 		b := false
 		w.setState(cmd.NewYesNoConfirmMode(
 			w.State,
@@ -217,6 +314,11 @@ func cmdQuickmark(w *Window, g *Golem, args []string) {
 	}
 	sanitizedKeys := cmd.KeysString(cmd.ParseKeys(args[1]))
 	if uri, ok := g.quickmarks[sanitizedKeys]; ok {
+		if w == nil {
+			w.logErrorf("Attempted interactive quickmark replace in " +
+				"non-interactive context. Dropping.")
+			return
+		}
 		b := false
 		w.setState(cmd.NewYesNoConfirmMode(
 			w.State,
