@@ -123,6 +123,7 @@ func newWindow(webView WebView, callback Callback) (*Window, error) {
 	}
 	cmdStatii[0].SetEllipsize(pango.ELLIPSIZE_START)
 	cmdStatii[2].SetEllipsize(pango.ELLIPSIZE_END)
+	cmdStatii[2].SetMarginEnd(25)
 
 	locationStatus, err := gtk.LabelNew("")
 	if err != nil {
@@ -131,6 +132,7 @@ func newWindow(webView WebView, callback Callback) (*Window, error) {
 	locationStatus.OverrideFont("monospace")
 	locationStatus.SetUseMarkup(true)
 	locationStatus.SetEllipsize(pango.ELLIPSIZE_START)
+	locationStatus.SetMarginStart(25)
 
 	for _, status := range cmdStatii {
 		statusBar.PackStart(status, false, false, 0)
