@@ -6,6 +6,7 @@ import "C"
 import (
 	"fmt"
 	"html"
+	"net/url"
 	"unsafe"
 
 	"github.com/conformal/gotk3/gdk"
@@ -143,11 +144,11 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 							ret.WebView.LoadAlternateHTML(
 								[]byte(fmt.Sprintf(
 									string(site),
-									html.EscapeString(resp.GetURI()))),
+									html.EscapeString(url.QueryEscape(resp.GetURI())))),
 								resp.GetURI(),
 								fmt.Sprintf(
 									"golem:///pdf.js/frame.html?%s",
-									resp.GetURI))
+									resp.GetURI()))
 							return true
 						}
 					}
