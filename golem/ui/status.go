@@ -119,7 +119,21 @@ func (w *Window) UpdateState(state cmd.State) {
 			"%s <cursor>_</cursor>",
 			html.EscapeString(s.Prompt))
 	case *states.HintsMode:
-		newStatus = fmt.Sprintf("follow: <em>%s</em>",
+		var action string
+		switch s.Substate {
+		case states.HintsSubstateFollow:
+			action = "follow"
+		case states.HintsSubstateBackground:
+			action = "follow in background tab"
+		case states.HintsSubstateRapid:
+			action = "follow rapid"
+		case states.HintsSubstateTab:
+			action = "follow in new tab"
+		case states.HintsSubstateWindow:
+			action = "follow in new window"
+		}
+		newStatus = fmt.Sprintf("%s: <em>%s</em>",
+			action,
 			keysToMarkupString(s.CurrentKeys, true, true))
 	}
 	split := strings.SplitN(newStatus, "<cursor>_</cursor>", 2)
