@@ -37,6 +37,8 @@ func init() {
 	commands = map[string]func(*Window, *Golem, []string){
 		"defaultsearchengine": cmdDefaultSearchEngine,
 		"dse":                cmdDefaultSearchEngine,
+		"ase":                cmdAddSearchEngine,
+		"addsearchengine":    cmdAddSearchEngine,
 		"se":                 cmdSearchEngine,
 		"searchengine":       cmdSearchEngine,
 		"rmse":               cmdRemoveSearchEngine,
@@ -90,6 +92,51 @@ func logNonGlobalCommand() {
 	(*Window)(nil).logError("Non global command executed in a global context.")
 }
 
+func cmdAddSearchEngine(w *Window, g *Golem, args []string) {
+	if len(args) != 4 {
+		w.logInvalidArgs(args)
+		return
+	}
+	sanitizedKeys := cmd.KeysString(cmd.ParseKeys(args[1]))
+	if se, ok := g.cfg.searchEngines.searchEngines[sanitizedKeys]; ok {
+		if w == nil {
+			w.logErrorf("Attempted interactive search engine replace in " +
+				"non-interactive context. Dropping.")
+			return
+		}
+		b := false
+		w.setState(cmd.NewYesNoConfirmMode(
+			w.State,
+			cmd.SubstateDefault,
+			fmt.Sprintf(
+				"Do you want to replace the existing search engine with "+
+					"shorthand '%s' (%s)?",
+				sanitizedKeys,
+				se.fullName),
+			&b,
+			func(b bool) {
+				if b {
+					cmdRemoveSearchEngine(w, g, []string{"", args[1]})
+					cmdAddSearchEngine(w, g, args)
+				}
+			}))
+		return
+	}
+	// Add search engine to current session
+	cmdSearchEngine(w, g, args)
+	// Append search engine to searchengine config file.
+	f, err := os.OpenFile(g.files.searchEngines, os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		w.logError(err.Error())
+		return
+	}
+	defer f.Close()
+	fmt.Fprintf(f, "se\t%s\t%s\t%s\n",
+		strconv.Quote(sanitizedKeys),
+		strconv.Quote(args[2]),
+		strconv.Quote(args[3]))
+}
+
 // cmdDefaultSearchEngine sets the default search engine.
 func cmdDefaultSearchEngine(w *Window, g *Golem, args []string) {
 	if len(args) != 2 {
@@ -111,16 +158,45 @@ func cmdRemoveSearchEngine(w *Window, g *Golem, args []string) {
 		w.logInvalidArgs(args)
 		return
 	}
-	if se, ok := g.cfg.searchEngines.searchEngines[args[1]]; ok {
+	sanitizedKeys := cmd.KeysString(cmd.ParseKeys(args[1]))
+	if se, ok := g.cfg.searchEngines.searchEngines[sanitizedKeys]; ok {
 		if se == g.cfg.searchEngines.defaultSearchEngine {
 			w.logErrorf("Cannot remove default search engine. Use " +
 				"'defaultsearchengine SHORTHAND' to set a new default first.")
 		} else {
-			delete(g.cfg.searchEngines.searchEngines, args[1])
+			delete(g.cfg.searchEngines.searchEngines, sanitizedKeys)
 		}
 	} else {
 		w.logErrorf("Search engine with shorthand '%s' does not exist.",
-			args[1])
+			sanitizedKeys)
+	}
+	// We also run through the quickmarks file and delete matching lines.
+	data, err := ioutil.ReadFile(g.files.searchEngines)
+	if err != nil {
+		w.logErrorf("Failed to read searchengines file.")
+		return
+	}
+	lines := strings.Split(string(data), "\n")
+	for i := 0; i < len(lines); i++ {
+		parts, err := shellwords.Parse(lines[i])
+		if err != nil || len(parts) != 3 {
+			continue
+		}
+		if parts[0] != "se" && parts[0] != "searchengine" {
+			continue
+		}
+		if parts[1] == sanitizedKeys {
+			copy(lines[i:len(lines)-1], lines[i+1:])
+			lines = lines[:len(lines)-1]
+			i--
+		}
+	}
+	err = ioutil.WriteFile(
+		g.files.searchEngines,
+		[]byte(strings.Join(lines, "\n")),
+		0600)
+	if err != nil {
+		w.logErrorf("Failed to write to searchengines file.")
 	}
 }
 
@@ -133,7 +209,8 @@ func cmdSearchEngine(w *Window, g *Golem, args []string) {
 		w.logInvalidArgs(args)
 		return
 	}
-	if se, ok := g.cfg.searchEngines.searchEngines[args[1]]; ok {
+	sanitizedKeys := cmd.KeysString(cmd.ParseKeys(args[1]))
+	if se, ok := g.cfg.searchEngines.searchEngines[sanitizedKeys]; ok {
 		if w == nil {
 			w.logErrorf("Attempted interactive search engine replace in " +
 				"non-interactive context. Dropping.")
@@ -155,7 +232,7 @@ func cmdSearchEngine(w *Window, g *Golem, args []string) {
 						args[2],
 						args[3],
 					}
-					g.cfg.searchEngines.searchEngines[args[1]] = se
+					g.cfg.searchEngines.searchEngines[sanitizedKeys] = se
 					if g.cfg.searchEngines.defaultSearchEngine == nil {
 						g.cfg.searchEngines.defaultSearchEngine = se
 					}
@@ -167,7 +244,7 @@ func cmdSearchEngine(w *Window, g *Golem, args []string) {
 			args[2],
 			args[3],
 		}
-		g.cfg.searchEngines.searchEngines[args[1]] = se
+		g.cfg.searchEngines.searchEngines[sanitizedKeys] = se
 		if g.cfg.searchEngines.defaultSearchEngine == nil {
 			g.cfg.searchEngines.defaultSearchEngine = se
 		}
@@ -239,7 +316,9 @@ func cmdAddQuickmark(w *Window, g *Golem, args []string) {
 		return
 	}
 	defer f.Close()
-	fmt.Fprintf(f, "qm\t%s\t%s\n", sanitizedKeys, args[2])
+	fmt.Fprintf(f, "qm\t%s\t%s\n",
+		strconv.Quote(sanitizedKeys),
+		strconv.Quote(args[2]))
 }
 
 // cmdRemoveQuickmark removes a quickmark from golem and (if found) from the

@@ -14,6 +14,7 @@ type files struct {
 	cacheDir      string
 	cookies       string
 	rc            string
+	searchEngines string
 	quickmarks    string
 	histfile      string
 	downloadDir   string
@@ -23,6 +24,7 @@ type files struct {
 // configFiles is an array of all of golems config files.
 var configFiles = []string{
 	"golemrc",
+	"searchengines",
 	"quickmarks",
 }
 
@@ -67,6 +69,7 @@ func (g *Golem) newFiles() (*files, error) {
 		cookies,
 		configFiles[0],
 		configFiles[1],
+		configFiles[2],
 		filepath.Join(configDir, "history"),
 		downloads,
 		filterlistDir,
@@ -75,7 +78,7 @@ func (g *Golem) newFiles() (*files, error) {
 
 // rcFiles returns a list of all files golem should use as rc files.
 func (fs *files) rcFiles() []string {
-	return []string{fs.rc, fs.quickmarks}
+	return []string{fs.rc, fs.searchEngines, fs.quickmarks}
 }
 
 // initConfigFiles ensures all config files exist in the specified config

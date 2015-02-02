@@ -1,0 +1,8 @@
+" This file contains registered search engines.
+"
+" This file is automatically updated, and while inserting other commands into
+" it should work fine, that's what the rc file is for.
+"
+" Similarly, the se/searchengine command can easily be used in the rc file.
+" Doing so has the effect that the search engine cannot be removed by golem
+" itself, and must be manually removed from the rc file.
