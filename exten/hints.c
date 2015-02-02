@@ -396,7 +396,7 @@ filter_hints_mode(const gchar *hints, Exten *exten)
             // If the hints exactly match, execute it.
             if(g_strcmp0(text_ci, hints_ci) == 0) {
                 if(exten->hints->executer(l->data, exten)) {
-                    hints_mode_filter("", exten);
+                    filter_hints_mode("", exten);
                     g_free(hints_ci);
                     g_free(text_ci);
                     return FALSE;

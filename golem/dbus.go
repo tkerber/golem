@@ -158,6 +158,15 @@ func (g *DBusGolem) HintCall(id uint64, uri string) (bool, *dbus.Error) {
 			}}
 	}
 	ret := hm.ExecuterFunction(uri)
+	if ret == true {
+		w.setState(&states.HintsMode{
+			hm.StateIndependant,
+			hm.Substate,
+			hm.HintsCallback,
+			nil,
+			hm.ExecuterFunction,
+		})
+	}
 	return ret, nil
 }
 

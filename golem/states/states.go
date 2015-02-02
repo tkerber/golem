@@ -39,6 +39,14 @@ const (
 )
 
 const (
-	// HintsSubstateFollow indicates to follow a link.
+	// HintsSubstateFollow indicates to follow (click) an item.
 	HintsSubstateFollow cmd.Substate = iota
+	// HintsSubstateBackground indicates to follow a link in a background tab.
+	HintsSubstateBackground
+	// HintsSubstateRapid indicates to follow several links in background tabs.
+	HintsSubstateRapid
+	// HintsSubstateTab indicates to follow a link in a new tab.
+	HintsSubstateTab
+	// HintsSubstateWindow indicates to follow a link in a new window.
+	HintsSubstateWindow
 )

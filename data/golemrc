@@ -66,6 +66,10 @@ bind n       builtin:searchNext
 bind N       builtin:searchPrevious
 
 bind f       builtin:hintsFollow
+bind F       builtin:hintsTab
+bind ,b      builtin:hintsBackground
+bind ,r      builtin:hintsRapid
+bind wf      builtin:hintsWindow
 
 bind m       builtin:toggleQuickmark
 

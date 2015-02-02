@@ -39,7 +39,11 @@ func builtinsFor(w *Window) cmd.Builtins {
 		"editURI":              {w.builtinEditURI, "Edits the current URI"},
 		"goBack":               {w.builtinGoBack, "Goes back in browser history"},
 		"goForward":            {w.builtinGoForward, "Goes forward in browser history"},
-		"hintsFollow":          {w.builtinHintsFollow, "Follows a link"},
+		"hintsBackground":      {w.builtinHintsBackground, "Follows a link in a background tab"},
+		"hintsFollow":          {w.builtinHintsFollow, "Clicks something"},
+		"hintsRapid":           {w.builtinHintsRapid, "Follows several links in background tabs"},
+		"hintsTab":             {w.builtinHintsTab, "Follows a link in a new tab"},
+		"hintsWindow":          {w.builtinHintsWindow, "Follows a link in a new window"},
 		"insertMode":           {w.builtinInsertMode, "Enters intert mode"},
 		"noh":                  {w.builtinNoh, "Removes all highlighting"},
 		"nop":                  {w.builtinNop, "Does nothing"},
@@ -188,7 +192,23 @@ func (w *Window) builtinGoForward(n *int) {
 	}
 }
 
-// builtinHintsFollow enters hints mode to follow a link.
+// builtinHintsBackground enters hints mode to follow a link in a new
+// background tab.
+func (w *Window) builtinHintsBackground(_ *int) {
+	w.setState(states.NewHintsMode(
+		w.State,
+		states.HintsSubstateBackground,
+		w.getWebView(),
+		func(uri string) bool {
+			_, err := w.NewTabs(uri)
+			if err != nil {
+				w.logErrorf("Failed to open new tab: %v", err)
+			}
+			return false
+		}))
+}
+
+// builtinHintsFollow enters hints mode click something.
 func (w *Window) builtinHintsFollow(_ *int) {
 	w.setState(states.NewHintsMode(
 		w.State,
@@ -196,6 +216,50 @@ func (w *Window) builtinHintsFollow(_ *int) {
 		w.getWebView(),
 		func(uri string) bool {
 			w.logErrorf("Hints callback on callbackless hint type.")
+			return false
+		}))
+}
+
+// builtinHintsRapid enters hints mode to follow several links in background
+// tabs.
+func (w *Window) builtinHintsRapid(_ *int) {
+	w.setState(states.NewHintsMode(
+		w.State,
+		states.HintsSubstateRapid,
+		w.getWebView(),
+		func(uri string) bool {
+			_, err := w.NewTabs(uri)
+			if err != nil {
+				w.logErrorf("Failed to open new tab: %v", err)
+			}
+			return true
+		}))
+}
+
+// builtinHintsTab enters hints mode to follow a link in a new tab.
+func (w *Window) builtinHintsTab(_ *int) {
+	w.setState(states.NewHintsMode(
+		w.State,
+		states.HintsSubstateTab,
+		w.getWebView(),
+		func(uri string) bool {
+			_, err := w.NewTabs(uri)
+			if err != nil {
+				w.logErrorf("Failed to open new tab: %v", err)
+			}
+			w.TabNext()
+			return false
+		}))
+}
+
+// builtinHintsWindow enters hints mode to follow a link in a new window.
+func (w *Window) builtinHintsWindow(_ *int) {
+	w.setState(states.NewHintsMode(
+		w.State,
+		states.HintsSubstateWindow,
+		w.getWebView(),
+		func(uri string) bool {
+			w.parent.NewWindow(uri)
 			return false
 		}))
 }

@@ -109,15 +109,22 @@ func (w *Window) setState(state cmd.State) {
 	// Start hints mode.
 	if hm, ok := state.(*states.HintsMode); ok {
 		if hm2, ok := w.State.(*states.HintsMode); !ok || hm2.Substate != hm.Substate {
+			var err error
 			switch hm.Substate {
 			case states.HintsSubstateFollow:
-				err := hm.HintsCallback.ClickHintsMode()
-				if err != nil {
-					w.logErrorf("Failed to enter hints mode: %v", err)
-					return
-				}
+				err = hm.HintsCallback.ClickHintsMode()
+			case states.HintsSubstateBackground,
+				states.HintsSubstateRapid,
+				states.HintsSubstateTab,
+				states.HintsSubstateWindow:
+
+				err = hm.HintsCallback.LinkHintsMode()
 			default:
 				w.logErrorf("Unknown hints type: %d", hm.Substate)
+				return
+			}
+			if err != nil {
+				w.logErrorf("Failed to enter hints mode: %v", err)
 				return
 			}
 		}
