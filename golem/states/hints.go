@@ -1,6 +1,7 @@
 package states
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/tkerber/golem/cmd"
@@ -32,15 +33,33 @@ func NewHintsMode(
 	s cmd.State,
 	st cmd.Substate,
 	cb HintsCallback,
-	e func(string) bool) *HintsMode {
+	e func(string) bool) (*HintsMode, error) {
 
-	return &HintsMode{
+	hm := &HintsMode{
 		s.GetStateIndependant(),
 		st,
 		cb,
 		make([]cmd.Key, 0),
 		e,
 	}
+
+	// Start hints mode
+	var err error
+	switch hm.Substate {
+	case HintsSubstateFollow:
+		err = hm.HintsCallback.ClickHintsMode()
+	case HintsSubstateBackground,
+		HintsSubstateRapid,
+		HintsSubstateTab,
+		HintsSubstateWindow:
+
+		err = hm.HintsCallback.LinkHintsMode()
+	case HintsSubstateSearchEngine:
+		err = hm.HintsCallback.FormVariableHintsMode()
+	default:
+		return nil, fmt.Errorf("Unknown hints type: %d", hm.Substate)
+	}
+	return hm, err
 }
 
 // ProcessKeyPress processes exactly one key press in hints mode.
