@@ -21,9 +21,13 @@ struct _HintsMode {
     GHashTable  *hints;
 };
 
+gboolean hint_call_by_form_variable_get(WebKitDOMNode*, Exten*);
+
 gboolean hint_call_by_href(WebKitDOMNode*, Exten*);
 
 gboolean hint_call_by_click(WebKitDOMNode*, Exten*);
+
+GList *select_form_text_variables(GHashTable*, Exten*);
 
 GList *select_clickable(GHashTable*, Exten*);
 

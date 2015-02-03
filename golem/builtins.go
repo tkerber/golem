@@ -2,6 +2,7 @@ package golem
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/conformal/gotk3/gdk"
@@ -31,6 +32,7 @@ type builtinSpec struct {
 // builtinsfor retrieves the builtin functions bound to a specific window.
 func builtinsFor(w *Window) cmd.Builtins {
 	specs := map[string]builtinSpec{
+		"addSearchEngine":      {w.builtinAddSearchEngine, "Finds and adds a new search engine on the page"},
 		"backgroundEditURI":    {w.builtinBackgroundEditURI, "Edits URI and opens in a background tab"},
 		"backgroundOpen":       {w.builtinBackgroundOpen, "Opens URI in a background tab"},
 		"commandMode":          {w.builtinCommandMode, "Enters command mode"},
@@ -114,6 +116,33 @@ func getWithDefault(ptr *int, def, minv, maxv int) int {
 		return def
 	}
 	return max(min(*ptr, maxv), minv)
+}
+
+// searchEngineReplacer convert the search engine uri passed into a format
+// string.
+var searchEngineReplacer = strings.NewReplacer(
+	"%", "%%",
+	"__golem_form_variable", "%v")
+
+// builtinAddSearchEngine hints possible search engine fields on screens and
+// allows selecting them for a primed 'ase' command.
+func (w *Window) builtinAddSearchEngine(_ *int) {
+	wv := w.getWebView()
+	w.setState(states.NewHintsMode(
+		w.State,
+		states.HintsSubstateSearchEngine,
+		wv,
+		func(uri string) bool {
+			w.setState(cmd.NewPartialCommandLineMode(
+				w.State,
+				states.CommandLineSubstateCommand,
+				"ase ",
+				fmt.Sprintf(" %s %s",
+					strconv.Quote(wv.GetTitle()),
+					strconv.Quote(searchEngineReplacer.Replace(uri))),
+				w.runCmd))
+			return false
+		}))
 }
 
 // builtinBackgroundEditURI initiates command mode with a bgopen command

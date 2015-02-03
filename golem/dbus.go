@@ -191,6 +191,14 @@ func (w *webExtension) LinkHintsMode() error {
 	return call.Err
 }
 
+// FormVariableHintsMode initializes hints mode for form input fields.
+func (w *webExtension) FormVariableHintsMode() error {
+	call := w.Call(
+		webExtenDBusInterface+".FormVariableHintsMode",
+		dbus.FlagNoAutoStart)
+	return call.Err
+}
+
 // ClickHintsMode initializes hints mode for clickable elements.
 func (w *webExtension) ClickHintsMode() error {
 	call := w.Call(

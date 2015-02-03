@@ -10,6 +10,7 @@ import (
 // methods needed by hints. (mostly web extension calls)
 type HintsCallback interface {
 	LinkHintsMode() error
+	FormVariableHintsMode() error
 	ClickHintsMode() error
 	EndHintsMode() error
 	FilterHintsMode(string) (bool, error)
@@ -60,21 +61,25 @@ func (s *HintsMode) ProcessKeyPress(key cmd.RealKey) (cmd.State, bool) {
 	default:
 		newKeys = cmd.ImmutableAppend(s.CurrentKeys, key)
 	}
-	go func() {
-		hitAndEnd, err := s.HintsCallback.FilterHintsMode(cmd.KeysString(newKeys))
-		if err != nil {
-			log.Printf("Failed to filter hints: %v", err)
-		} else if hitAndEnd {
-			s.StateIndependant.SetState(cmd.NewNormalMode(s))
-		}
-	}()
-	return &HintsMode{
+	ret := &HintsMode{
 		s.StateIndependant,
 		s.Substate,
 		s.HintsCallback,
 		newKeys,
 		s.ExecuterFunction,
-	}, true
+	}
+	go func() {
+		hitAndEnd, err := s.HintsCallback.FilterHintsMode(cmd.KeysString(newKeys))
+		if err != nil {
+			log.Printf("Failed to filter hints: %v", err)
+		} else if hitAndEnd {
+			sNew := s.GetState()
+			if sNew == s || sNew == ret {
+				s.StateIndependant.SetState(cmd.NewNormalMode(s))
+			}
+		}
+	}()
+	return ret, true
 }
 
 // GetStateIndependant gets the state independant associated with this state.

@@ -71,6 +71,8 @@ bind ,b      builtin:hintsBackground
 bind ,r      builtin:hintsRapid
 bind wf      builtin:hintsWindow
 
+bind ase     builtin:addSearchEngine
+
 bind m       builtin:toggleQuickmark
 
 " Mediasource isn't supported enough for YouTube yet :(

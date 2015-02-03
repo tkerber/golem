@@ -49,4 +49,7 @@ const (
 	HintsSubstateTab
 	// HintsSubstateWindow indicates to follow a link in a new window.
 	HintsSubstateWindow
+	// HintsSubstateSearchEngine indicates to register a new search engine on
+	// the page.
+	HintsSubstateSearchEngine
 )

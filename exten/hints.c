@@ -107,23 +107,13 @@ get_hints_texts(guint length, Exten *exten, GError **err) {
     return ret;
 }
 
-gboolean
-hint_call_by_href(WebKitDOMNode *n, Exten *exten)
+// calls a hint with the given string.
+//
+// Ownership of the string is transferred to this function, and it will be
+// freed.
+static gboolean
+hint_call(gchar *str, Exten *exten)
 {
-    if(!WEBKIT_DOM_IS_ELEMENT(n)) {
-        return true;
-    }
-    WebKitDOMElement *e = WEBKIT_DOM_ELEMENT(n);
-    gchar *doc_url = webkit_dom_document_get_url(webkit_dom_node_get_owner_document(n));
-    SoupURI *uri_base = soup_uri_new(doc_url);
-    g_free(doc_url);
-    gchar *href = webkit_dom_element_get_attribute(e, "HREF");
-    SoupURI *uri = soup_uri_new_with_base(uri_base, href);
-    g_free(href);
-    soup_uri_free(uri_base);
-    char *str = soup_uri_to_string(uri, false);
-    soup_uri_free(uri);
-
     GError *err = NULL;
     GVariant *retv = g_dbus_connection_call_sync(
             exten->connection,
@@ -150,6 +140,132 @@ hint_call_by_href(WebKitDOMNode *n, Exten *exten)
         g_variant_unref(retv);
     }
     return ret;
+}
+
+gboolean
+hint_call_by_form_variable_get(WebKitDOMNode *n, Exten *exten)
+{
+    if(!WEBKIT_DOM_IS_HTML_INPUT_ELEMENT(n)) {
+        return TRUE;
+    }
+    WebKitDOMHTMLInputElement *input = WEBKIT_DOM_HTML_INPUT_ELEMENT(n);
+    WebKitDOMHTMLFormElement *form = webkit_dom_html_input_element_get_form(input);
+    if(form == NULL) {
+        return TRUE;
+    }
+    gchar *doc_url = webkit_dom_document_get_url(webkit_dom_node_get_owner_document(n));
+    SoupURI *uri_base = soup_uri_new(doc_url);
+    g_free(doc_url);
+    gchar *action = webkit_dom_html_form_element_get_action(form);
+    SoupURI *uri = soup_uri_new_with_base(uri_base, action);
+    g_free(action);
+    soup_uri_free(uri_base);
+
+    WebKitDOMHTMLCollection *coll = webkit_dom_html_form_element_get_elements(form);
+    gulong len = webkit_dom_html_collection_get_length(coll);
+    gchar **names = g_malloc(sizeof(gchar*) * len);
+    gchar **values = g_malloc(sizeof(gchar*) * len);
+    gulong i;
+    for(i = 0; i < len; i++) {
+        WebKitDOMNode *node = webkit_dom_html_collection_item(coll, i);
+        if(node == n) {
+            names[i] = webkit_dom_html_input_element_get_name(input);
+            values[i] = g_strdup("__golem_form_variable");
+        } else if(WEBKIT_DOM_IS_HTML_INPUT_ELEMENT(node)) {
+            gchar *type = webkit_dom_html_input_element_get_input_type(
+                    WEBKIT_DOM_HTML_INPUT_ELEMENT(node));
+            if(g_strcmp0(type, "submit") == 0 ||
+                    g_strcmp0(type, "button") == 0) {
+                g_free(type);
+                goto skip;
+            }
+            g_free(type);
+            names[i] = webkit_dom_html_input_element_get_name(
+                    WEBKIT_DOM_HTML_INPUT_ELEMENT(node));
+            values[i] = webkit_dom_html_input_element_get_value(
+                    WEBKIT_DOM_HTML_INPUT_ELEMENT(node));
+        } else if(WEBKIT_DOM_IS_HTML_SELECT_ELEMENT(node)) {
+            names[i] = webkit_dom_html_select_element_get_name(
+                    WEBKIT_DOM_HTML_SELECT_ELEMENT(node));
+            values[i] = webkit_dom_html_select_element_get_value(
+                    WEBKIT_DOM_HTML_SELECT_ELEMENT(node));
+        } else if(WEBKIT_DOM_IS_HTML_TEXT_AREA_ELEMENT(node)) {
+            names[i] = webkit_dom_html_text_area_element_get_name(
+                    WEBKIT_DOM_HTML_TEXT_AREA_ELEMENT(node));
+            values[i] = webkit_dom_html_text_area_element_get_value(
+                    WEBKIT_DOM_HTML_TEXT_AREA_ELEMENT(node));
+        } else {
+skip:
+            names[i] = NULL;
+            values[i] = NULL;
+        }
+        gchar *tmp = names[i];
+        if(tmp != NULL) {
+            names[i] = soup_uri_encode(tmp, NULL);
+            g_free(tmp);
+        }
+        tmp = values[i];
+        if(tmp != NULL) {
+            values[i] = soup_uri_encode(tmp, NULL);
+            g_free(tmp);
+        }
+    }
+    // Length: 2 for each form element (? for first, & for all others), and =
+    // + length of name, + length of value (except for [input] which uses
+    // __golem_form_variable instead of value.
+    guint opts_len = 0;
+    for(i = 0; i < len; i++) {
+        if(names[i] != NULL && *names[i] != '\0' && values[i] != NULL) {
+            opts_len += 2 + strlen(names[i]) + strlen(values[i]);
+        }
+    }
+    gchar *get_opts = g_malloc(sizeof(gchar) * (opts_len + 1));
+    gboolean first = TRUE;
+    gchar *get_opts_at = get_opts;
+    for(i = 0; i < len; i++) {
+        if(names[i] != NULL && *names[i] != '\0' && values[i] != NULL) {
+            if(first) {
+                *(get_opts_at++) = '?';
+                first = FALSE;
+            } else {
+                *(get_opts_at++) = '&';
+            }
+            get_opts_at = g_stpcpy(get_opts_at, names[i]);
+            *(get_opts_at++) = '=';
+            get_opts_at = g_stpcpy(get_opts_at, values[i]);
+        }
+        g_free(names[i]);
+        g_free(values[i]);
+    }
+    g_free(names);
+    g_free(values);
+    SoupURI *final_uri = soup_uri_new_with_base(uri, get_opts);
+    g_free(get_opts);
+    soup_uri_free(uri);
+    char *str = soup_uri_to_string(final_uri, false);
+    soup_uri_free(final_uri);
+
+    return hint_call(str, exten);
+}
+
+gboolean
+hint_call_by_href(WebKitDOMNode *n, Exten *exten)
+{
+    if(!WEBKIT_DOM_IS_ELEMENT(n)) {
+        return TRUE;
+    }
+    WebKitDOMElement *e = WEBKIT_DOM_ELEMENT(n);
+    gchar *doc_url = webkit_dom_document_get_url(webkit_dom_node_get_owner_document(n));
+    SoupURI *uri_base = soup_uri_new(doc_url);
+    g_free(doc_url);
+    gchar *href = webkit_dom_element_get_attribute(e, "HREF");
+    SoupURI *uri = soup_uri_new_with_base(uri_base, href);
+    g_free(href);
+    soup_uri_free(uri_base);
+    char *str = soup_uri_to_string(uri, false);
+    soup_uri_free(uri);
+
+    return hint_call(str, exten);
 }
 
 // Clicks the passed node.
@@ -210,6 +326,54 @@ scan_documents(WebKitDOMDocument *doc, GList **l, Exten *exten)
                 l,
                 exten);
     }
+}
+
+// Selects text input elements of forms.
+GList *
+select_form_text_variables(GHashTable *h, Exten *exten)
+{
+    GList *ret = NULL;
+    GList *docs = NULL;
+    scan_documents(exten->document, &docs, exten);
+    GList *l;
+    for(l = docs; l != NULL; l = l->next) {
+        WebKitDOMNodeList *nl = webkit_dom_document_get_elements_by_tag_name(
+                l->data, "INPUT");
+        gulong len = webkit_dom_node_list_get_length(nl);
+        gulong i;
+        for(i = 0; i < len; i++) {
+            WebKitDOMNode *item = webkit_dom_node_list_item(nl, i);
+            if(!is_visible(h, item) || !WEBKIT_DOM_IS_HTML_INPUT_ELEMENT(item)) {
+                continue;
+            }
+            WebKitDOMHTMLInputElement *input = WEBKIT_DOM_HTML_INPUT_ELEMENT(item);
+            // Filter non-text input types.
+            gchar *input_type = webkit_dom_html_input_element_get_input_type(input);
+            if(input_type != NULL &&
+                    *input_type != '\0' &&
+                    g_strcmp0(input_type, "text") != 0 &&
+                    g_strcmp0(input_type, "search") != 0) {
+                g_free(input_type);
+                continue;
+            }
+            g_free(input_type);
+            WebKitDOMHTMLFormElement *form = webkit_dom_html_input_element_get_form(input);
+            if(form == NULL) {
+                continue;
+            }
+            // Filter non-get forms.
+            gchar *method = webkit_dom_html_form_element_get_method(form);
+            if(method != NULL && *method != '\0' && g_strcmp0(method, "get") != 0) {
+                g_free(method);
+                continue;
+            }
+            g_free(method);
+            g_object_ref(item);
+            ret = g_list_prepend(ret, item);
+        }
+    }
+    g_list_free(docs);
+    return ret;
 }
 
 // Selects all elements which may normally be clicked.

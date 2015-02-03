@@ -90,10 +90,11 @@ const SubstateDefault Substate = 0
 func NewState(
 	bindings map[Substate]*BindingTree,
 	setState func(State),
+	getState func() State,
 	completer CompleterFunction) State {
 
 	return &NormalMode{
-		&StateIndependant{bindings, setState, completer},
+		&StateIndependant{bindings, setState, getState, completer},
 		SubstateDefault,
 		make([]Key, 0),
 		bindings[SubstateDefault],
@@ -109,6 +110,7 @@ func NewState(
 type StateIndependant struct {
 	Bindings  map[Substate]*BindingTree
 	SetState  func(s State)
+	GetState  func() State
 	Completer CompleterFunction
 }
 

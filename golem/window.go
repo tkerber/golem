@@ -119,6 +119,8 @@ func (w *Window) setState(state cmd.State) {
 				states.HintsSubstateWindow:
 
 				err = hm.HintsCallback.LinkHintsMode()
+			case states.HintsSubstateSearchEngine:
+				err = hm.HintsCallback.FormVariableHintsMode()
 			default:
 				w.logErrorf("Unknown hints type: %d", hm.Substate)
 				return
@@ -187,7 +189,9 @@ func (w *Window) initWindowWebView(wv *webView) error {
 
 	w.builtins = builtinsFor(w)
 
-	w.setState(cmd.NewState(w.bindings, w.setState, w.completeState))
+	w.setState(cmd.NewState(w.bindings, w.setState, func() cmd.State {
+		return w.State
+	}, w.completeState))
 
 	w.rebuildBindings()
 	w.rebuildQuickmarks()
