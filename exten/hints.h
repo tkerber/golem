@@ -33,7 +33,7 @@ GList *select_clickable(GHashTable*, Exten*);
 
 GList *select_links(GHashTable*, Exten*);
 
-void
+gint64
 start_hints_mode(NodeSelecter ns, NodeExecuter ne, Exten *exten);
 
 gboolean

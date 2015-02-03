@@ -1,6 +1,7 @@
 package states
 
 import (
+	"errors"
 	"fmt"
 	"log"
 
@@ -10,9 +11,9 @@ import (
 // HintsCallback is an interface for golem.(*webView), implementing the
 // methods needed by hints. (mostly web extension calls)
 type HintsCallback interface {
-	LinkHintsMode() error
-	FormVariableHintsMode() error
-	ClickHintsMode() error
+	LinkHintsMode() (int64, error)
+	FormVariableHintsMode() (int64, error)
+	ClickHintsMode() (int64, error)
 	EndHintsMode() error
 	FilterHintsMode(string) (bool, error)
 }
@@ -29,11 +30,19 @@ type HintsMode struct {
 }
 
 // NewHintsMode creates a new hints mode.
+//
+// It returns a hints mode, and asynchronously either an error or nil in the
+// given channel.
+//
+// The special error nil is returned if no error occured, but hints mode
+// should stop.
+//
+// The channel is closed when initialization finishes.
 func NewHintsMode(
 	s cmd.State,
 	st cmd.Substate,
 	cb HintsCallback,
-	e func(string) bool) (*HintsMode, error) {
+	e func(string) bool) (*HintsMode, <-chan error) {
 
 	hm := &HintsMode{
 		s.GetStateIndependant(),
@@ -43,23 +52,39 @@ func NewHintsMode(
 		e,
 	}
 
-	// Start hints mode
-	var err error
-	switch hm.Substate {
-	case HintsSubstateFollow:
-		err = hm.HintsCallback.ClickHintsMode()
-	case HintsSubstateBackground,
-		HintsSubstateRapid,
-		HintsSubstateTab,
-		HintsSubstateWindow:
+	c := make(chan error, 1)
 
-		err = hm.HintsCallback.LinkHintsMode()
-	case HintsSubstateSearchEngine:
-		err = hm.HintsCallback.FormVariableHintsMode()
-	default:
-		return nil, fmt.Errorf("Unknown hints type: %d", hm.Substate)
-	}
-	return hm, err
+	go func() {
+		// Start hints mode
+		var err error
+		var nHints int64
+		switch hm.Substate {
+		case HintsSubstateFollow:
+			nHints, err = hm.HintsCallback.ClickHintsMode()
+		case HintsSubstateBackground,
+			HintsSubstateRapid,
+			HintsSubstateTab,
+			HintsSubstateWindow:
+
+			nHints, err = hm.HintsCallback.LinkHintsMode()
+		case HintsSubstateSearchEngine:
+			nHints, err = hm.HintsCallback.FormVariableHintsMode()
+		default:
+			err = fmt.Errorf("Unknown hints type: %d", hm.Substate)
+		}
+		if err != nil {
+			c <- err
+		} else if nHints == 0 {
+			c <- errors.New("No hints to follow")
+		} else if nHints == -1 {
+			c <- errors.New("Internal error displaying hints")
+		} else if nHints == 1 {
+			c <- nil
+		}
+		close(c)
+	}()
+
+	return hm, c
 }
 
 // ProcessKeyPress processes exactly one key press in hints mode.

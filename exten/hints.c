@@ -332,6 +332,9 @@ scan_documents(WebKitDOMDocument *doc, GList **l, Exten *exten)
 GList *
 select_form_text_variables(GHashTable *h, Exten *exten)
 {
+    if(exten->document == NULL) {
+        return NULL;
+    }
     GList *ret = NULL;
     GList *docs = NULL;
     scan_documents(exten->document, &docs, exten);
@@ -387,6 +390,9 @@ select_form_text_variables(GHashTable *h, Exten *exten)
 GList *
 select_clickable(GHashTable *h, Exten *exten)
 {
+    if(exten->document == NULL) {
+        return NULL;
+    }
     const char* const tags[] = {
         "A",
         "INPUT",
@@ -436,6 +442,9 @@ select_clickable(GHashTable *h, Exten *exten)
 GList *
 select_links(GHashTable *h, Exten *exten)
 {
+    if(exten->document == NULL) {
+        return NULL;
+    }
     GList *ret = NULL;
     GList *docs = NULL;
     scan_documents(exten->document, &docs, exten);
@@ -457,7 +466,7 @@ select_links(GHashTable *h, Exten *exten)
     return ret;
 }
 
-void
+gint64
 start_hints_mode(NodeSelecter ns, NodeExecuter ne, Exten *exten)
 {
     if(exten->hints) {
@@ -467,12 +476,20 @@ start_hints_mode(NodeSelecter ns, NodeExecuter ne, Exten *exten)
     GHashTable *ht = g_hash_table_new_full(NULL, NULL, NULL, g_free);
     GList *nodes = ns(ht, exten);
     guint len = g_list_length(nodes);
+    if(len == 0) {
+        g_hash_table_unref(ht);
+        return len;
+    } else if(len == 1) {
+        g_hash_table_unref(ht);
+        ne(nodes->data, exten);
+        return len;
+    }
     gchar **hints_texts = get_hints_texts(len, exten, &err);
     if(err != NULL) {
         printf("Failed to get hints texts: %s\n", err->message);
         g_error_free(err);
         g_hash_table_unref(ht);
-        return;
+        return -1;
     }
     GHashTable *hints = g_hash_table_new(NULL, NULL);
     GList *l;
@@ -554,6 +571,7 @@ err:
     hm->executer = ne;
     hm->hints = hints;
     exten->hints = hm;
+    return len;
 }
 
 gboolean

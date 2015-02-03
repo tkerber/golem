@@ -2,6 +2,7 @@ package golem
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
@@ -118,6 +119,26 @@ func getWithDefault(ptr *int, def, minv, maxv int) int {
 	return max(min(*ptr, maxv), minv)
 }
 
+// startHint starts a hints mode. It possibly terminates it again quickly,
+// if hints mode fails to start.
+func (w *Window) startHint(hm *states.HintsMode, c <-chan error) {
+	w.setState(hm)
+	err, ok := <-c
+	if ok {
+		// If we are no longer in hints mode, we likely aren't for a good
+		// reason. Lets not ruin it by overwriting it with normal mode.
+		if _, ok := w.State.(*states.HintsMode); !ok {
+			return
+		}
+		if err == nil {
+			w.setState(cmd.NewNormalMode(hm))
+		} else {
+			w.setState(cmd.NewNormalMode(hm))
+			w.logError(err.Error())
+		}
+	}
+}
+
 // searchEngineReplacer convert the search engine uri passed into a format
 // string.
 var searchEngineReplacer = strings.NewReplacer(
@@ -129,11 +150,12 @@ var searchEngineReplacer = strings.NewReplacer(
 func (w *Window) builtinAddSearchEngine(_ *int) {
 	wv := w.getWebView()
 	go func() {
-		hm, err := states.NewHintsMode(
+		hm, c := states.NewHintsMode(
 			w.State,
 			states.HintsSubstateSearchEngine,
 			wv,
 			func(uri string) bool {
+				log.Println("hi")
 				w.setState(cmd.NewPartialCommandLineMode(
 					w.State,
 					states.CommandLineSubstateCommand,
@@ -144,11 +166,7 @@ func (w *Window) builtinAddSearchEngine(_ *int) {
 					w.runCmd))
 				return false
 			})
-		if err != nil {
-			w.logError(err.Error())
-		} else {
-			w.setState(hm)
-		}
+		w.startHint(hm, c)
 	}()
 }
 
@@ -232,7 +250,7 @@ func (w *Window) builtinGoForward(n *int) {
 // background tab.
 func (w *Window) builtinHintsBackground(_ *int) {
 	go func() {
-		hm, err := states.NewHintsMode(
+		hm, c := states.NewHintsMode(
 			w.State,
 			states.HintsSubstateBackground,
 			w.getWebView(),
@@ -243,18 +261,14 @@ func (w *Window) builtinHintsBackground(_ *int) {
 				}
 				return false
 			})
-		if err != nil {
-			w.logError(err.Error())
-		} else {
-			w.setState(hm)
-		}
+		w.startHint(hm, c)
 	}()
 }
 
 // builtinHintsFollow enters hints mode click something.
 func (w *Window) builtinHintsFollow(_ *int) {
 	go func() {
-		hm, err := states.NewHintsMode(
+		hm, c := states.NewHintsMode(
 			w.State,
 			states.HintsSubstateFollow,
 			w.getWebView(),
@@ -262,11 +276,7 @@ func (w *Window) builtinHintsFollow(_ *int) {
 				w.logErrorf("Hints callback on callbackless hint type.")
 				return false
 			})
-		if err != nil {
-			w.logError(err.Error())
-		} else {
-			w.setState(hm)
-		}
+		w.startHint(hm, c)
 	}()
 }
 
@@ -274,7 +284,7 @@ func (w *Window) builtinHintsFollow(_ *int) {
 // tabs.
 func (w *Window) builtinHintsRapid(_ *int) {
 	go func() {
-		hm, err := states.NewHintsMode(
+		hm, c := states.NewHintsMode(
 			w.State,
 			states.HintsSubstateRapid,
 			w.getWebView(),
@@ -285,18 +295,14 @@ func (w *Window) builtinHintsRapid(_ *int) {
 				}
 				return true
 			})
-		if err != nil {
-			w.logError(err.Error())
-		} else {
-			w.setState(hm)
-		}
+		w.startHint(hm, c)
 	}()
 }
 
 // builtinHintsTab enters hints mode to follow a link in a new tab.
 func (w *Window) builtinHintsTab(_ *int) {
 	go func() {
-		hm, err := states.NewHintsMode(
+		hm, c := states.NewHintsMode(
 			w.State,
 			states.HintsSubstateTab,
 			w.getWebView(),
@@ -308,18 +314,14 @@ func (w *Window) builtinHintsTab(_ *int) {
 				w.TabNext()
 				return false
 			})
-		if err != nil {
-			w.logError(err.Error())
-		} else {
-			w.setState(hm)
-		}
+		w.startHint(hm, c)
 	}()
 }
 
 // builtinHintsWindow enters hints mode to follow a link in a new window.
 func (w *Window) builtinHintsWindow(_ *int) {
 	go func() {
-		hm, err := states.NewHintsMode(
+		hm, c := states.NewHintsMode(
 			w.State,
 			states.HintsSubstateWindow,
 			w.getWebView(),
@@ -327,11 +329,7 @@ func (w *Window) builtinHintsWindow(_ *int) {
 				w.parent.NewWindow(uri)
 				return false
 			})
-		if err != nil {
-			w.logError(err.Error())
-		} else {
-			w.setState(hm)
-		}
+		w.startHint(hm, c)
 	}()
 }
 

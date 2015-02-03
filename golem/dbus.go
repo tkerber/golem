@@ -184,27 +184,36 @@ func webExtensionForWebView(g *Golem, wv *webkit.WebView) *webExtension {
 }
 
 // LinkHintsMode initializes hints mode for links.
-func (w *webExtension) LinkHintsMode() error {
+func (w *webExtension) LinkHintsMode() (int64, error) {
 	call := w.Call(
 		webExtenDBusInterface+".LinkHintsMode",
 		dbus.FlagNoAutoStart)
-	return call.Err
+	if call.Err != nil {
+		return 0, call.Err
+	}
+	return call.Body[0].(int64), nil
 }
 
 // FormVariableHintsMode initializes hints mode for form input fields.
-func (w *webExtension) FormVariableHintsMode() error {
+func (w *webExtension) FormVariableHintsMode() (int64, error) {
 	call := w.Call(
 		webExtenDBusInterface+".FormVariableHintsMode",
 		dbus.FlagNoAutoStart)
-	return call.Err
+	if call.Err != nil {
+		return 0, call.Err
+	}
+	return call.Body[0].(int64), nil
 }
 
 // ClickHintsMode initializes hints mode for clickable elements.
-func (w *webExtension) ClickHintsMode() error {
+func (w *webExtension) ClickHintsMode() (int64, error) {
 	call := w.Call(
 		webExtenDBusInterface+".ClickHintsMode",
 		dbus.FlagNoAutoStart)
-	return call.Err
+	if call.Err != nil {
+		return 0, call.Err
+	}
+	return call.Body[0].(int64), nil
 }
 
 // EndHintsMode ends hints mode.

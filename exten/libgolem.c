@@ -26,13 +26,13 @@ static const gchar introspection_xml[] =
     "            <arg type='b' name='InputFocused' />"
     "        </signal>"
     "        <method name='LinkHintsMode'>"
-    "            <arg type='b' name='Empty' direction='out' />"
+    "            <arg type='x' name='Empty' direction='out' />"
     "        </method>"
     "        <method name='FormVariableHintsMode'>"
-    "            <arg type='b' name='Empty' direction='out' />"
+    "            <arg type='x' name='Empty' direction='out' />"
     "        </method>"
     "        <method name='ClickHintsMode'>"
-    "            <arg type='b' name='Empty' direction='out' />"
+    "            <arg type='x' name='Empty' direction='out' />"
     "        </method>"
     "        <method name='EndHintsMode' />"
     "        <method name='FilterHintsMode'>"
@@ -128,17 +128,23 @@ handle_method_call(GDBusConnection       *connection,
 {
     Exten *exten = user_data;
     if(g_strcmp0(method_name, "LinkHintsMode") == 0) {
-        start_hints_mode(select_links, hint_call_by_href, exten);
+        gint64 ret = start_hints_mode(select_links, hint_call_by_href, exten);
         g_dbus_method_invocation_return_value(invocation,
-                g_variant_new("(b)", FALSE));
+                g_variant_new("(x)", ret));
     } else if(g_strcmp0(method_name, "FormVariableHintsMode") == 0) {
-        start_hints_mode(select_form_text_variables, hint_call_by_form_variable_get, exten);
+        gint64 ret = start_hints_mode(
+                select_form_text_variables,
+                hint_call_by_form_variable_get,
+                exten);
         g_dbus_method_invocation_return_value(invocation,
-                g_variant_new("(b)", FALSE));
+                g_variant_new("(x)", ret));
     } else if(g_strcmp0(method_name, "ClickHintsMode") == 0) {
-        start_hints_mode(select_clickable, hint_call_by_click, exten);
+        gint64 ret = start_hints_mode(
+                select_clickable,
+                hint_call_by_click,
+                exten);
         g_dbus_method_invocation_return_value(invocation,
-                g_variant_new("(b)", FALSE));
+                g_variant_new("(x)", ret));
     } else if(g_strcmp0(method_name, "EndHintsMode") == 0) {
         end_hints_mode(exten);
         g_dbus_method_invocation_return_value(invocation, NULL);
@@ -600,7 +606,12 @@ frame_document_loaded(WebKitDOMDocument *doc,
             WEBKIT_DOM_DOCUMENT(doc),
             "IFRAME");
     gulong i;
-    gulong len = webkit_dom_node_list_get_length(nodes);
+    gulong len;
+    if(nodes == NULL) {
+        len = 0;
+    } else {
+        len = webkit_dom_node_list_get_length(nodes);
+    }
     for(i = 0; i < len; i++) {
         WebKitDOMDocument *subdoc =
             webkit_dom_html_iframe_element_get_content_document(
