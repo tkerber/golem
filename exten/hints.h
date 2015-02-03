@@ -6,7 +6,7 @@
 #define HINTS_H
 
 // Returns a GList of WebKitDOMNodes, which have been ref'd.
-typedef GList *(*NodeSelecter)(Exten*);
+typedef GList *(*NodeSelecter)(GHashTable*, Exten*);
 
 // Do something with a node. Return true to continue hints mode.
 typedef gboolean (*NodeExecuter)(WebKitDOMNode*, Exten*);
@@ -25,9 +25,9 @@ gboolean hint_call_by_href(WebKitDOMNode*, Exten*);
 
 gboolean hint_call_by_click(WebKitDOMNode*, Exten*);
 
-GList *select_clickable(Exten*);
+GList *select_clickable(GHashTable*, Exten*);
 
-GList *select_links(Exten*);
+GList *select_links(GHashTable*, Exten*);
 
 void
 start_hints_mode(NodeSelecter ns, NodeExecuter ne, Exten *exten);

@@ -5,21 +5,32 @@
 #include <string.h>
 #include "hints.h"
 
-static void
-dom_get_absolute_position(WebKitDOMElement *e, gdouble *left, gdouble *top)
+typedef struct _Point {
+    gdouble x;
+    gdouble y;
+} Point;
+
+// Returns a point. The point is owned by h, and must not be freed.
+static Point *
+dom_get_absolute_position(
+        GHashTable *h,
+        WebKitDOMElement *e)
 {
-    if(e == NULL || WEBKIT_DOM_IS_HTML_BODY_ELEMENT(e)) {
-        *left = 0;
-        *top = 0;
-        return;
+    if(g_hash_table_contains(h, e)) {
+        return g_hash_table_lookup(h, e);
     }
-    gdouble parent_left, parent_top;
-    dom_get_absolute_position(
-            webkit_dom_element_get_offset_parent(e),
-            &parent_left,
-            &parent_top);
-    *left = parent_left + webkit_dom_element_get_offset_left(e);
-    *top = parent_top + webkit_dom_element_get_offset_top(e);
+    Point *point = g_malloc(sizeof(Point));
+    if(e == NULL || WEBKIT_DOM_IS_HTML_BODY_ELEMENT(e)) {
+        point->x = 0;
+        point->y = 0;
+    } else {
+        WebKitDOMElement *parent = webkit_dom_element_get_offset_parent(e);
+        Point *p = dom_get_absolute_position(h, parent);
+        point->x = p->x + webkit_dom_element_get_offset_left(e);
+        point->y = p->y + webkit_dom_element_get_offset_top(e);
+    }
+    g_hash_table_insert(h, e, point);
+    return point;
 }
 
 static void
@@ -162,14 +173,12 @@ hint_call_by_click(WebKitDOMNode *n, Exten *exten)
 // TODO: For now, this is limited to check if it is visible within its own
 // document.
 static gboolean
-is_visible(WebKitDOMNode *n) {
+is_visible(GHashTable *h, WebKitDOMNode *n) {
     if(!WEBKIT_DOM_IS_ELEMENT(n)) {
         return FALSE;
     }
-    gdouble left, top;
-
     WebKitDOMElement *e = WEBKIT_DOM_ELEMENT(n);
-    dom_get_absolute_position(e, &left, &top);
+    Point *p = dom_get_absolute_position(h, e);
 
     glong vp_width, vp_height, vp_x_offset, vp_y_offset;
     WebKitDOMDOMWindow *vp = webkit_dom_document_get_default_view(
@@ -181,10 +190,10 @@ is_visible(WebKitDOMNode *n) {
             "page-y-offset", &vp_y_offset,
             NULL);
     return
-        left >= vp_x_offset &&
-        left <= vp_x_offset + vp_width &&
-        top  >= vp_y_offset &&
-        top  <= vp_y_offset + vp_height;
+        p->x >= vp_x_offset &&
+        p->x <= vp_x_offset + vp_width &&
+        p->y >= vp_y_offset &&
+        p->y <= vp_y_offset + vp_height;
 }
 
 static void
@@ -212,7 +221,7 @@ scan_documents(WebKitDOMDocument *doc, GList **l, Exten *exten)
 // - TextArea elements
 // - Select elements
 GList *
-select_clickable(Exten *exten)
+select_clickable(GHashTable *h, Exten *exten)
 {
     const char* const tags[] = {
         "A",
@@ -235,7 +244,7 @@ select_clickable(Exten *exten)
             gulong j;
             for(j = 0; j < len; j++) {
                 WebKitDOMNode *item = webkit_dom_node_list_item(nl, j);
-                if(!is_visible(item)) {
+                if(!is_visible(h, item)) {
                     continue;
                 }
                 // special case for A elements: ignore those without href.
@@ -261,7 +270,7 @@ select_clickable(Exten *exten)
 }
 
 GList *
-select_links(Exten *exten)
+select_links(GHashTable *h, Exten *exten)
 {
     GList *ret = NULL;
     GList *docs = NULL;
@@ -273,7 +282,7 @@ select_links(Exten *exten)
         gulong i;
         for(i = 0; i < len; i++) {
             WebKitDOMNode *item = webkit_dom_html_collection_item(coll, i);
-            if(!is_visible(item)) {
+            if(!is_visible(h, item)) {
                 continue;
             }
             g_object_ref(item);
@@ -291,12 +300,14 @@ start_hints_mode(NodeSelecter ns, NodeExecuter ne, Exten *exten)
         end_hints_mode(exten);
     }
     GError *err = NULL;
-    GList *nodes = ns(exten);
+    GHashTable *ht = g_hash_table_new_full(NULL, NULL, NULL, g_free);
+    GList *nodes = ns(ht, exten);
     guint len = g_list_length(nodes);
     gchar **hints_texts = get_hints_texts(len, exten, &err);
     if(err != NULL) {
         printf("Failed to get hints texts: %s\n", err->message);
         g_error_free(err);
+        g_hash_table_unref(ht);
         return;
     }
     GHashTable *hints = g_hash_table_new(NULL, NULL);
@@ -329,10 +340,10 @@ start_hints_mode(NodeSelecter ns, NodeExecuter ne, Exten *exten)
         text = NULL;
         // set hint div position
         gdouble left, top;
-        dom_get_absolute_position(l->data, &left, &top);
+        Point *point = dom_get_absolute_position(ht, l->data);
         gchar *style = g_strdup_printf("left:%fpx;top:%fpx",
-                left,
-                top);
+                point->x,
+                point->y);
         webkit_dom_element_set_attribute(div, "style", style, &err);
         g_free(style);
         if(err != NULL) {
@@ -372,6 +383,7 @@ err:
             g_object_unref(text);
         }
     }
+    g_hash_table_unref(ht);
     g_list_free(nodes);
     g_free(hints_texts);
     HintsMode *hm = g_malloc(sizeof(HintsMode));
