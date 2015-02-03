@@ -69,7 +69,7 @@ func (w *Window) newTabsWithWebViews(wvs ...*webView) ([]*webView, error) {
 		for i, wv := range wvs {
 			if wv == nil {
 				var wv *webView
-				wv, err = w.newWebView(w.getWebView().settings)
+				wv, err = w.newWebView(w.defaultSettings)
 				if err != nil {
 					return
 				}

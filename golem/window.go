@@ -65,6 +65,7 @@ func (h *signalHandle) disconnect() {
 type Window struct {
 	*ui.Window
 	cmd.State
+	defaultSettings     *webkit.Settings
 	webViews            []*webView
 	currentWebView      int
 	parent              *Golem
@@ -129,6 +130,7 @@ func (g *Golem) initWindow() *Window {
 	return &Window{
 		nil,
 		nil,
+		g.DefaultSettings,
 		make([]*webView, 1, 50),
 		0,
 		g,
