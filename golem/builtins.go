@@ -676,8 +676,9 @@ func (w *Window) builtinTabPrev(n *int) {
 
 // builtinToggleQuickmark toggles the quickmark state of the current site.
 func (w *Window) builtinToggleQuickmark(_ *int) {
-	// TODO confirm on delete.
-	uri := w.getWebView().GetURI()
+	wv := w.getWebView()
+	uri := wv.GetURI()
+	title := wv.GetTitle()
 	if _, ok := w.parent.hasQuickmark[uri]; ok {
 		b := false
 		w.setState(cmd.NewYesNoConfirmMode(
@@ -695,7 +696,9 @@ func (w *Window) builtinToggleQuickmark(_ *int) {
 			w.State,
 			states.CommandLineSubstateCommand,
 			"addquickmark ",
-			" "+uri,
+			fmt.Sprintf(" %s %s",
+				strconv.Quote(title),
+				uri),
 			w.runCmd))
 	}
 }

@@ -92,6 +92,7 @@ func logNonGlobalCommand() {
 	(*Window)(nil).logError("Non global command executed in a global context.")
 }
 
+// cmdAddSearchEngine adds a new search engine.
 func cmdAddSearchEngine(w *Window, g *Golem, args []string) {
 	if len(args) != 4 {
 		w.logInvalidArgs(args)
@@ -275,7 +276,7 @@ func cmdBackgroundOpen(w *Window, g *Golem, args []string) {
 
 // cmdAddQuickmark adds a new quickmark and records it in the quickmarks file.
 func cmdAddQuickmark(w *Window, g *Golem, args []string) {
-	if len(args) != 3 {
+	if len(args) != 4 {
 		w.logInvalidArgs(args)
 		return
 	}
@@ -305,7 +306,7 @@ func cmdAddQuickmark(w *Window, g *Golem, args []string) {
 		return
 	}
 	// Add quickmark to current session
-	g.quickmark(sanitizedKeys, args[2])
+	g.quickmark(sanitizedKeys, args[2], args[3])
 	if w != nil {
 		go w.UpdateLocation()
 	}
@@ -316,9 +317,10 @@ func cmdAddQuickmark(w *Window, g *Golem, args []string) {
 		return
 	}
 	defer f.Close()
-	fmt.Fprintf(f, "qm\t%s\t%s\n",
+	fmt.Fprintf(f, "qm\t%s\t%s\t%s\n",
 		strconv.Quote(sanitizedKeys),
-		strconv.Quote(args[2]))
+		strconv.Quote(args[2]),
+		strconv.Quote(args[3]))
 }
 
 // cmdRemoveQuickmark removes a quickmark from golem and (if found) from the
@@ -332,15 +334,15 @@ func cmdRemoveQuickmark(w *Window, g *Golem, args []string) {
 	// First we guess that a key sequence is given, and try to delete that.
 	keyStr := cmd.KeysString(cmd.ParseKeys(args[1]))
 	if _, ok := g.quickmarks[args[1]]; ok {
-		delete(g.hasQuickmark, g.quickmarks[keyStr])
+		delete(g.hasQuickmark, g.quickmarks[keyStr].uri)
 		delete(g.quickmarks, keyStr)
 	} else {
 		// We assume a uri is given and try to delete that.
 		found := false
 		for k, v := range g.quickmarks {
-			if v == args[1] {
+			if v.uri == args[1] {
 				delete(g.quickmarks, k)
-				delete(g.hasQuickmark, v)
+				delete(g.hasQuickmark, v.uri)
 				found = true
 				break
 			}
@@ -364,13 +366,13 @@ func cmdRemoveQuickmark(w *Window, g *Golem, args []string) {
 	lines := strings.Split(string(data), "\n")
 	for i := 0; i < len(lines); i++ {
 		parts, err := shellwords.Parse(lines[i])
-		if err != nil || len(parts) != 3 {
+		if err != nil || len(parts) != 4 {
 			continue
 		}
 		if parts[0] != "qm" && parts[0] != "quickmark" {
 			continue
 		}
-		if parts[1] == keyStr || parts[2] == args[1] {
+		if parts[1] == keyStr || parts[3] == args[1] {
 			copy(lines[i:len(lines)-1], lines[i+1:])
 			lines = lines[:len(lines)-1]
 			i--
@@ -387,7 +389,7 @@ func cmdRemoveQuickmark(w *Window, g *Golem, args []string) {
 
 // cmdQuickmark adds a new quickmark to golem.
 func cmdQuickmark(w *Window, g *Golem, args []string) {
-	if len(args) != 3 {
+	if len(args) != 4 {
 		w.logInvalidArgs(args)
 		return
 	}
@@ -416,7 +418,7 @@ func cmdQuickmark(w *Window, g *Golem, args []string) {
 			}))
 		return
 	}
-	g.quickmark(sanitizedKeys, args[2])
+	g.quickmark(sanitizedKeys, args[2], args[3])
 	if w != nil {
 		go w.UpdateLocation()
 	}

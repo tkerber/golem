@@ -45,8 +45,8 @@ const injectedHTMLCSS = `
 }
 `
 
-// A historyEntry is a single entry in the history file.
-type historyEntry struct {
+// A uriEntry is a single uri with a title.
+type uriEntry struct {
 	uri   string
 	title string
 }
@@ -63,8 +63,8 @@ type Golem struct {
 	wMutex             *sync.Mutex
 	rawBindings        []cmd.RawBinding
 	// A map from sanitized keystring (i.e. parsed and stringified again) to
-	// uris.
-	quickmarks   map[string]string
+	// a struct of uri and name.
+	quickmarks   map[string]uriEntry
 	hasQuickmark map[string]bool
 
 	DefaultSettings *webkit.Settings
@@ -77,7 +77,7 @@ type Golem struct {
 	webViewCachePrimary   string
 
 	historyMutex *sync.Mutex
-	history      []historyEntry
+	history      []uriEntry
 
 	adblocker *adblock.Blocker
 }
@@ -122,7 +122,7 @@ func New(sBus *dbus.Conn, profile string) (*Golem, error) {
 		sBus,
 		new(sync.Mutex),
 		make([]cmd.RawBinding, 0, 100),
-		make(map[string]string, 20),
+		make(map[string]uriEntry, 20),
 		make(map[string]bool, 20),
 		webkit.NewSettings(),
 		nil,
@@ -132,7 +132,7 @@ func New(sBus *dbus.Conn, profile string) (*Golem, error) {
 		"",
 		"",
 		new(sync.Mutex),
-		make([]historyEntry, 0, defaultCfg.maxHistLen),
+		make([]uriEntry, 0, defaultCfg.maxHistLen),
 		nil,
 	}
 
@@ -184,7 +184,7 @@ func (g *Golem) loadHistory() error {
 				uri = split[0]
 				title = split[1]
 			}
-			g.history = append(g.history, historyEntry{uri, title})
+			g.history = append(g.history, uriEntry{uri, title})
 		}
 	}
 	return nil
@@ -321,10 +321,10 @@ func (g *Golem) bind(from string, to string) {
 }
 
 // quickmark adds a quickmark to golem.
-func (g *Golem) quickmark(from string, uri string) {
+func (g *Golem) quickmark(from string, title string, uri string) {
 	g.wMutex.Lock()
 	defer g.wMutex.Unlock()
-	g.quickmarks[from] = uri
+	g.quickmarks[from] = uriEntry{uri, title}
 	g.hasQuickmark[uri] = true
 
 	for _, w := range g.windows {
@@ -456,7 +456,7 @@ func (g *Golem) updateHistory(uri, title string) {
 		if len(g.history) == g.maxHistLen {
 			g.history = g.history[1:]
 		}
-		g.history = append(g.history, historyEntry{uri, title})
+		g.history = append(g.history, uriEntry{uri, title})
 	}
 	// Write hist file.
 	strHist := make([]string, len(g.history))

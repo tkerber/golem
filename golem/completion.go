@@ -276,7 +276,7 @@ func (g *Golem) completeURI(
 
 	uriparts := parts[startFrom:]
 	stage := 0
-	qmArr := make([]string, len(g.quickmarks))
+	qmArr := make([]uriEntry, len(g.quickmarks))
 	i := 0
 	for _, s := range g.quickmarks {
 		qmArr[i] = s
@@ -287,6 +287,7 @@ func (g *Golem) completeURI(
 		var uri string
 		// Where the uri came from (quickmarks, bookmarks, history)
 		var uriType string
+		var title string
 	outer:
 		for {
 			switch stage {
@@ -299,11 +300,12 @@ func (g *Golem) completeURI(
 					continue
 				}
 				for _, part := range uriparts {
-					if !strings.Contains(qmArr[i], part) {
+					if !strings.Contains(qmArr[i].uri, part) {
 						continue outer
 					}
 				}
-				uri = qmArr[i]
+				uri = qmArr[i].uri
+				title = qmArr[i].title
 				uriType = "Quickmark"
 				break outer
 			// complete history
@@ -322,6 +324,7 @@ func (g *Golem) completeURI(
 					}
 				}
 				uri = item.uri
+				title = item.title
 				uriType = "History"
 				break outer
 			// end iteration
@@ -331,7 +334,7 @@ func (g *Golem) completeURI(
 		}
 		// Won't always cleanly work. But it doesn't have to.
 		return strings.Join(parts[:startFrom], " ") + " " + uri,
-			fmt.Sprintf("%s\t%s", uri, uriType),
+			fmt.Sprintf("%s\t%s\t%s", uri, title, uriType),
 			true
 	}
 }

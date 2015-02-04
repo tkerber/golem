@@ -399,11 +399,12 @@ func (w *Window) rebuildQuickmarks() {
 
 // quickmarkCallback opens a quickmark as a callback from a binding execution.
 func (w *Window) quickmarkCallback(keys []cmd.Key, _ *int, s cmd.Substate) {
-	uri, ok := w.parent.quickmarks[cmd.KeysString(keys)]
+	qm, ok := w.parent.quickmarks[cmd.KeysString(keys)]
 	if !ok {
 		w.logErrorf("Unknown quickmark: %s", cmd.KeysString(keys))
 		return
 	}
+	uri := qm.uri
 	switch s {
 	case states.NormalSubstateQuickmark:
 		w.getWebView().LoadURI(uri)
