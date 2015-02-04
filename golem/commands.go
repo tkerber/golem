@@ -35,6 +35,18 @@ var commands map[string]func(*Window, *Golem, []string)
 // (which is executed after constant/variabel initialization.
 func init() {
 	commands = map[string]func(*Window, *Golem, []string){
+		"ab":                  cmdAddBookmark,
+		"abm":                 cmdAddBookmark,
+		"addbookmark":         cmdAddBookmark,
+		"b":                   cmdBookmark,
+		"bm":                  cmdBookmark,
+		"bookmark":            cmdBookmark,
+		"rmb":                 cmdRemoveBookmark,
+		"rmbm":                cmdRemoveBookmark,
+		"rmbookmark":          cmdRemoveBookmark,
+		"removeb":             cmdRemoveBookmark,
+		"removebm":            cmdRemoveBookmark,
+		"removebookmark":      cmdRemoveBookmark,
 		"defaultsearchengine": cmdDefaultSearchEngine,
 		"dse":                cmdDefaultSearchEngine,
 		"ase":                cmdAddSearchEngine,
@@ -90,6 +102,104 @@ func (w *Window) logInvalidArgs(args []string) {
 // not have been executed in a global context (i.e. in golem's rc)
 func logNonGlobalCommand() {
 	(*Window)(nil).logError("Non global command executed in a global context.")
+}
+
+// cmdBookmark bookmarks a site for and adds it to a bookmark rc file.
+func cmdAddBookmark(w *Window, g *Golem, args []string) {
+	if len(args) != 3 {
+		w.logInvalidArgs(args)
+		return
+	}
+	if _, ok := g.isBookmark[args[2]]; ok {
+		w.logErrorf("'%s' already bookmarked.", args[2])
+		return
+	}
+	cmdBookmark(w, g, args)
+	// Append bookmark to bookmarks config file.
+	f, err := os.OpenFile(g.files.bookmarks, os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		w.logError(err.Error())
+		return
+	}
+	defer f.Close()
+	fmt.Fprintf(f, "bm\t%s\t%s\n",
+		strconv.Quote(args[1]),
+		strconv.Quote(args[2]))
+}
+
+// cmdBookmark bookmarks a site for the session.
+func cmdBookmark(w *Window, g *Golem, args []string) {
+	if len(args) != 3 {
+		w.logInvalidArgs(args)
+		return
+	}
+	if _, ok := g.isBookmark[args[2]]; ok {
+		w.logErrorf("'%s' already bookmarked.", args[2])
+		return
+	}
+	g.wMutex.Lock()
+	g.bookmarks = append(g.bookmarks, uriEntry{args[2], args[1]})
+	g.isBookmark[args[2]] = true
+	g.wMutex.Unlock()
+	if w != nil {
+		go w.UpdateLocation()
+	}
+}
+
+// cmdRemoveBookmark removes a bookmark.
+func cmdRemoveBookmark(w *Window, g *Golem, args []string) {
+	if len(args) != 2 {
+		w.logInvalidArgs(args)
+		return
+	}
+	if _, ok := g.isBookmark[args[1]]; !ok {
+		w.logErrorf("Bookmark '%s' does not exist.", args[2])
+		return
+	}
+	bookmarksCp := make([]uriEntry, len(g.bookmarks), cap(g.bookmarks))
+	copy(bookmarksCp, g.bookmarks)
+	for i := 0; i < len(bookmarksCp); i++ {
+		if bookmarksCp[i].uri == args[1] {
+			copy(bookmarksCp[i:len(bookmarksCp)-1], bookmarksCp[i+1:])
+			bookmarksCp[len(bookmarksCp)-1] = *new(uriEntry)
+			bookmarksCp = bookmarksCp[:len(bookmarksCp)-1]
+		}
+	}
+	g.wMutex.Lock()
+	g.bookmarks = bookmarksCp
+	delete(g.isBookmark, args[1])
+	g.wMutex.Unlock()
+	if w != nil {
+		go w.UpdateLocation()
+	}
+	// We also run through the bookmarks file and delete matching lines.
+	data, err := ioutil.ReadFile(g.files.searchEngines)
+	if err != nil {
+		w.logErrorf("Failed to read bookmarks file.")
+		return
+	}
+	lines := strings.Split(string(data), "\n")
+	for i := 0; i < len(lines); i++ {
+		parts, err := shellwords.Parse(lines[i])
+		if err != nil || len(parts) != 3 {
+			continue
+		}
+		if parts[0] != "bm" && parts[0] != "bookmark" {
+			continue
+		}
+		if parts[1] == args[1] {
+			copy(lines[i:len(lines)-1], lines[i+1:])
+			lines = lines[:len(lines)-1]
+			i--
+		}
+	}
+	err = ioutil.WriteFile(
+		g.files.searchEngines,
+		[]byte(strings.Join(lines, "\n")),
+		0600)
+	if err != nil {
+		w.logErrorf("Failed to write to bookmarks file.")
+	}
 }
 
 // cmdAddSearchEngine adds a new search engine.
@@ -171,7 +281,7 @@ func cmdRemoveSearchEngine(w *Window, g *Golem, args []string) {
 		w.logErrorf("Search engine with shorthand '%s' does not exist.",
 			sanitizedKeys)
 	}
-	// We also run through the quickmarks file and delete matching lines.
+	// We also run through the search engine file and delete matching lines.
 	data, err := ioutil.ReadFile(g.files.searchEngines)
 	if err != nil {
 		w.logErrorf("Failed to read searchengines file.")

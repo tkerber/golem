@@ -74,6 +74,7 @@ bind wf      builtin:hintsWindow
 bind ase     builtin:addSearchEngine
 
 bind m       builtin:toggleQuickmark
+bind M       builtin:toggleBookmark
 
 " Mediasource isn't supported enough for YouTube yet :(
 set webkit:enable-mediasource=true

@@ -308,8 +308,25 @@ func (g *Golem) completeURI(
 				title = qmArr[i].title
 				uriType = "Quickmark"
 				break outer
-			// complete history
+			// complete bookmarks
 			case 1:
+				i++
+				if i >= len(g.bookmarks) {
+					stage++
+					i = -1
+					continue
+				}
+				for _, part := range uriparts {
+					if !strings.Contains(g.bookmarks[i].uri, part) {
+						continue outer
+					}
+				}
+				uri = g.bookmarks[i].uri
+				title = g.bookmarks[i].title
+				uriType = "Bookmark"
+				break outer
+			// complete history
+			case 2:
 				i++
 				if i >= len(g.history) {
 					stage++

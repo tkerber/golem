@@ -80,6 +80,7 @@ func builtinsFor(w *Window) cmd.Builtins {
 		"tabPasteClipboard":    {w.builtinTabPasteClipboard, "Pastes tabs from clipboard selection"},
 		"tabPastePrimary":      {w.builtinTabPastePrimary, "Pastes tabs from primary selection"},
 		"tabPrev":              {w.builtinTabPrev, "Goes to the previous tab"},
+		"toggleBookmark":       {w.builtinToggleBookmark, "Toggles bookmark status of the current page"},
 		"toggleQuickmark":      {w.builtinToggleQuickmark, "Toggles quickmark status of the current page"},
 		"windowEditURI":        {w.builtinWindowEditURI, "Edits URI and opens in a new window"},
 		"windowOpen":           {w.builtinWindowOpen, "Opens a new window"},
@@ -672,6 +673,28 @@ func (w *Window) builtinTabPrev(n *int) {
 		newTab += size
 	}
 	w.TabGo(newTab)
+}
+
+// builtinToggleBookmark toggles the bookmark state of the current site.
+func (w *Window) builtinToggleBookmark(_ *int) {
+	wv := w.getWebView()
+	uri := wv.GetURI()
+	title := wv.GetTitle()
+	if _, ok := w.parent.isBookmark[uri]; ok {
+		b := false
+		w.setState(cmd.NewYesNoConfirmMode(
+			w.State,
+			cmd.SubstateDefault,
+			"Are you sure you want to remove the bookmark for this page?",
+			&b,
+			func(b bool) {
+				if b {
+					cmdRemoveBookmark(w, w.parent, []string{"", uri})
+				}
+			}))
+	} else {
+		cmdAddBookmark(w, w.parent, []string{"", title, uri})
+	}
 }
 
 // builtinToggleQuickmark toggles the quickmark state of the current site.

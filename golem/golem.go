@@ -67,6 +67,9 @@ type Golem struct {
 	quickmarks   map[string]uriEntry
 	hasQuickmark map[string]bool
 
+	bookmarks  []uriEntry
+	isBookmark map[string]bool
+
 	DefaultSettings *webkit.Settings
 	files           *files
 	extenDir        string
@@ -124,6 +127,8 @@ func New(sBus *dbus.Conn, profile string) (*Golem, error) {
 		make([]cmd.RawBinding, 0, 100),
 		make(map[string]uriEntry, 20),
 		make(map[string]bool, 20),
+		make([]uriEntry, 0, 100),
+		make(map[string]bool, 100),
 		webkit.NewSettings(),
 		nil,
 		"",
