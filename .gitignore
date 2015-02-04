@@ -8,3 +8,5 @@
 # pdf.js
 /data/srv/pdf.js
 /pdf.js
+# version data
+/golem/version

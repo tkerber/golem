@@ -24,6 +24,7 @@ To install golem with the `go` command, instead execute:
 `go generate` requires the following programs to execute:
 
 * `go-bindata` which can be obtained with `go get github.com/jteeuwen/go-bindata`
+* `go-version` (`go get github.com/tkerber/go-version`)
 * `node` i.e. node.js
 * `/usr/share/java/closure-compiler/closure-compiler.jar`
 

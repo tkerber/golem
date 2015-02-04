@@ -18,6 +18,8 @@ import (
 //go:generate make all
 // Pack data
 //go:generate go-bindata -o golem/bindata.go -pkg golem -nomemcopy -prefix data data/...
+// Generate version constants
+//go:generate go-version -o golem/version/version.go -pkg version
 
 // exitCode contains the exit code that golem should exit with.
 var exitCode = 0
