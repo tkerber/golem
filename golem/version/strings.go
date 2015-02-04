@@ -10,9 +10,9 @@ import (
 //
 // Of one of the following forms:
 //
-// tag
-// tag[hash]
-// [hash]
+// {tag}
+// {tag}[commit {hash}]
+// [commit {hash}]
 var Version string
 
 // A version name for golem.
@@ -22,9 +22,9 @@ func init() {
 	if CommitTagIsExact {
 		Version = CommitTag
 	} else if CommitTag == "" {
-		Version = fmt.Sprintf("[%s]", CommitHashShort)
+		Version = fmt.Sprintf("[commit %s]", CommitHashShort)
 	} else {
-		Version = fmt.Sprintf("%s[%s]", CommitTag, CommitHashShort)
+		Version = fmt.Sprintf("%s[commit %s]", CommitTag, CommitHashShort)
 	}
 
 	switch {
