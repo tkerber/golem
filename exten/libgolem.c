@@ -406,7 +406,18 @@ active_element_change_cb(WebKitDOMEventTarget *target,
         return;
     }
     if(WEBKIT_DOM_IS_HTML_IFRAME_ELEMENT(active)) {
-        // The iframe document handles this.
+        // The iframe document handles this, unless it isn't registered yet.
+        // In this case, register it and call recursively.
+        WebKitDOMDocument *doc =
+            webkit_dom_html_iframe_element_get_content_document(
+                    WEBKIT_DOM_HTML_IFRAME_ELEMENT(active));
+        if(!g_hash_table_contains(exten->registered_documents, doc)) {
+            frame_document_loaded(doc, exten);
+            active_element_change_cb(
+                    WEBKIT_DOM_EVENT_TARGET(doc),
+                    NULL,
+                    exten);
+        }
         return;
     }
     exten->active = active;

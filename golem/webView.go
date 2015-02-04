@@ -147,7 +147,7 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 									html.EscapeString(url.QueryEscape(resp.GetURI())))),
 								resp.GetURI(),
 								fmt.Sprintf(
-									"golem:///pdf.js/frame.html?%s",
+									"golem-unsafe://pdf.js/frame.html?%s",
 									resp.GetURI()))
 							return true
 						}
