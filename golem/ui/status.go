@@ -131,6 +131,8 @@ func (w *Window) UpdateState(state cmd.State) {
 			action = "follow in new tab"
 		case states.HintsSubstateWindow:
 			action = "follow in new window"
+		case states.HintsSubstateSearchEngine:
+			action = "select search engine to add"
 		}
 		newStatus = fmt.Sprintf("%s: <em>%s</em>",
 			action,
@@ -190,6 +192,9 @@ func (w *Window) UpdateLocation() {
 	}
 
 	markStr := ""
+	if w.IsBookmarked() {
+		markStr += "b"
+	}
 	if w.IsQuickmarked() {
 		markStr += "q"
 	}

@@ -275,7 +275,14 @@ func (wv *webView) GetWebView() *webkit.WebView {
 
 // IsQuickmarked checks if the current uri is quickmarked.
 func (wv *webView) IsQuickmarked() bool {
-	return wv.parent.hasQuickmark[wv.GetURI()]
+	_, ok := wv.parent.hasQuickmark[wv.GetURI()]
+	return ok
+}
+
+// IsBookmarked checks if the current uri is bookmarked.
+func (wv *webView) IsBookmarked() bool {
+	_, ok := wv.parent.isBookmark[wv.GetURI()]
+	return ok
 }
 
 // detach detaches the webview from the ui.

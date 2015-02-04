@@ -8,4 +8,5 @@ type WebView interface {
 	GetHeight() int64
 	GetWebView() *webkit.WebView
 	IsQuickmarked() bool
+	IsBookmarked() bool
 }
