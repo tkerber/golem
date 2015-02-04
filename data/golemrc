@@ -1,5 +1,5 @@
 " This is a comment.
-set webkit:user-agent+=" golem/0 (Anvil of the Void)"
+cmdfmt set webkit:user-agent+=" golem/{golem_version} ({golem_version_name})"
 
 bind dd      builtin:cutClipboard
 bind <num>dd builtin:cutClipboard

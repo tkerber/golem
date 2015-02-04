@@ -11,6 +11,7 @@ import (
 
 	"github.com/mattn/go-shellwords"
 	"github.com/tkerber/golem/cmd"
+	"github.com/tkerber/golem/golem/version"
 	"github.com/tkerber/golem/webkit"
 )
 
@@ -35,6 +36,7 @@ var commands map[string]func(*Window, *Golem, []string)
 // (which is executed after constant/variabel initialization.
 func init() {
 	commands = map[string]func(*Window, *Golem, []string){
+		"cmdfmt":              cmdCommandFormat,
 		"ab":                  cmdAddBookmark,
 		"abm":                 cmdAddBookmark,
 		"addbookmark":         cmdAddBookmark,
@@ -102,6 +104,34 @@ func (w *Window) logInvalidArgs(args []string) {
 // not have been executed in a global context (i.e. in golem's rc)
 func logNonGlobalCommand() {
 	(*Window)(nil).logError("Non global command executed in a global context.")
+}
+
+// cmdFormatReplacer replaces "format" variables with the appropriate
+// constants.
+var cmdFormatReplacer = strings.NewReplacer(
+	"{golem_version}", version.Version,
+	"{golem_version_name}", version.Name,
+)
+
+// cmdCommandFormat formats the command passed to it by replacing the following:
+//
+// {golem_version} with golem's version string
+// {golem_version_name} with golem's version name
+func cmdCommandFormat(w *Window, g *Golem, args []string) {
+	args = args[1:]
+	if len(args) == 0 {
+		w.logErrorf("No command given.")
+		return
+	}
+	for i, arg := range args {
+		args[i] = cmdFormatReplacer.Replace(arg)
+	}
+	f, ok := commands[args[0]]
+	if !ok {
+		w.logErrorf("Error: Failed to run command '%v': No such command.",
+			args[0])
+	}
+	f(w, g, args)
 }
 
 // cmdBookmark bookmarks a site for and adds it to a bookmark rc file.
