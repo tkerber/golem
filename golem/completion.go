@@ -22,8 +22,12 @@ func (w *Window) completeState(
 
 	var strs []string
 	updated := false
+	i := 0
 	update := func(done bool) {
-		w.Window.CompletionBar.UpdateCompletions(strs)
+		if i%100 == 0 || done {
+			w.Window.CompletionBar.UpdateCompletions(strs)
+		}
+		i++
 		if !updated {
 			firstFunc(!done)
 			updated = true
