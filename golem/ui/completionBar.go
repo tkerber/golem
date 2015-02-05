@@ -1,10 +1,15 @@
 package ui
 
+// #cgo pkg-config: gtk+-3.0
+// #include <gtk/gtk.h>
+import "C"
 import (
 	"fmt"
 	"html"
 	"strings"
+	"unsafe"
 
+	"github.com/conformal/gotk3/glib"
 	"github.com/conformal/gotk3/gtk"
 	"github.com/conformal/gotk3/pango"
 	ggtk "github.com/tkerber/golem/gtk"
@@ -24,9 +29,13 @@ type CompletionBar struct {
 	Container   *gtk.Grid
 	boxes       [SurroundingCompletions*2 + 1][MaxWidth]*gtk.Box
 	labels      [SurroundingCompletions*2 + 1][MaxWidth]*gtk.Label
+	dummyLabel  *gtk.Label
 	completions []string
 	at          int
 	parent      *Window
+
+	width       int
+	windowWidth int
 }
 
 // newCompletionBar creates a new CompletionBar in a Window.
@@ -52,7 +61,6 @@ func (w *Window) newCompletionBar() (*CompletionBar, error) {
 			if err != nil {
 				return nil, err
 			}
-			b.SetSizeRequest(100, -1)
 			b.SetHExpand(true)
 			grid.Attach(b, j, i, 1, 1)
 			boxes[i][j] = b
@@ -61,7 +69,6 @@ func (w *Window) newCompletionBar() (*CompletionBar, error) {
 				return nil, err
 			}
 			l.SetHAlign(gtk.ALIGN_START)
-			l.SetMaxWidthChars(70)
 			l.SetEllipsize(pango.ELLIPSIZE_MIDDLE)
 			l.OverrideFont("monospace")
 			l.SetUseMarkup(true)
@@ -70,21 +77,131 @@ func (w *Window) newCompletionBar() (*CompletionBar, error) {
 			labels[i][j] = l
 		}
 	}
+	dummyLabel, err := gtk.LabelNew("")
+	if err != nil {
+		return nil, err
+	}
+	dummyLabel.Show()
 
-	return &CompletionBar{
+	cb := &CompletionBar{
 		grid,
 		boxes,
 		labels,
+		dummyLabel,
 		make([]string, 0),
 		0,
 		w,
-	}, nil
+		0,
+		0,
+	}
+	// If the window size changes, we drop our size requests temporarily, to
+	// allow the grid allocation size to change. Then we recalculate our
+	// size requests.
+	windowHandles := make([]glib.SignalHandle, 2)
+	windowHandles[0], err = w.Window.Connect("size-allocate", func() {
+		if width := cb.parent.Window.GetAllocatedWidth(); width != cb.windowWidth {
+			cb.windowWidth = width
+			for _, row := range cb.boxes {
+				for _, box := range row {
+					ggtk.GlibMainContextInvoke(box.SetSizeRequest, -1, -1)
+				}
+			}
+		}
+	})
+	if err != nil {
+		return nil, err
+	}
+	// Disconnect the signals again on destroy.
+	windowHandles[1], err = grid.Connect("destroy", func() {
+		for _, h := range windowHandles {
+			w.Window.HandlerDisconnect(h)
+		}
+	})
+	if err != nil {
+		return nil, err
+	}
+	gridHandles := make([]glib.SignalHandle, 2)
+	gridHandles[0], err = grid.Connect("size-allocate", func() {
+		if width := cb.Container.GetAllocatedWidth(); width != cb.width {
+			cb.width = width
+			cb.Resize()
+		}
+	})
+	if err != nil {
+		return nil, err
+	}
+	// Disconnect the signals again on destroy.
+	gridHandles[1], err = grid.Connect("destroy", func() {
+		for _, h := range gridHandles {
+			grid.HandlerDisconnect(h)
+		}
+	})
+	if err != nil {
+		return nil, err
+	}
+	return cb, nil
 }
 
 // UpdateCompletions updates the array of available completions.
 func (cb *CompletionBar) UpdateCompletions(completions []string) {
 	cb.completions = completions
+	cb.Resize()
 	cb.Update()
+}
+
+// Resize recomputes the sizes of items in the completion bar.
+func (cb *CompletionBar) Resize() {
+	var widths [MaxWidth]int
+	for _, completion := range cb.completions {
+		split := strings.SplitN(completion, "\t", MaxWidth)
+		for i, str := range split {
+			cb.dummyLabel.SetText(html.EscapeString(str))
+			size := C.gtk_requisition_new()
+			ggtk.GlibMainContextInvoke(func() {
+				C.gtk_widget_get_preferred_size(
+					(*C.GtkWidget)(unsafe.Pointer(cb.dummyLabel.Native())),
+					size,
+					nil)
+			})
+			if int(size.width) > widths[i] {
+				widths[i] = int(size.width)
+			}
+			C.gtk_requisition_free(size)
+		}
+	}
+	actualWidth := cb.Container.GetAllocatedWidth()
+	changed := true
+	var fixed [MaxWidth]bool
+	nVariable := MaxWidth
+	for changed {
+		changed = false
+		for i, width := range widths {
+			if fixed[i] {
+				continue
+			}
+			if width <= actualWidth/nVariable {
+				fixed[i] = true
+				nVariable--
+				actualWidth -= width
+				continue
+			}
+		}
+	}
+	for i := range widths {
+		if !fixed[i] {
+			widths[i] = actualWidth / nVariable
+		}
+	}
+	for _, row := range cb.boxes {
+		for _, box := range row {
+			ggtk.GlibMainContextInvoke(box.SetSizeRequest, -1, -1)
+		}
+	}
+	for _, row := range cb.boxes {
+		for i, box := range row {
+			ggtk.GlibMainContextInvoke(box.SetSizeRequest, widths[i], -1)
+		}
+	}
 }
 
 // UpdateAt updates the current completion.
