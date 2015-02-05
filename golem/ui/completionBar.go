@@ -23,6 +23,10 @@ const SurroundingCompletions = 5
 // maximum table width.)
 const MaxWidth = 3
 
+// CompletionBarSpacing is the spacing between the columns in the completion
+// bar.
+const CompletionBarSpacing = 5
+
 // A CompletionBar is a horizontal bar for displaying the current completion
 // a some context surrounding it.
 type CompletionBar struct {
@@ -33,6 +37,7 @@ type CompletionBar struct {
 	completions []string
 	at          int
 	parent      *Window
+	columns     int
 
 	width       int
 	windowWidth int
@@ -44,7 +49,7 @@ func (w *Window) newCompletionBar() (*CompletionBar, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	grid.SetColumnSpacing(CompletionBarSpacing)
 	grid.SetHAlign(gtk.ALIGN_FILL)
 	grid.SetVAlign(gtk.ALIGN_END)
 	grid.SetHExpand(true)
@@ -62,7 +67,6 @@ func (w *Window) newCompletionBar() (*CompletionBar, error) {
 				return nil, err
 			}
 			b.SetHExpand(true)
-			grid.Attach(b, j, i, 1, 1)
 			boxes[i][j] = b
 			l, err := gtk.LabelNew("")
 			if err != nil {
@@ -93,6 +97,7 @@ func (w *Window) newCompletionBar() (*CompletionBar, error) {
 		w,
 		0,
 		0,
+		0,
 	}
 	// If the window size changes, we drop our size requests temporarily, to
 	// allow the grid allocation size to change. Then we recalculate our
@@ -112,7 +117,7 @@ func (w *Window) newCompletionBar() (*CompletionBar, error) {
 		return nil, err
 	}
 	// Disconnect the signals again on destroy.
-	windowHandles[1], err = grid.Connect("destroy", func() {
+	windowHandles[1], err = w.Window.Connect("destroy", func() {
 		for _, h := range windowHandles {
 			w.Window.HandlerDisconnect(h)
 		}
@@ -142,27 +147,54 @@ func (w *Window) newCompletionBar() (*CompletionBar, error) {
 	return cb, nil
 }
 
+// setColumns sets the amount of columns shown in the completion bar.
+func (cb *CompletionBar) setColumns(n int) {
+	ggtk.GlibMainContextInvoke(func() {
+		for i, row := range cb.boxes {
+			for col, box := range row {
+				if col >= n && col < cb.columns {
+					cb.Container.Remove(box)
+				} else if col >= cb.columns && col < n {
+					cb.Container.Attach(box, col, i, 1, 1)
+				}
+			}
+		}
+	})
+	cb.columns = n
+}
+
 // UpdateCompletions updates the array of available completions.
 func (cb *CompletionBar) UpdateCompletions(completions []string) {
 	cb.completions = completions
-	cb.Resize()
-	cb.Update()
+	columns := 0
+	for _, completion := range cb.completions {
+		segments := strings.Count(completion, "\t") + 1
+		if segments > columns && segments <= MaxWidth {
+			columns = segments
+			if segments == MaxWidth {
+				break
+			}
+		}
+	}
+	ggtk.GlibMainContextInvoke(func() {
+		cb.setColumns(columns)
+		cb.Resize()
+		cb.Update()
+	})
 }
 
 // Resize recomputes the sizes of items in the completion bar.
 func (cb *CompletionBar) Resize() {
-	var widths [MaxWidth]int
+	widths := make([]int, cb.columns)
 	for _, completion := range cb.completions {
-		split := strings.SplitN(completion, "\t", MaxWidth)
+		split := strings.SplitN(completion, "\t", cb.columns)
 		for i, str := range split {
 			cb.dummyLabel.SetText(html.EscapeString(str))
 			size := C.gtk_requisition_new()
-			ggtk.GlibMainContextInvoke(func() {
-				C.gtk_widget_get_preferred_size(
-					(*C.GtkWidget)(unsafe.Pointer(cb.dummyLabel.Native())),
-					size,
-					nil)
-			})
+			C.gtk_widget_get_preferred_size(
+				(*C.GtkWidget)(unsafe.Pointer(cb.dummyLabel.Native())),
+				size,
+				nil)
 			if int(size.width) > widths[i] {
 				widths[i] = int(size.width)
 			}
@@ -170,9 +202,10 @@ func (cb *CompletionBar) Resize() {
 		}
 	}
 	actualWidth := cb.Container.GetAllocatedWidth()
+	actualWidth -= (cb.columns - 1) * CompletionBarSpacing
 	changed := true
-	var fixed [MaxWidth]bool
-	nVariable := MaxWidth
+	fixed := make([]bool, cb.columns)
+	nVariable := cb.columns
 	for changed {
 		changed = false
 		for i, width := range widths {
@@ -190,16 +223,27 @@ func (cb *CompletionBar) Resize() {
 	for i := range widths {
 		if !fixed[i] {
 			widths[i] = actualWidth / nVariable
-		}
-	}
-	for _, row := range cb.boxes {
-		for _, box := range row {
-			ggtk.GlibMainContextInvoke(box.SetSizeRequest, -1, -1)
+			// This edge case *does* occur. It could probably be eliminated,
+			// but it isn't really a concern.
+			if widths[i] < 0 {
+				widths[i] = 0
+			}
 		}
 	}
 	for _, row := range cb.boxes {
 		for i, box := range row {
-			ggtk.GlibMainContextInvoke(box.SetSizeRequest, widths[i], -1)
+			if i >= cb.columns {
+				break
+			}
+			box.SetSizeRequest(-1, -1)
+		}
+	}
+	for _, row := range cb.boxes {
+		for i, box := range row {
+			if i >= cb.columns {
+				break
+			}
+			box.SetSizeRequest(widths[i], -1)
 		}
 	}
 }
@@ -252,7 +296,7 @@ func (cb *CompletionBar) Clear() {
 func (cb *CompletionBar) update(completions []string, at int) {
 	cb.Clear()
 	for i, completion := range completions {
-		split := strings.SplitN(completion, "\t", MaxWidth)
+		split := strings.SplitN(completion, "\t", cb.columns)
 		for j, str := range split {
 			cb.boxes[i][j].Show()
 			if i == at {
