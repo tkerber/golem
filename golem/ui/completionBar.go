@@ -222,39 +222,48 @@ func (cb *CompletionBar) Resize() {
 			}
 		}
 	}
+	allFixed := true
+	for _, isFixed := range fixed {
+		if !isFixed {
+			allFixed = false
+			break
+		}
+	}
 	for i := range widths {
 		if !fixed[i] {
 			widths[i] = actualWidth / nVariable
-			// This edge case *does* occur. It could probably be eliminated,
-			// but it isn't really a concern.
-			if widths[i] < 0 {
-				widths[i] = 0
-			}
+		} else if allFixed {
+			widths[i] += actualWidth / cb.columns
+		}
+		// This edge case *does* occur. It could probably be eliminated,
+		// but it isn't really a concern.
+		if widths[i] < 0 {
+			widths[i] = 0
 		}
 	}
 	// We add the column spacing to the boxes.
 	for i := range widths[:len(widths)-1] {
 		widths[i] += CompletionBarSpacing
 	}
-	for i, row := range cb.boxes {
-		for j, box := range row {
-			if j >= cb.columns {
-				break
-			}
-			box.SetSizeRequest(-1, -1)
-			if j < cb.columns-1 {
-				cb.labels[i][j].SetMarginEnd(CompletionBarSpacing)
-			} else {
-				cb.labels[i][j].SetMarginEnd(0)
-			}
-		}
-	}
 	for _, row := range cb.boxes {
 		for i, box := range row {
 			if i >= cb.columns {
 				break
 			}
-			box.SetSizeRequest(widths[i], -1)
+			box.SetSizeRequest(-1, -1)
+		}
+	}
+	for i, row := range cb.boxes {
+		for j, box := range row {
+			if j >= cb.columns {
+				break
+			}
+			box.SetSizeRequest(widths[j], -1)
+			if j < cb.columns-1 {
+				cb.labels[i][j].SetMarginEnd(CompletionBarSpacing)
+			} else {
+				cb.labels[i][j].SetMarginEnd(0)
+			}
 		}
 	}
 }
@@ -285,27 +294,10 @@ func (cb *CompletionBar) Update() {
 	})
 }
 
-// Clear detaches all active completions.
-func (cb *CompletionBar) Clear() {
-	ggtk.GlibMainContextInvoke(func() {
-		for _, row := range cb.boxes {
-			for _, box := range row {
-				box.Hide()
-			}
-		}
-		for _, row := range cb.labels {
-			for _, label := range row {
-				label.SetMarkup("")
-			}
-		}
-	})
-}
-
 // update updates the display of completions with the specified context.
 //
 // Must be invoked from glib's main context.
 func (cb *CompletionBar) update(completions []string, at int) {
-	cb.Clear()
 	for i, completion := range completions {
 		split := strings.SplitN(completion, "\t", cb.columns)
 		for j, str := range split {

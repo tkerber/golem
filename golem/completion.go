@@ -39,7 +39,6 @@ func (w *Window) completeState(
 	go w.parent.complete(s, &cancelled, update, compStates, &strs)
 	cancel = func() {
 		cancelled = true
-		w.Window.CompletionBar.Clear()
 		w.Window.CompletionBar.UpdateCompletions(nil)
 		w.Window.CompletionBar.UpdateAt(0)
 		gtk.GlibMainContextInvoke(
