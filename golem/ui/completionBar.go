@@ -30,15 +30,14 @@ const CompletionBarSpacing = 5
 // A CompletionBar is a horizontal bar for displaying the current completion
 // a some context surrounding it.
 type CompletionBar struct {
-	Container     *gtk.Box
-	boxes         [SurroundingCompletions*2 + 1]*gtk.Box
-	labelWrappers [SurroundingCompletions*2 + 1][MaxWidth]*gtk.Box
-	labels        [SurroundingCompletions*2 + 1][MaxWidth]*gtk.Label
-	dummyLabel    *gtk.Label
-	completions   []string
-	at            int
-	parent        *Window
-	columns       int
+	Container   *gtk.Grid
+	boxes       [SurroundingCompletions*2 + 1][MaxWidth]*gtk.Box
+	labels      [SurroundingCompletions*2 + 1][MaxWidth]*gtk.Label
+	dummyLabel  *gtk.Label
+	completions []string
+	at          int
+	parent      *Window
+	columns     int
 
 	width       int
 	windowWidth int
@@ -46,36 +45,28 @@ type CompletionBar struct {
 
 // newCompletionBar creates a new CompletionBar in a Window.
 func (w *Window) newCompletionBar() (*CompletionBar, error) {
-	vbox, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 0)
+	grid, err := gtk.GridNew()
 	if err != nil {
 		return nil, err
 	}
-	vbox.SetHAlign(gtk.ALIGN_FILL)
-	vbox.SetVAlign(gtk.ALIGN_END)
-	vbox.SetHExpand(true)
-	vbox.SetVExpand(false)
-	vbox.SetNoShowAll(true)
-	vbox.SetName("completionbar")
+	grid.SetHAlign(gtk.ALIGN_FILL)
+	grid.SetVAlign(gtk.ALIGN_END)
+	grid.SetHExpand(true)
+	grid.SetVExpand(false)
+	grid.SetNoShowAll(true)
+	grid.SetName("completionbar")
 
-	// Set up the vbox contents.
+	// Set up the grid contents.
 	var labels [SurroundingCompletions*2 + 1][MaxWidth]*gtk.Label
-	var boxes [SurroundingCompletions*2 + 1]*gtk.Box
-	var labelWrappers [SurroundingCompletions*2 + 1][MaxWidth]*gtk.Box
+	var boxes [SurroundingCompletions*2 + 1][MaxWidth]*gtk.Box
 	for i, row := range labels {
-		b, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, CompletionBarSpacing)
-		if err != nil {
-			return nil, err
-		}
-		b.SetHExpand(true)
-		boxes[i] = b
-		vbox.PackStart(b, false, false, 0)
 		for j, _ := range row {
-			wrapper, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
+			b, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
 			if err != nil {
 				return nil, err
 			}
-			labelWrappers[i][j] = wrapper
-			wrapper.Show()
+			b.SetHExpand(true)
+			boxes[i][j] = b
 			l, err := gtk.LabelNew("")
 			if err != nil {
 				return nil, err
@@ -84,7 +75,7 @@ func (w *Window) newCompletionBar() (*CompletionBar, error) {
 			l.SetEllipsize(pango.ELLIPSIZE_MIDDLE)
 			l.OverrideFont("monospace")
 			l.SetUseMarkup(true)
-			wrapper.PackStart(l, false, false, 0)
+			b.PackStart(l, false, false, 0)
 			l.Show()
 			labels[i][j] = l
 		}
@@ -96,9 +87,8 @@ func (w *Window) newCompletionBar() (*CompletionBar, error) {
 	dummyLabel.Show()
 
 	cb := &CompletionBar{
-		vbox,
+		grid,
 		boxes,
-		labelWrappers,
 		labels,
 		dummyLabel,
 		make([]string, 0),
@@ -109,15 +99,15 @@ func (w *Window) newCompletionBar() (*CompletionBar, error) {
 		0,
 	}
 	// If the window size changes, we drop our size requests temporarily, to
-	// allow the vbox allocation size to change. Then we recalculate our
+	// allow the grid allocation size to change. Then we recalculate our
 	// size requests.
 	windowHandles := make([]glib.SignalHandle, 2)
 	windowHandles[0], err = w.Window.Connect("size-allocate", func() {
 		if width := cb.parent.Window.GetAllocatedWidth(); width != cb.windowWidth {
 			cb.windowWidth = width
-			for _, row := range cb.labelWrappers {
-				for _, wrapper := range row {
-					ggtk.GlibMainContextInvoke(wrapper.SetSizeRequest, -1, -1)
+			for _, row := range cb.boxes {
+				for _, box := range row {
+					ggtk.GlibMainContextInvoke(box.SetSizeRequest, -1, -1)
 				}
 			}
 		}
@@ -134,8 +124,8 @@ func (w *Window) newCompletionBar() (*CompletionBar, error) {
 	if err != nil {
 		return nil, err
 	}
-	vboxHandles := make([]glib.SignalHandle, 2)
-	vboxHandles[0], err = vbox.Connect("size-allocate", func() {
+	gridHandles := make([]glib.SignalHandle, 2)
+	gridHandles[0], err = grid.Connect("size-allocate", func() {
 		if width := cb.Container.GetAllocatedWidth(); width != cb.width {
 			cb.width = width
 			cb.Resize()
@@ -145,9 +135,9 @@ func (w *Window) newCompletionBar() (*CompletionBar, error) {
 		return nil, err
 	}
 	// Disconnect the signals again on destroy.
-	vboxHandles[1], err = vbox.Connect("destroy", func() {
-		for _, h := range vboxHandles {
-			vbox.HandlerDisconnect(h)
+	gridHandles[1], err = grid.Connect("destroy", func() {
+		for _, h := range gridHandles {
+			grid.HandlerDisconnect(h)
 		}
 	})
 	if err != nil {
@@ -159,12 +149,12 @@ func (w *Window) newCompletionBar() (*CompletionBar, error) {
 // setColumns sets the amount of columns shown in the completion bar.
 func (cb *CompletionBar) setColumns(n int) {
 	ggtk.GlibMainContextInvoke(func() {
-		for i, row := range cb.labelWrappers {
-			for col, wrapper := range row {
+		for i, row := range cb.boxes {
+			for col, box := range row {
 				if col >= n && col < cb.columns {
-					cb.boxes[i].Remove(wrapper)
+					cb.Container.Remove(box)
 				} else if col >= cb.columns && col < n {
-					cb.boxes[i].PackStart(wrapper, false, false, 0)
+					cb.Container.Attach(box, col, i, 1, 1)
 				}
 			}
 		}
@@ -194,6 +184,9 @@ func (cb *CompletionBar) UpdateCompletions(completions []string) {
 
 // Resize recomputes the sizes of items in the completion bar.
 func (cb *CompletionBar) Resize() {
+	if cb.columns == 0 {
+		return
+	}
 	widths := make([]int, cb.columns)
 	for _, completion := range cb.completions {
 		split := strings.SplitN(completion, "\t", cb.columns)
@@ -229,15 +222,9 @@ func (cb *CompletionBar) Resize() {
 			}
 		}
 	}
-	first := true
 	for i := range widths {
 		if !fixed[i] {
 			widths[i] = actualWidth / nVariable
-			// Correct off-by-one errors occuring due to truncating above.
-			if first == true && actualWidth%nVariable != 0 {
-				widths[i]++
-				first = false
-			}
 			// This edge case *does* occur. It could probably be eliminated,
 			// but it isn't really a concern.
 			if widths[i] < 0 {
@@ -245,20 +232,29 @@ func (cb *CompletionBar) Resize() {
 			}
 		}
 	}
-	for _, row := range cb.labelWrappers {
-		for i, wrapper := range row {
-			if i >= cb.columns {
+	// We add the column spacing to the boxes.
+	for i := range widths[:len(widths)-1] {
+		widths[i] += CompletionBarSpacing
+	}
+	for i, row := range cb.boxes {
+		for j, box := range row {
+			if j >= cb.columns {
 				break
 			}
-			wrapper.SetSizeRequest(-1, -1)
+			box.SetSizeRequest(-1, -1)
+			if j < cb.columns-1 {
+				cb.labels[i][j].SetMarginEnd(CompletionBarSpacing)
+			} else {
+				cb.labels[i][j].SetMarginEnd(0)
+			}
 		}
 	}
-	for _, row := range cb.labelWrappers {
-		for i, wrapper := range row {
+	for _, row := range cb.boxes {
+		for i, box := range row {
 			if i >= cb.columns {
 				break
 			}
-			wrapper.SetSizeRequest(widths[i], -1)
+			box.SetSizeRequest(widths[i], -1)
 		}
 	}
 }
@@ -292,13 +288,14 @@ func (cb *CompletionBar) Update() {
 // Clear detaches all active completions.
 func (cb *CompletionBar) Clear() {
 	ggtk.GlibMainContextInvoke(func() {
-		for _, box := range cb.boxes {
-			box.Hide()
+		for _, row := range cb.boxes {
+			for _, box := range row {
+				box.Hide()
+			}
 		}
 		for _, row := range cb.labels {
 			for _, label := range row {
 				label.SetMarkup("")
-				label.Hide()
 			}
 		}
 	})
@@ -311,21 +308,18 @@ func (cb *CompletionBar) update(completions []string, at int) {
 	cb.Clear()
 	for i, completion := range completions {
 		split := strings.SplitN(completion, "\t", cb.columns)
-		if i == at {
-			cb.boxes[i].SetName("active")
-		} else {
-			cb.boxes[i].SetName("")
-		}
 		for j, str := range split {
+			cb.boxes[i][j].Show()
 			if i == at {
 				cb.labels[i][j].SetMarkup(cb.parent.MarkupReplacer.Replace(
 					fmt.Sprintf("<em>%s</em>", html.EscapeString(str))))
+				cb.boxes[i][j].SetName("active")
 			} else {
 				cb.labels[i][j].SetMarkup(cb.parent.MarkupReplacer.Replace(
 					fmt.Sprintf("%s", html.EscapeString(str))))
+				cb.boxes[i][j].SetName("")
 			}
-			cb.labels[i][j].Show()
+			cb.boxes[i][j].Show()
 		}
-		cb.boxes[i].Show()
 	}
 }
