@@ -224,7 +224,10 @@ func (g *Golem) completeQuickmark(
 				return "", "", false
 			} else if strings.HasPrefix(qml[i], parts[1]) {
 				return qml[i],
-					fmt.Sprintf("%s\t%s", qml[i], g.quickmarks[qml[i]]),
+					fmt.Sprintf("%s\t%s\t%s",
+						qml[i],
+						g.quickmarks[qml[i]].uri,
+						g.quickmarks[qml[i]].title),
 					true
 			}
 		}
@@ -425,7 +428,10 @@ outer:
 			states.NormalSubstateQuickmarkWindow,
 			states.NormalSubstateQuickmarksRapid:
 
-			str = fmt.Sprintf("%s\t%s", keysStr, g.quickmarks[keysStr])
+			str = fmt.Sprintf("%s\t%s\t%s",
+				keysStr,
+				g.quickmarks[keysStr].uri,
+				g.quickmarks[keysStr].title)
 		}
 		*compStates = append(*compStates, s.PredictState(b.From[len(s.CurrentKeys):]))
 		*compStrings = append(*compStrings, str)

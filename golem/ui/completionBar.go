@@ -298,10 +298,14 @@ func (cb *CompletionBar) Update() {
 //
 // Must be invoked from glib's main context.
 func (cb *CompletionBar) update(completions []string, at int) {
+	for _, row := range cb.boxes {
+		for _, box := range row {
+			box.Hide()
+		}
+	}
 	for i, completion := range completions {
 		split := strings.SplitN(completion, "\t", cb.columns)
 		for j, str := range split {
-			cb.boxes[i][j].Show()
 			if i == at {
 				cb.labels[i][j].SetMarkup(cb.parent.MarkupReplacer.Replace(
 					fmt.Sprintf("<em>%s</em>", html.EscapeString(str))))
