@@ -216,7 +216,7 @@ func (w *Window) UpdateLocation() {
 	}
 
 	locStr := fmt.Sprintf(
-		"%s %s%s%s[<em>%d</em>/<em>%d</em>][<em>%s</em>]",
+		"%s %s%s%s[<num>%d</num>/<num>%d</num>][<em>%s</em>]",
 		uriStr,
 		backForward,
 		loadStr,

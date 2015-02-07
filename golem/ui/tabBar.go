@@ -42,12 +42,12 @@ import (
 	"html"
 	"math"
 	"runtime"
-	"unicode/utf8"
 	"unsafe"
 
 	"github.com/conformal/gotk3/gdk"
 	"github.com/conformal/gotk3/glib"
 	"github.com/conformal/gotk3/gtk"
+	"github.com/conformal/gotk3/pango"
 	ggtk "github.com/tkerber/golem/gtk"
 )
 
@@ -65,6 +65,9 @@ type TabBar struct {
 	fmtLoadStringBaseLen int
 	handles              []glib.SignalHandle
 }
+
+// TabBarSpacing is the spacing between individual tabs in the tab bar.
+const TabBarSpacing = 1
 
 // NewTabBar creates a new TabBar for a Window.
 func NewTabBar(parent *Window) (*TabBar, error) {
@@ -88,7 +91,7 @@ func NewTabBar(parent *Window) (*TabBar, error) {
 	ebox.AddEvents(C.GDK_SCROLL_MASK)
 	scrollWin.Add(ebox)
 
-	box, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 1)
+	box, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, TabBarSpacing)
 	if err != nil {
 		return nil, err
 	}
@@ -109,6 +112,17 @@ func NewTabBar(parent *Window) (*TabBar, error) {
 		make([]glib.SignalHandle, 0, 5),
 	}
 
+	winHandles := make([]glib.SignalHandle, 2)
+	winHandles[0], err = scrollWin.Connect("size-allocate", tabBar.reposition)
+	if err != nil {
+		return nil, err
+	}
+	winHandles[1], err = scrollWin.Connect("destroy", func() {
+		for _, h := range winHandles {
+			scrollWin.HandlerDisconnect(h)
+		}
+	})
+
 	// Scroll tabs up/down.
 	handle, err := ebox.Connect("scroll-event",
 		func(_ interface{}, e *gdk.Event) {
@@ -125,6 +139,46 @@ func NewTabBar(parent *Window) (*TabBar, error) {
 	}
 
 	return tabBar, nil
+}
+
+// reposition ensures that the right tabs are currently shown on screen.
+func (tb *TabBar) reposition() {
+	allocHeight := tb.ScrolledWindow.GetAllocatedHeight()
+	// Find active tab
+	var i int
+	for i = range tb.tabs {
+		if tb.tabs[i] == tb.focused {
+			break
+		}
+	}
+	tb.tabs[i].Show()
+	allocHeight -= tb.tabs[i].GetAllocatedHeight()
+	show := true
+	// Look through all tabs, from the focused one outwards.
+	// Show all of them, until the allocated height runs out. Then, switch to
+	// hide mode and hide the rest.
+	for j := 1; j <= i || j <= len(tb.tabs)-i; j++ {
+		for _, mult := range []int{-1, 1} {
+			if (mult == -1 && i-j < 0) || (mult == 1 && i+j >= len(tb.tabs)) {
+				continue
+			}
+			index := i + mult*j
+			if show {
+				tb.tabs[index].Show()
+				h := tb.tabs[index].GetAllocatedHeight()
+				h += TabBarSpacing
+				if h <= allocHeight {
+					allocHeight -= h
+				} else {
+					show = false
+				}
+			}
+			// No else if, as we have to hide the tipping element again.
+			if !show {
+				tb.tabs[index].Hide()
+			}
+		}
+	}
 }
 
 // AppendTab is a wrapper around appendTabs which appends a single TabBarTab
@@ -241,6 +295,7 @@ func (tb *TabBar) moveTabs(toStart, fromStart, fromEnd int) {
 				t.redraw()
 			}
 		}
+		tb.reposition()
 	})
 }
 
@@ -256,6 +311,7 @@ func (tb *TabBar) FocusTab(i int) {
 		tb.tabs[i].box.SetName("focused")
 		tb.tabs[i].redraw()
 		tb.focused = tb.tabs[i]
+		tb.reposition()
 	})
 }
 
@@ -277,6 +333,7 @@ func (tb *TabBar) popTabs(n int) {
 				tb.ebox.HandlerDisconnect(handle)
 			}
 		}
+		tb.reposition()
 	})
 
 	tb.UpdateFormatString()
@@ -331,6 +388,7 @@ func newTabBarTab(parent *TabBar, index int) (*TabBarTab, error) {
 		return nil, err
 	}
 	l.SetHAlign(gtk.ALIGN_START)
+	l.SetEllipsize(pango.ELLIPSIZE_END)
 	hbox.PackStart(l, false, false, 0)
 	l.OverrideFont("monospace")
 	l.SetUseMarkup(true)
@@ -374,7 +432,8 @@ func (t *TabBarTab) SetLoadProgress(to float64) {
 
 // SetIcon sets the icon the the supplied pointer to a cairo_surface_t.
 func (t *TabBarTab) SetIcon(to uintptr) {
-	surface := C.scaleSurface((*C.cairo_surface_t)(unsafe.Pointer(to)), 16, 16)
+	size := C.double(t.box.GetAllocatedHeight())
+	surface := C.scaleSurface((*C.cairo_surface_t)(unsafe.Pointer(to)), size, size)
 	defer C.cairo_surface_destroy(surface)
 	ggtk.GlibMainContextInvoke(func() {
 		cimage := (*C.GtkImage)(unsafe.Pointer(t.image.Native()))
@@ -401,24 +460,17 @@ func (t *TabBarTab) redraw() {
 		title = "[untitled]"
 	}
 	var text string
-	var length int
 	if t.loadProgress == 1.0 {
 		text = fmt.Sprintf(
 			t.parent.fmtString,
 			t.index+1,
 			html.EscapeString(title))
-		// Pad to short text. God this stuff is horrible code...
-		length = t.parent.fmtStringBaseLen + utf8.RuneCountInString(title)
 	} else {
 		text = fmt.Sprintf(
 			t.parent.fmtLoadString,
 			t.index+1,
 			int(t.loadProgress*100),
 			html.EscapeString(title))
-		length = t.parent.fmtLoadStringBaseLen + utf8.RuneCountInString(title)
-	}
-	for i := length; i < 15; i++ {
-		text += " "
 	}
 	t.label.SetMarkup(t.parent.parent.MarkupReplacer.Replace(text))
 }
