@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -62,24 +63,32 @@ func (g *Golem) webkitInit() {
 		webkit.CookiePersistentStorageText)
 
 	c.Connect("download-started", func(_ *glib.Object, d *webkit.Download) {
-		// Find the window
-		wv, err := d.GetWebView()
-		// Download has no webview. It is probably a silent download, so we
-		// drop it.
-		if err != nil {
+		// If this is a silent download, we drop it. (And remove it from the
+		// list of silent downloads, as it won't be needed again).
+		if g.silentDownloads[d.Native()] {
+			g.wMutex.Lock()
+			defer g.wMutex.Unlock()
+			delete(g.silentDownloads, d.Native())
 			return
 		}
-		var win *Window
+		// Find the window. If no web view is associated with the download,
+		// we attach to download to *all* windows.
+		wv, _ := d.GetWebView()
+		wins := make([]*Window, 0, len(g.windows))
 	outer:
 		for _, w := range g.windows {
-			for _, wv2 := range w.webViews {
-				if wv.Native() == wv2.Native() {
-					win = w
-					break outer
+			if wv == nil {
+				wins = append(wins, w)
+			} else {
+				for _, wv2 := range w.webViews {
+					if wv.Native() == wv2.Native() {
+						wins = append(wins, w)
+						break outer
+					}
 				}
 			}
 		}
-		if win != nil {
+		for _, win := range wins {
 			win.addDownload(d)
 		}
 		g.addDownload(d)
@@ -102,7 +111,7 @@ func (g *Golem) webkitInit() {
 			})
 	})
 
-	c.RegisterURIScheme("golem-unsafe", golemUnsafeSchemeHandler)
+	c.RegisterURIScheme("golem-unsafe", g.golemUnsafeSchemeHandler)
 	c.RegisterURIScheme("golem", golemSchemeHandler)
 	c.GetSecurityManager().RegisterURISchemeAsLocal("golem")
 }
@@ -118,7 +127,7 @@ func golemSchemeHandler(req *webkit.URISchemeRequest) {
 }
 
 // golemUnsafeSchemeHandler handles request to the 'golem-unsafe:' scheme.
-func golemUnsafeSchemeHandler(req *webkit.URISchemeRequest) {
+func (g *Golem) golemUnsafeSchemeHandler(req *webkit.URISchemeRequest) {
 	rPath := strings.TrimPrefix(req.GetURI(), "golem-unsafe://")
 	// If we have a ? or # suffix, we discard it.
 	splitPath := strings.SplitN(rPath, "#", 2)
@@ -132,7 +141,7 @@ func golemUnsafeSchemeHandler(req *webkit.URISchemeRequest) {
 	} else {
 		switch {
 		case strings.HasPrefix(rPath, "pdf.js/loop/"):
-			handleLoopRequest(req)
+			g.handleLoopRequest(req)
 		default:
 			// TODO finish w/ error
 			req.FinishError(errors.New("Invalid request"))
@@ -146,7 +155,7 @@ func golemUnsafeSchemeHandler(req *webkit.URISchemeRequest) {
 // existing asset) will be treated as a loop request, with the URI after the
 // loop/ part.
 // E.g. golem-unsafe:///pdf.js/loop/http://example.com/example-pdf.pdf
-func handleLoopRequest(req *webkit.URISchemeRequest) {
+func (g *Golem) handleLoopRequest(req *webkit.URISchemeRequest) {
 	// We loop a page request from another scheme into the golem scheme
 	// Ever-so-slightly dangerous.
 	splitPath := strings.SplitN(req.GetURI(), "/loop/", 2)
@@ -174,6 +183,9 @@ func handleLoopRequest(req *webkit.URISchemeRequest) {
 	}
 	dwnld := webkit.GetDefaultWebContext().DownloadURI(uri)
 	dwnld.SetDestination("file://" + dlFile)
+	g.wMutex.Lock()
+	g.silentDownloads[dwnld.Native()] = true
+	g.wMutex.Unlock()
 	var handle glib.SignalHandle
 	handle, err = dwnld.Connect("finished", func() {
 		defer os.RemoveAll(tmpDir)

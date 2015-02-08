@@ -156,7 +156,6 @@ func (w *Window) builtinAddSearchEngine(_ *int) {
 			states.HintsSubstateSearchEngine,
 			wv,
 			func(uri string) bool {
-				log.Println("hi")
 				w.setState(cmd.NewPartialCommandLineMode(
 					w.State,
 					states.CommandLineSubstateCommand,

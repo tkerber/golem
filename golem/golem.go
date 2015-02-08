@@ -82,6 +82,8 @@ type Golem struct {
 	historyMutex *sync.Mutex
 	history      []uriEntry
 
+	silentDownloads map[uintptr]bool
+
 	adblocker *adblock.Blocker
 }
 
@@ -138,6 +140,7 @@ func New(sBus *dbus.Conn, profile string) (*Golem, error) {
 		"",
 		new(sync.Mutex),
 		make([]uriEntry, 0, defaultCfg.maxHistLen),
+		make(map[uintptr]bool, 10),
 		nil,
 	}
 
