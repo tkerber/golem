@@ -2,7 +2,6 @@ package golem
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 
