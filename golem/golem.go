@@ -62,13 +62,6 @@ type Golem struct {
 	sBus               *dbus.Conn
 	wMutex             *sync.Mutex
 	rawBindings        []cmd.RawBinding
-	// A map from sanitized keystring (i.e. parsed and stringified again) to
-	// a struct of uri and name.
-	quickmarks   map[string]uriEntry
-	hasQuickmark map[string]bool
-
-	bookmarks  []uriEntry
-	isBookmark map[string]bool
 
 	DefaultSettings *webkit.Settings
 	files           *files
@@ -127,10 +120,6 @@ func New(sBus *dbus.Conn, profile string) (*Golem, error) {
 		sBus,
 		new(sync.Mutex),
 		make([]cmd.RawBinding, 0, 100),
-		make(map[string]uriEntry, 20),
-		make(map[string]bool, 20),
-		make([]uriEntry, 0, 100),
-		make(map[string]bool, 100),
 		webkit.NewSettings(),
 		nil,
 		"",
