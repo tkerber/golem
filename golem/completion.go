@@ -12,7 +12,7 @@ import (
 	"github.com/tkerber/golem/webkit"
 )
 
-var trailingWhitespaceRegex = regexp.MustCompile(`.*\s`)
+var trailingWhitespaceRegex = regexp.MustCompile(`.*\s$`)
 
 // completeState starts completing a state.
 func (w *Window) completeState(
@@ -163,7 +163,7 @@ func (g *Golem) completeCommand(command string) func() (string, string, bool) {
 		return g.completeBinding(parts)
 	case "set":
 		// complete setting name from 1st parameter onwards.
-		fallthrough
+		return g.completeOptionSet(parts)
 	case "rmqm", "removerequickmark":
 		// complete quickmark
 		return g.completeQuickmark(parts)
@@ -199,7 +199,7 @@ func (g *Golem) completeOptionSet(
 				t, _ := webkit.GetSettingsType(setting)
 				return parts[0] + " webkit:" + setting,
 					fmt.Sprintf(
-						"%s\t%v",
+						"%s\t%v\tWebkit",
 						setting,
 						t),
 					true
