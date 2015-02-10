@@ -432,9 +432,13 @@ func (t *TabBarTab) SetLoadProgress(to float64) {
 
 // SetIcon sets the icon the the supplied pointer to a cairo_surface_t.
 func (t *TabBarTab) SetIcon(to uintptr) {
-	size := C.double(t.box.GetAllocatedHeight())
-	surface := C.scaleSurface((*C.cairo_surface_t)(unsafe.Pointer(to)), size, size)
-	defer C.cairo_surface_destroy(surface)
+	var surface *C.cairo_surface_t
+	if to != 0 {
+		size := C.double(t.box.GetAllocatedHeight())
+		surface := C.scaleSurface(
+			(*C.cairo_surface_t)(unsafe.Pointer(to)), size, size)
+		defer C.cairo_surface_destroy(surface)
+	}
 	ggtk.GlibMainContextInvoke(func() {
 		cimage := (*C.GtkImage)(unsafe.Pointer(t.image.Native()))
 		C.gtk_image_set_from_surface(

@@ -250,10 +250,7 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 // faviconChanged resets the favicon in the tab bar display.
 func (wv *webView) faviconChanged() {
 	if wv.tabUI != nil {
-		favicon, err := wv.GetFavicon()
-		if err != nil {
-			return
-		}
+		favicon, _ := wv.GetFavicon()
 		wv.tabUI.SetIcon(favicon)
 	}
 }
