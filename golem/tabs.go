@@ -27,7 +27,7 @@ func (w *Window) NewTabs(uris ...string) ([]*webView, error) {
 		}
 		for i, wv := range wvs {
 			if uris[i] == "" {
-				wv.LoadURI(w.parent.newTabPage)
+				wv.LoadURI(w.newTabPage)
 			} else {
 				wv.LoadURI(uris[i])
 			}
@@ -69,7 +69,7 @@ func (w *Window) newTabsWithWebViews(wvs ...*webView) ([]*webView, error) {
 		for i, wv := range wvs {
 			if wv == nil {
 				var wv *webView
-				wv, err = w.newWebView(w.defaultSettings)
+				wv, err = w.newWebView()
 				if err != nil {
 					return
 				}

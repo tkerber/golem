@@ -454,17 +454,20 @@ func (w *Window) builtinReloadNoCache(_ *int) {
 
 // builtinScrollDown scrolls down.
 func (w *Window) builtinScrollDown(n *int) {
-	w.scrollDelta(w.parent.scrollDelta*getWithDefault(n, 1, 0, 1<<20), true)
+	wv := w.getWebView()
+	w.scrollDelta(wv.scrollDelta*getWithDefault(n, 1, 0, 1<<20), true)
 }
 
 // builtinScrollLeft scrolls left.
 func (w *Window) builtinScrollLeft(n *int) {
-	w.scrollDelta(-w.parent.scrollDelta*getWithDefault(n, 1, 0, 1<<20), false)
+	wv := w.getWebView()
+	w.scrollDelta(-wv.scrollDelta*getWithDefault(n, 1, 0, 1<<20), false)
 }
 
 // builtinScrollRight scrolls right.
 func (w *Window) builtinScrollRight(n *int) {
-	w.scrollDelta(w.parent.scrollDelta*getWithDefault(n, 1, 0, 1<<20), false)
+	wv := w.getWebView()
+	w.scrollDelta(wv.scrollDelta*getWithDefault(n, 1, 0, 1<<20), false)
 }
 
 // builtinScrollPageDown scrolls down 80% of the page.
@@ -509,7 +512,8 @@ func (w *Window) builtinScrollToTop(_ *int) {
 
 // builtinScrollUp scrolls up.
 func (w *Window) builtinScrollUp(n *int) {
-	w.scrollDelta(-w.parent.scrollDelta*getWithDefault(n, 1, 0, 1<<20), true)
+	wv := w.getWebView()
+	w.scrollDelta(-wv.scrollDelta*getWithDefault(n, 1, 0, 1<<20), true)
 }
 
 // search searches for a specific term.

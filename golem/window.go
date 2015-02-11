@@ -65,6 +65,7 @@ func (h *signalHandle) disconnect() {
 type Window struct {
 	*ui.Window
 	cmd.State
+	*windowCfg
 	defaultSettings     *webkit.Settings
 	webViews            []*webView
 	currentWebView      int
@@ -130,6 +131,7 @@ func (g *Golem) initWindow() *Window {
 	return &Window{
 		nil,
 		nil,
+		g.globalCfg.windowCfg.clone(),
 		g.DefaultSettings,
 		make([]*webView, 1, 50),
 		0,
@@ -263,12 +265,12 @@ func (w *Window) initWindowWebView(wv *webView) error {
 func (g *Golem) NewWindow(uri string) (*Window, error) {
 	win := g.initWindow()
 
-	wv, err := win.newWebView(g.DefaultSettings)
+	wv, err := win.newWebView()
 	if err != nil {
 		return nil, err
 	}
 	if uri == "" {
-		wv.LoadURI(win.parent.newTabPage)
+		wv.LoadURI(win.newTabPage)
 	} else {
 		wv.LoadURI(uri)
 	}

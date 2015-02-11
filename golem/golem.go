@@ -53,7 +53,7 @@ type uriEntry struct {
 
 // Golem is golem's main instance.
 type Golem struct {
-	*cfg
+	*globalCfg
 	windows            []*Window
 	webViews           map[uint64]*webView
 	userContentManager *webkit.UserContentManager

@@ -22,6 +22,7 @@ import (
 type webView struct {
 	*webkit.WebView
 	*webExtension
+	*tabCfg
 	id            uint64
 	top           int64
 	height        int64
@@ -34,8 +35,8 @@ type webView struct {
 	handles       []glib.SignalHandle
 }
 
-// newWebView creates a new webView using given settings as a template.
-func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
+// newWebView creates a new webView.
+func (w *Window) newWebView() (*webView, error) {
 	rets := ggtk.GlibMainContextInvoke(
 		webkit.NewWebViewWithUserContentManager,
 		w.parent.userContentManager)
@@ -46,7 +47,7 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 
 	// Each WebView gets it's own settings, to allow toggling settings on a
 	// per tab and/or per window basis.
-	newSettings := settings.Clone()
+	newSettings := w.defaultSettings.Clone()
 
 	wv.SetSettings(newSettings)
 
@@ -55,6 +56,7 @@ func (w *Window) newWebView(settings *webkit.Settings) (*webView, error) {
 	ret := &webView{
 		wv,
 		webExten,
+		w.windowCfg.tabCfg.clone(),
 		wv.GetPageID(),
 		0,
 		0,

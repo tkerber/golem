@@ -239,7 +239,7 @@ func cmdAddSearchEngine(w *Window, g *Golem, args []string) {
 		return
 	}
 	sanitizedKeys := cmd.KeysString(cmd.ParseKeys(args[1]))
-	if se, ok := g.cfg.searchEngines.searchEngines[sanitizedKeys]; ok {
+	if se, ok := g.searchEngines.searchEngines[sanitizedKeys]; ok {
 		if w == nil {
 			w.logErrorf("Attempted interactive search engine replace in " +
 				"non-interactive context. Dropping.")
@@ -284,8 +284,8 @@ func cmdDefaultSearchEngine(w *Window, g *Golem, args []string) {
 		w.logInvalidArgs(args)
 		return
 	}
-	if se, ok := g.cfg.searchEngines.searchEngines[args[1]]; ok {
-		g.cfg.searchEngines.defaultSearchEngine = se
+	if se, ok := g.searchEngines.searchEngines[args[1]]; ok {
+		g.searchEngines.defaultSearchEngine = se
 	} else {
 		w.logErrorf("Search engine with shorthand '%s' does not exist.",
 			args[1])
@@ -300,12 +300,12 @@ func cmdRemoveSearchEngine(w *Window, g *Golem, args []string) {
 		return
 	}
 	sanitizedKeys := cmd.KeysString(cmd.ParseKeys(args[1]))
-	if se, ok := g.cfg.searchEngines.searchEngines[sanitizedKeys]; ok {
-		if se == g.cfg.searchEngines.defaultSearchEngine {
+	if se, ok := g.searchEngines.searchEngines[sanitizedKeys]; ok {
+		if se == g.searchEngines.defaultSearchEngine {
 			w.logErrorf("Cannot remove default search engine. Use " +
 				"'defaultsearchengine SHORTHAND' to set a new default first.")
 		} else {
-			delete(g.cfg.searchEngines.searchEngines, sanitizedKeys)
+			delete(g.searchEngines.searchEngines, sanitizedKeys)
 		}
 	} else {
 		w.logErrorf("Search engine with shorthand '%s' does not exist.",
@@ -351,7 +351,7 @@ func cmdSearchEngine(w *Window, g *Golem, args []string) {
 		return
 	}
 	sanitizedKeys := cmd.KeysString(cmd.ParseKeys(args[1]))
-	if se, ok := g.cfg.searchEngines.searchEngines[sanitizedKeys]; ok {
+	if se, ok := g.searchEngines.searchEngines[sanitizedKeys]; ok {
 		if w == nil {
 			w.logErrorf("Attempted interactive search engine replace in " +
 				"non-interactive context. Dropping.")
@@ -373,9 +373,9 @@ func cmdSearchEngine(w *Window, g *Golem, args []string) {
 						args[2],
 						args[3],
 					}
-					g.cfg.searchEngines.searchEngines[sanitizedKeys] = se
-					if g.cfg.searchEngines.defaultSearchEngine == nil {
-						g.cfg.searchEngines.defaultSearchEngine = se
+					g.searchEngines.searchEngines[sanitizedKeys] = se
+					if g.searchEngines.defaultSearchEngine == nil {
+						g.searchEngines.defaultSearchEngine = se
 					}
 				}
 			}))
@@ -385,9 +385,9 @@ func cmdSearchEngine(w *Window, g *Golem, args []string) {
 			args[2],
 			args[3],
 		}
-		g.cfg.searchEngines.searchEngines[sanitizedKeys] = se
-		if g.cfg.searchEngines.defaultSearchEngine == nil {
-			g.cfg.searchEngines.defaultSearchEngine = se
+		g.searchEngines.searchEngines[sanitizedKeys] = se
+		if g.searchEngines.defaultSearchEngine == nil {
+			g.searchEngines.defaultSearchEngine = se
 		}
 	}
 }
