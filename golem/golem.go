@@ -450,7 +450,7 @@ func (g *Golem) updateHistory(uri, title string) {
 		copy(g.history[i:len(g.history)-1], g.history[i+1:])
 		g.history[len(g.history)-1] = hist
 	} else {
-		if len(g.history) == g.maxHistLen {
+		if uint(len(g.history)) == g.maxHistLen {
 			g.history = g.history[1:]
 		}
 		g.history = append(g.history, uriEntry{uri, title})
