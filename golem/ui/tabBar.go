@@ -435,7 +435,7 @@ func (t *TabBarTab) SetIcon(to uintptr) {
 	var surface *C.cairo_surface_t
 	if to != 0 {
 		size := C.double(t.box.GetAllocatedHeight())
-		surface := C.scaleSurface(
+		surface = C.scaleSurface(
 			(*C.cairo_surface_t)(unsafe.Pointer(to)), size, size)
 		defer C.cairo_surface_destroy(surface)
 	}
