@@ -65,7 +65,7 @@ func main() {
 	// If we get it, this is the new golem. Hurrah!
 	case dbus.RequestNameReplyPrimaryOwner:
 		gtk.Init(&args)
-		g, err := golem.New(sBus, profile)
+		g, err := golem.New((*golem.Session)(sBus), profile)
 		if err != nil {
 			panic(fmt.Sprintf("Error during golem initialization: %v", err))
 		}

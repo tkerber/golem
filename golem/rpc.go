@@ -7,9 +7,12 @@ import (
 	"github.com/guelfey/go.dbus"
 	"github.com/guelfey/go.dbus/introspect"
 	"github.com/mattn/go-shellwords"
+	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/golem/states"
 	"github.com/tkerber/golem/webkit"
 )
+
+type Session dbus.Conn
 
 const HintsChars = "FDSARTGBVECWXQZIOPMNHYULKJ"
 
@@ -170,6 +173,61 @@ func (g *DBusGolem) HintCall(id uint64, uri string) (bool, *dbus.Error) {
 	return ret, nil
 }
 
+// VerticalPositionChanged is called to signal a change in the vertical
+// position of a web page.
+func (g *DBusGolem) VerticalPositionChanged(
+	id uint64, top, height int64) *dbus.Error {
+
+	wv, ok := g.golem.webViews[id]
+	if !ok {
+		return &dbus.Error{
+			fmt.Sprintf(DBusName+".Error", g.golem.profile),
+			[]interface{}{
+				"Invalid web page id recieved.",
+			}}
+	}
+	wv.top = top
+	wv.height = height
+	for _, w := range g.golem.windows {
+		if wv == w.getWebView() {
+			w.UpdateLocation()
+		}
+	}
+	return nil
+}
+
+// InputFocusChanged is called to signal a change in the input focus of a web
+// page.
+func (g *DBusGolem) InputFocusChanged(
+	id uint64, focused bool) *dbus.Error {
+
+	wv, ok := g.golem.webViews[id]
+	if !ok {
+		return &dbus.Error{
+			fmt.Sprintf(DBusName+".Error", g.golem.profile),
+			[]interface{}{
+				"Invalid web page id recieved.",
+			}}
+	}
+	// If it's newly focused, set any windows with this webview
+	// displayed to insert mode.
+	//
+	// Otherwise, if the window is currently in insert mode and it's
+	// newly unfocused, set this webview to normal mode.
+	for _, w := range g.golem.windows {
+		if wv == w.getWebView() {
+			if focused {
+				w.setState(
+					cmd.NewInsertMode(w.State, cmd.SubstateDefault))
+			} else if _, ok := w.State.(*cmd.InsertMode); ok {
+				w.setState(
+					cmd.NewNormalMode(w.State))
+			}
+		}
+	}
+	return nil
+}
+
 // webExtension is the DBus object for a specific web extension.
 type webExtension struct {
 	*dbus.Object
@@ -178,7 +236,7 @@ type webExtension struct {
 // webExtensionForWebView creates a webExtension for a particular WebView.
 func webExtensionForWebView(g *Golem, wv *webkit.WebView) *webExtension {
 	page := wv.GetPageID()
-	return &webExtension{g.sBus.Object(
+	return &webExtension{(*dbus.Conn)(g.Session).Object(
 		fmt.Sprintf(webExtenDBusName, g.profile, page),
 		dbus.ObjectPath(fmt.Sprintf(webExtenDBusPath, g.profile, page)))}
 }

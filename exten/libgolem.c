@@ -18,13 +18,6 @@ static const gchar introspection_xml[] =
     "        <property type='x' name='ScrollTargetLeft' access='readwrite' />"
     "        <property type='x' name='ScrollTargetHeight' access='read' />"
     "        <property type='x' name='ScrollTargetWidth' access='read' />"
-    "        <signal name='VerticalPositionChanged'>"
-    "            <arg type='x' name='ScrollTop' />"
-    "            <arg type='x' name='ScrollHeight' />"
-    "        </signal>"
-    "        <signal name='InputFocusChanged'>"
-    "            <arg type='b' name='InputFocused' />"
-    "        </signal>"
     "        <method name='LinkHintsMode'>"
     "            <arg type='x' name='Empty' direction='out' />"
     "        </method>"
@@ -370,14 +363,23 @@ document_scroll_cb(WebKitDOMEventTarget *target,
         if(top != exten->last_top || height != exten->last_height) {
             exten->last_top = top;
             exten->last_height = height;
-            g_dbus_connection_emit_signal(
-                    exten->connection,
-                    NULL,
-                    exten->object_path,
-                    "com.github.tkerber.golem.WebExtension",
-                    "VerticalPositionChanged",
-                    g_variant_new("(xx)", top, height),
-                    NULL);
+            g_dbus_connection_call(
+                exten->connection,
+                exten->golem_name,
+                "/com/github/tkerber/Golem",
+                "com.github.tkerber.Golem",
+                "VerticalPositionChanged",
+                g_variant_new(
+                    "(txx)",
+                    webkit_web_page_get_id(exten->web_page),
+                    top,
+                    height),
+                NULL,
+                G_DBUS_CALL_FLAGS_NONE,
+                -1,
+                NULL,
+                NULL,
+                NULL);
         }
     }
 
@@ -439,14 +441,22 @@ active_element_change_cb(WebKitDOMEventTarget *target,
             WEBKIT_DOM_IS_HTML_TEXT_AREA_ELEMENT(active));
     if(input_focus != exten->last_input_focus) {
         exten->last_input_focus = input_focus;
-        g_dbus_connection_emit_signal(
-                exten->connection,
-                NULL,
-                exten->object_path,
-                "com.github.tkerber.golem.WebExtension",
-                "InputFocusChanged",
-                g_variant_new("(b)", input_focus),
-                NULL);
+        g_dbus_connection_call(
+            exten->connection,
+            exten->golem_name,
+            "/com/github/tkerber/Golem",
+            "com.github.tkerber.Golem",
+            "InputFocusChanged",
+            g_variant_new(
+                "(tb)",
+                webkit_web_page_get_id(exten->web_page),
+                input_focus),
+            NULL,
+            G_DBUS_CALL_FLAGS_NONE,
+            -1,
+            NULL,
+            NULL,
+            NULL);
     }
 }
 

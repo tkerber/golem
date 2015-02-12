@@ -229,19 +229,6 @@ func (w *Window) newWebView() (*webView, error) {
 		ret.handles = append(ret.handles, handle)
 	}
 
-	// Attach dbus to watch for signals from this extension.
-	// There is no real need to disconnect this, dbus disconnects it for us
-	// when the web process dies.
-	//
-	// NOTE: if for any reason we every move away from one process per tab,
-	// this no longer holds.
-	w.parent.sBus.BusObject().Call(
-		"org.freedesktop.DBus.AddMatch",
-		0,
-		fmt.Sprintf(webExtenWatchMessage, w.parent.profile, ret.id,
-			w.parent.profile, ret.id),
-	)
-
 	// Add webview to golem and return.
 	w.parent.wMutex.Lock()
 	defer w.parent.wMutex.Unlock()
