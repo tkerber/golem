@@ -1,39 +1,9 @@
-#include <gio/gio.h>
 #include <webkit2/webkit-web-extension.h>
 #include <glib.h>
-#include <stdlib.h>
 #include <stdio.h>
 #include "libgolem.h"
 #include "hints.h"
-
-// The DBus introspection xml for the WebExtension interface.
-static const gchar introspection_xml[] =
-    "<node>"
-    "    <interface name='com.github.tkerber.golem.WebExtension'>"
-    "        <property type='x' name='ScrollTop' access='readwrite' />"
-    "        <property type='x' name='ScrollLeft' access='readwrite' />"
-    "        <property type='x' name='ScrollHeight' access='read' />"
-    "        <property type='x' name='ScrollWidth' access='read' />"
-    "        <property type='x' name='ScrollTargetTop' access='readwrite' />"
-    "        <property type='x' name='ScrollTargetLeft' access='readwrite' />"
-    "        <property type='x' name='ScrollTargetHeight' access='read' />"
-    "        <property type='x' name='ScrollTargetWidth' access='read' />"
-    "        <method name='LinkHintsMode'>"
-    "            <arg type='x' name='Empty' direction='out' />"
-    "        </method>"
-    "        <method name='FormVariableHintsMode'>"
-    "            <arg type='x' name='Empty' direction='out' />"
-    "        </method>"
-    "        <method name='ClickHintsMode'>"
-    "            <arg type='x' name='Empty' direction='out' />"
-    "        </method>"
-    "        <method name='EndHintsMode' />"
-    "        <method name='FilterHintsMode'>"
-    "            <arg type='s' name='Prefix' direction='in' />"
-    "            <arg type='b' name='HitAndEnd' direction='out' />"
-    "        </method>"
-    "    </interface>"
-    "</node>";
+#include "rpc.h"
 
 // Adblock constants
 #define ADBLOCK_SCRIPT            (1<<0)
@@ -47,58 +17,6 @@ static const gchar introspection_xml[] =
 #define ADBLOCK_ELEMHIDE          (1<<8)
 #define ADBLOCK_OTHER             (1<<9)
 
-// Error stuff
-
-#define GOLEM_WEB_ERROR golem_web_error_quark()
-
-G_DEFINE_QUARK("golem-web-error-quark", golem_web_error);
-
-#define GOLEM_WEB_ERROR_NULL_BODY 0
-
-// handle_method_call handles a DBus method call on the WebExtension.
-static void
-handle_method_call(GDBusConnection       *connection,
-                   const gchar           *sender,
-                   const gchar           *object_path,
-                   const gchar           *interface_name,
-                   const gchar           *method_name,
-                   GVariant              *parameters,
-                   GDBusMethodInvocation *invocation,
-                   gpointer               user_data);
-
-// handle_get_property handles a DBus property get call.
-static GVariant *
-handle_get_property(GDBusConnection *connection,
-                    const gchar     *sender,
-                    const gchar     *object_path,
-                    const gchar     *interface_name,
-                    const gchar     *property_name,
-                    GError         **error,
-                    gpointer         user_data);
-
-// handle_set_property handles a DBus property set call.
-static gboolean
-handle_set_property(GDBusConnection *connection,
-                    const gchar     *sender,
-                    const gchar     *object_path,
-                    const gchar     *interface_name,
-                    const gchar     *property_name,
-                    GVariant        *value,
-                    GError         **error,
-                    gpointer         user_data);
-// introspection_data contains the DBus introspection data for the
-// WebExtension.
-static GDBusNodeInfo *introspection_data = NULL;
-
-// interface_vtable references the methods used for DBus calls to the
-// WebExtension.
-static const GDBusInterfaceVTable interface_vtable =
-{
-    handle_method_call,
-    handle_get_property,
-    handle_set_property
-};
-
 // frame_document_loaded watches signals emitted from the given document.
 static void
 frame_document_loaded(WebKitDOMDocument *doc,
@@ -108,195 +26,24 @@ static void
 inject_adblock_css(WebKitDOMDocument *doc,
                    Exten             *exten);
 
-// handle_method_call handles a DBus method call on the WebExtension.
-static void
-handle_method_call(GDBusConnection       *connection,
-                   const gchar           *sender,
-                   const gchar           *object_path,
-                   const gchar           *interface_name,
-                   const gchar           *method_name,
-                   GVariant              *parameters,
-                   GDBusMethodInvocation *invocation,
-                   gpointer               user_data)
-{
-    Exten *exten = user_data;
-    if(g_strcmp0(method_name, "LinkHintsMode") == 0) {
-        gint64 ret = start_hints_mode(select_links, hint_call_by_href, exten);
-        g_dbus_method_invocation_return_value(invocation,
-                g_variant_new("(x)", ret));
-    } else if(g_strcmp0(method_name, "FormVariableHintsMode") == 0) {
-        gint64 ret = start_hints_mode(
-                select_form_text_variables,
-                hint_call_by_form_variable_get,
-                exten);
-        g_dbus_method_invocation_return_value(invocation,
-                g_variant_new("(x)", ret));
-    } else if(g_strcmp0(method_name, "ClickHintsMode") == 0) {
-        gint64 ret = start_hints_mode(
-                select_clickable,
-                hint_call_by_click,
-                exten);
-        g_dbus_method_invocation_return_value(invocation,
-                g_variant_new("(x)", ret));
-    } else if(g_strcmp0(method_name, "EndHintsMode") == 0) {
-        end_hints_mode(exten);
-        g_dbus_method_invocation_return_value(invocation, NULL);
-    } else if(g_strcmp0(method_name, "FilterHintsMode") == 0) {
-        const gchar *str;
-        g_variant_get(parameters, "(&s)", &str);
-        gboolean ret = filter_hints_mode(str, exten);
-        g_dbus_method_invocation_return_value(invocation,
-                g_variant_new("(b)", ret));
-    }
-}
-
-// handle_get_property handles a DBus property get call.
-static GVariant *
-handle_get_property(GDBusConnection *connection,
-                    const gchar     *sender,
-                    const gchar     *object_path,
-                    const gchar     *interface_name,
-                    const gchar     *property_name,
-                    GError         **error,
-                    gpointer         user_data)
-{
-    Exten *exten = user_data;
-    GVariant *ret = NULL;
-    WebKitWebPage *wp = exten->web_page;
-    WebKitDOMDocument *dom = webkit_web_page_get_dom_document(wp);
-    if(dom == NULL) {
-        g_set_error(
-                error,
-                GOLEM_WEB_ERROR,
-                GOLEM_WEB_ERROR_NULL_BODY,
-                "Document element is NULL.");
-        return NULL;
-    }
-    WebKitDOMElement *e = NULL;
-    if(g_strcmp0(property_name, "ScrollTop") == 0 ||
-        g_strcmp0(property_name, "ScrollLeft") == 0 ||
-        g_strcmp0(property_name, "ScrollHeight") == 0 ||
-        g_strcmp0(property_name, "ScrollWidth") == 0) {
-
-        e = WEBKIT_DOM_ELEMENT(webkit_dom_document_get_body(dom));
-    } else if (g_strcmp0(property_name, "ScrollTargetTop") == 0 ||
-        g_strcmp0(property_name, "ScrollTargetLeft") == 0 ||
-        g_strcmp0(property_name, "ScrollTargetHeight") == 0||
-        g_strcmp0(property_name, "ScrollTargetWidth") == 0) {
-
-        e = exten->scroll_target;
-    }
-    if(e == NULL) {
-        g_set_error(
-                error,
-                GOLEM_WEB_ERROR,
-                GOLEM_WEB_ERROR_NULL_BODY,
-                "Scroll element is NULL.");
-        return NULL;
-    }
-
-    if(g_strcmp0(property_name, "ScrollTop") == 0 ||
-            g_strcmp0(property_name, "ScrollTargetTop") == 0) {
-        ret = g_variant_new_int64(
-                webkit_dom_element_get_scroll_top(e));
-    } else if(g_strcmp0(property_name, "ScrollLeft") == 0 ||
-            g_strcmp0(property_name, "ScrollTargetLeft") == 0) {
-        ret = g_variant_new_int64(
-                webkit_dom_element_get_scroll_left(e));
-    } else if(g_strcmp0(property_name, "ScrollHeight") == 0 ||
-            g_strcmp0(property_name, "ScrollTargetHeight") == 0) {
-        ret = g_variant_new_int64(
-                webkit_dom_element_get_scroll_height(e));
-    } else if(g_strcmp0(property_name, "ScrollWidth") == 0 ||
-            g_strcmp0(property_name, "ScrollTargetWidth") == 0) {
-        ret = g_variant_new_int64(
-                webkit_dom_element_get_scroll_width(e));
-    }
-    return ret;
-}
-
-// handle_set_property handles a DBus property set call.
-static gboolean
-handle_set_property(GDBusConnection *connection,
-                    const gchar     *sender,
-                    const gchar     *object_path,
-                    const gchar     *interface_name,
-                    const gchar     *property_name,
-                    GVariant        *value,
-                    GError         **error,
-                    gpointer         user_data)
-{
-    Exten *exten = user_data;
-    WebKitDOMDocument *dom = webkit_web_page_get_dom_document(exten->web_page);
-    if(dom == NULL) {
-        g_set_error(
-                error,
-                GOLEM_WEB_ERROR,
-                GOLEM_WEB_ERROR_NULL_BODY,
-                "Document element is NULL.");
-        return TRUE;
-    }
-    WebKitDOMElement *e = NULL;
-    if(g_strcmp0(property_name, "ScrollTop") == 0 ||
-        g_strcmp0(property_name, "ScrollLeft") == 0) {
-
-        e = WEBKIT_DOM_ELEMENT(webkit_dom_document_get_body(dom));
-    } else if (g_strcmp0(property_name, "ScrollTargetTop") == 0 ||
-        g_strcmp0(property_name, "ScrollTargetLeft") == 0) {
-
-        e = exten->scroll_target;
-    }
-    if(e == NULL) {
-        g_set_error(
-                error,
-                GOLEM_WEB_ERROR,
-                GOLEM_WEB_ERROR_NULL_BODY,
-                "Scroll element is NULL.");
-        return TRUE;
-    }
-
-    if(g_strcmp0(property_name, "ScrollTop") == 0 ||
-            g_strcmp0(property_name, "ScrollTargetTop") == 0) {
-        webkit_dom_element_set_scroll_top(e, g_variant_get_int64(value));
-        return TRUE;
-    } else if(g_strcmp0(property_name, "ScrollLeft") == 0 ||
-            g_strcmp0(property_name, "ScrollTargetLeft") == 0) {
-        webkit_dom_element_set_scroll_left(e, g_variant_get_int64(value));
-        return TRUE;
-    }
-    // Currently no properties exist.
-    return FALSE;
-}
-
-// uri_is_blocked queries if a uri is blocked.
+// uri_is_blocked provides a thin wrapper around the block RPC call, to
+// deal with errors and provide the page uri.
 static gboolean
 uri_is_blocked(const char *uri, guint64 flags, Exten *exten)
 {
     GError *err = NULL;
-    GVariant *ret = g_dbus_connection_call_sync(
-            exten->connection,
-            exten->golem_name,
-            "/com/github/tkerber/Golem",
-            "com.github.tkerber.Golem",
-            "Blocks",
-            g_variant_new(
-                "(sst)",
-                uri,
-                webkit_web_page_get_uri(exten->web_page),
-                flags),
-            G_VARIANT_TYPE("(b)"),
-            G_DBUS_CALL_FLAGS_NONE,
-            -1,
-            NULL,
+    gboolean ret = blocks(
+            uri,
+            webkit_web_page_get_uri(exten->web_page),
+            flags,
+            exten,
             &err);
     if(err != NULL) {
         printf("Failed to check if uri is blocked: %s\n", err->message);
         g_error_free(err);
         return false;
     }
-    gboolean blocked = g_variant_get_boolean(g_variant_get_child_value(ret, 0));
-    g_variant_unref(ret);
-    return blocked;
+    return ret;
 }
 
 // uri_request_cb is called when a uri request is issued, and determines
@@ -363,23 +110,7 @@ document_scroll_cb(WebKitDOMEventTarget *target,
         if(top != exten->last_top || height != exten->last_height) {
             exten->last_top = top;
             exten->last_height = height;
-            g_dbus_connection_call(
-                exten->connection,
-                exten->golem_name,
-                "/com/github/tkerber/Golem",
-                "com.github.tkerber.Golem",
-                "VerticalPositionChanged",
-                g_variant_new(
-                    "(txx)",
-                    webkit_web_page_get_id(exten->web_page),
-                    top,
-                    height),
-                NULL,
-                G_DBUS_CALL_FLAGS_NONE,
-                -1,
-                NULL,
-                NULL,
-                NULL);
+            vertical_position_changed(exten->page_id, top, height, exten);
         }
     }
 
@@ -441,22 +172,10 @@ active_element_change_cb(WebKitDOMEventTarget *target,
             WEBKIT_DOM_IS_HTML_TEXT_AREA_ELEMENT(active));
     if(input_focus != exten->last_input_focus) {
         exten->last_input_focus = input_focus;
-        g_dbus_connection_call(
-            exten->connection,
-            exten->golem_name,
-            "/com/github/tkerber/Golem",
-            "com.github.tkerber.Golem",
-            "InputFocusChanged",
-            g_variant_new(
-                "(tb)",
-                webkit_web_page_get_id(exten->web_page),
-                input_focus),
-            NULL,
-            G_DBUS_CALL_FLAGS_NONE,
-            -1,
-            NULL,
-            NULL,
-            NULL);
+        input_focus_changed(
+            exten->page_id,
+            input_focus,
+            exten);
     }
 }
 
@@ -530,27 +249,12 @@ inject_adblock_css(WebKitDOMDocument *doc,
     // Get css rules
     gchar *domain = webkit_dom_document_get_domain(doc);
     GError *err = NULL;
-    GVariant *ret = g_dbus_connection_call_sync(
-            exten->connection,
-            exten->golem_name,
-            "/com/github/tkerber/Golem",
-            "com.github.tkerber.Golem",
-            "DomainElemHideCSS",
-            g_variant_new("(s)", domain),
-            G_VARIANT_TYPE("(s)"),
-            G_DBUS_CALL_FLAGS_NONE,
-            -1,
-            NULL,
-            &err);
+    gchar *css = domain_elem_hide_css(domain, exten, &err);
     if(err != NULL) {
         printf("Failed to retrieve element hide CSS: %s\n", err->message);
         g_error_free(err);
         return;
     }
-    gchar *css = g_variant_dup_string(
-            g_variant_get_child_value(ret, 0),
-            NULL);
-    g_variant_unref(ret);
 
     // Add CSS
     WebKitDOMElement *style_elem = webkit_dom_document_create_element(
@@ -670,33 +374,14 @@ document_loaded_cb(WebKitWebPage *page,
             exten);
 }
 
-// on_bus_acquired is called when a DBus bus is acquired, and proceeds with
-// starting up the web extension.
+// post_rpc_init finishes initialization after RPC have been set up.
 static void
-on_bus_acquired(GDBusConnection *connection,
-                const gchar     *name,
-                gpointer         user_data)
+post_rpc_init(gpointer user_data)
 {
     Exten *exten = user_data;
-    exten->connection = connection;
     exten->last_top = 0;
     exten->last_height = 0;
     exten->last_input_focus = FALSE;
-    exten->object_path = g_strdup_printf(
-            "/com/github/tkerber/golem/WebExtension/%s/page%d", 
-            exten->profile,
-            webkit_web_page_get_id(exten->web_page));
-    // Register DBus methods
-    gint registration_id = g_dbus_connection_register_object(
-            connection,
-            exten->object_path,
-            introspection_data->interfaces[0],
-            &interface_vtable,
-            exten,
-            NULL,
-            NULL);
-    g_assert(registration_id > 0);
-
     g_signal_connect(
             exten->web_page,
             "document-loaded",
@@ -708,17 +393,6 @@ on_bus_acquired(GDBusConnection *connection,
             "send-request",
             G_CALLBACK(uri_request_cb),
             exten);
-}
-
-// on_name_lost is called when a DBus name is lost, and crashes the web
-// extension.
-static void
-on_name_lost(GDBusConnection *connection,
-             const gchar     *name,
-             gpointer         user_data)
-{
-    g_printerr("Lost DBus connection to main proccess.\n");
-    exit(1);
 }
 
 // web_page_created_callback is called when a web page is created, and creates
@@ -736,9 +410,10 @@ web_page_created_callback(WebKitWebExtension *extension,
                           WebKitWebPage      *web_page,
                           gpointer            user_data)
 {
-    Exten *exten = malloc(sizeof(Exten));
+    Exten *exten = g_malloc(sizeof(Exten));
     exten->hints = NULL;
     exten->web_page = web_page;
+    exten->page_id = webkit_web_page_get_id(web_page);
     exten->document = NULL;
     exten->active = NULL;
     exten->scroll_target = NULL;
@@ -748,21 +423,7 @@ web_page_created_callback(WebKitWebExtension *extension,
     exten->registered_documents = NULL;
     guint owner_id;
 
-    introspection_data = g_dbus_node_info_new_for_xml(introspection_xml, NULL);
-    g_assert(introspection_data != NULL);
-    gchar *bus_name = g_strdup_printf(
-            "com.github.tkerber.golem.WebExtension.%s.Page%d", 
-            exten->profile,
-            webkit_web_page_get_id(web_page));
-    owner_id = g_bus_own_name(G_BUS_TYPE_SESSION,
-            bus_name,
-            G_BUS_NAME_OWNER_FLAGS_NONE,
-            on_bus_acquired,
-            NULL,
-            on_name_lost,
-            exten,
-            NULL);
-    g_free(bus_name);
+    rpc_acquire(exten, G_CALLBACK(post_rpc_init), exten);
 }
 
 // webkit_web_extension_initialize_with_user_data initializes the web extension

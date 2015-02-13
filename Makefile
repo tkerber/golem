@@ -12,7 +12,7 @@ all: data/libgolem.so data/srv/pdf.js/
 %.o: %.c
 	$(CC) -c -fPIC -o $@ $< $(CFLAGS)
 
-data/libgolem.so: exten/libgolem.o exten/hints.o
+data/libgolem.so: exten/libgolem.o exten/hints.o exten/rpc.o
 	$(CC) -shared -o $@ $^ $(LFLAGS)
 
 data/srv/pdf.js/enabled: pdf.js/

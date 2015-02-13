@@ -4,6 +4,7 @@
 #include <libsoup/soup.h>
 #include <string.h>
 #include "hints.h"
+#include "rpc.h"
 
 typedef struct _Point {
     gdouble x;
@@ -80,66 +81,6 @@ unhighlight(WebKitDOMElement *e)
     g_strfreev(classes);
     webkit_dom_element_set_class_name(e, new_class_name);
     g_free(new_class_name);
-}
-
-static gchar **
-get_hints_texts(guint length, Exten *exten, GError **err) {
-    GVariant *retv = g_dbus_connection_call_sync(
-            exten->connection,
-            exten->golem_name,
-            "/com/github/tkerber/Golem",
-            "com.github.tkerber.Golem",
-            "GetHintsLabels",
-            g_variant_new(
-                "(x)",
-                (gint64)length),
-            G_VARIANT_TYPE("(as)"),
-            G_DBUS_CALL_FLAGS_NONE,
-            -1,
-            NULL,
-            err);
-    if(err != NULL && *err != NULL) {
-        return NULL;
-    }
-    gchar **ret;
-    g_variant_get(retv, "(^as)", &ret);
-    g_variant_unref(retv);
-    return ret;
-}
-
-// calls a hint with the given string.
-//
-// Ownership of the string is transferred to this function, and it will be
-// freed.
-static gboolean
-hint_call(gchar *str, Exten *exten)
-{
-    GError *err = NULL;
-    GVariant *retv = g_dbus_connection_call_sync(
-            exten->connection,
-            exten->golem_name,
-            "/com/github/tkerber/Golem",
-            "com.github.tkerber.Golem",
-            "HintCall",
-            g_variant_new(
-                "(ts)",
-                webkit_web_page_get_id(exten->web_page),
-                str),
-            G_VARIANT_TYPE("(b)"),
-            G_DBUS_CALL_FLAGS_NONE,
-            -1,
-            NULL,
-            &err);
-    g_free(str);
-    gboolean ret = FALSE;
-    if(err != NULL) {
-        printf("Failed to call hint: %s\n", err->message);
-        g_error_free(err);
-    } else {
-        g_variant_get(retv, "(b)", &ret);
-        g_variant_unref(retv);
-    }
-    return ret;
 }
 
 gboolean
@@ -245,7 +186,14 @@ skip:
     char *str = soup_uri_to_string(final_uri, false);
     soup_uri_free(final_uri);
 
-    return hint_call(str, exten);
+    GError *err = NULL;
+    gboolean ret = hint_call(str, exten, &err);
+    g_free(str);
+    if(err != NULL) {
+        printf("Failed to call hint: %s\n", err->message);
+        g_error_free(err);
+    }
+    return ret;
 }
 
 gboolean
@@ -265,7 +213,14 @@ hint_call_by_href(WebKitDOMNode *n, Exten *exten)
     char *str = soup_uri_to_string(uri, false);
     soup_uri_free(uri);
 
-    return hint_call(str, exten);
+    GError *err = NULL;
+    gboolean ret = hint_call(str, exten, &err);
+    g_free(str);
+    if(err != NULL) {
+        printf("Failed to call hint: %s\n", err->message);
+        g_error_free(err);
+    }
+    return ret;
 }
 
 // Clicks the passed node.
@@ -484,7 +439,7 @@ start_hints_mode(NodeSelecter ns, NodeExecuter ne, Exten *exten)
         ne(nodes->data, exten);
         return len;
     }
-    gchar **hints_texts = get_hints_texts(len, exten, &err);
+    gchar **hints_texts = get_hints_labels(len, exten, &err);
     if(err != NULL) {
         printf("Failed to get hints texts: %s\n", err->message);
         g_error_free(err);
