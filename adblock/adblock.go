@@ -53,8 +53,9 @@ func NewBlocker(dir string) *Blocker {
 	}
 	go func() {
 		err := filepath.Walk(
-			dir,
+			dir+string(filepath.Separator),
 			func(path string, i os.FileInfo, err error) error {
+				log.Printf("Start parsing filterlist '%s'.", path)
 				if err != nil || i.IsDir() {
 					return err
 				}
