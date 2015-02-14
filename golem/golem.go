@@ -52,7 +52,7 @@ type uriEntry struct {
 // Golem is golem's main instance.
 type Golem struct {
 	*globalCfg
-	*Session
+	*RPCSession
 	windows            []*Window
 	webViews           map[uint64]*webView
 	userContentManager *webkit.UserContentManager
@@ -79,7 +79,7 @@ type Golem struct {
 }
 
 // New creates a new instance of golem.
-func New(session *Session, profile string) (*Golem, error) {
+func New(session *RPCSession, profile string) (*Golem, error) {
 	ucm, err := webkit.NewUserContentManager()
 	if err != nil {
 		return nil, err
@@ -130,6 +130,8 @@ func New(session *Session, profile string) (*Golem, error) {
 		make(map[uintptr]bool, 10),
 		nil,
 	}
+
+	session.golem = g
 
 	g.profile = profile
 

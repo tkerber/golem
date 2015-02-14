@@ -60,12 +60,11 @@ func main() {
 // starts up the browser. Note that the Listener is closed outwith this method.
 func socketAcquired(l net.Listener, profile string, args []string) {
 	gtk.Init(&args)
-	g, err := golem.New((*golem.Session)(l), profile)
+	g, err := golem.New(golem.NewRPCSession(l), profile)
 	if err != nil {
 		panic(fmt.Sprintf("Error during golem initialization: %v", err))
 	}
 	defer g.WebkitCleanup()
-	// TODO: add json-rpc object to serve the listener at l.
 
 	// All arguments are taken as "open" commands for one tab each.
 	// They will load in reverse order; i.e. with the last as the top

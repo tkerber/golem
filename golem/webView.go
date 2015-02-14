@@ -51,7 +51,7 @@ func (w *Window) newWebView() (*webView, error) {
 
 	wv.SetSettings(newSettings)
 
-	webExten := webExtensionForWebView(w.parent, wv)
+	webExten := new(webExtension)
 
 	ret := &webView{
 		wv,
