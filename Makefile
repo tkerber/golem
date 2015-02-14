@@ -15,17 +15,14 @@ all: data/libgolem.so data/srv/pdf.js/
 data/libgolem.so: exten/libgolem.o exten/hints.o
 	$(CC) -shared -o $@ $^ $(LFLAGS)
 
-data/srv/pdf.js/enabled: pdf.js/
-	cd $< && CLOSURE_COMPILER=$(CLOSURE_COMPILER) node make minified
+data/srv/pdf.js/enabled:
+	cd pdf.js && CLOSURE_COMPILER=$(CLOSURE_COMPILER) node make minified
 	mkdir -p data/srv
 	mv pdf.js/build/minified/web -T data/srv/pdf.js/web
 	mv pdf.js/build/minified/build -T data/srv/pdf.js/build
 	touch $@
 
 all: data/srv/pdf.js/enabled data/libgolem.so
-
-pdf.js/:
-	git clone --depth 1 git://github.com/mozilla/pdf.js.git $@
 
 clean:
 	rm exten/*.o
