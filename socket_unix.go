@@ -73,6 +73,7 @@ func acquireSocket(
 			socketAcquired(listener)
 		} else {
 			socketFound(conn)
+			conn.Close()
 		}
 	} else {
 		golem.Errlog.Printf(

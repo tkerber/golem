@@ -1,6 +1,7 @@
 package golem
 
 import (
+	"bufio"
 	"errors"
 	"log"
 	"math"
@@ -15,7 +16,7 @@ import (
 
 const HintsChars = "FDSARTGBVECWXQZIOPMNHYULKJ"
 
-type nothing struct{}
+type Nothing struct{}
 
 // A RPCSession manages listening on golems RPC socket, as well as serving
 // as the exported RPC object for golem.
@@ -27,25 +28,64 @@ type RPCSession struct {
 
 func NewRPCSession(l net.Listener) *RPCSession {
 	s := &RPCSession{l, false, nil}
+	server := rpc.NewServer()
+	server.Register(s)
 	go func() {
 		for {
 			c, err := s.listener.Accept()
-			if err != nil && !s.closed {
-				log.Printf(
-					"Failed to accept new connection on socket: %v", err)
-				continue
-			} else if err != nil && s.closed {
-				return
+			if err != nil {
+				if s.closed {
+					return
+				} else {
+					log.Printf(
+						"Failed to accept new connection on socket: %v", err)
+					continue
+				}
 			}
 			// serve the new connection.
 			go func() {
-				client := jsonrpc.NewClient(c)
-				var id uint64
-				client.Call("GolemWebExtension.GetPageID", nil, &id)
-				wv := s.golem.webViews[id]
-				wv.webExtension.conn = c
-				wv.webExtension.client = client
-				jsonrpc.ServeConn(c)
+				// One of the following handshakes is performed:
+				//
+				// <<< json-rpc-server
+				// >>> ok
+				//
+				// <<< json-rpc-client
+				// >>> ok
+				//
+				// These idicate that the client is to be treated as the RPC
+				// server or client respectively.
+				reader := bufio.NewReader(c)
+				line, _, err := reader.ReadLine()
+				if err != nil {
+					Errlog.Printf(
+						"Failed to initialize socket connection: %v", err)
+				} else if string(line) == "json-rpc-server" {
+					// The "client" is a web view, and will act as a server.
+					// connect to it.
+					client := jsonrpc.NewClient(c)
+					var id uint64
+					// Try getting a web page id. If this call fails, assume that
+					// the connecting client isn't a web extension.
+					err := client.Call("GolemWebExtension.GetPageID", nil, &id)
+					if err == nil {
+						wv, ok := s.golem.webViews[id]
+						if !ok {
+							Errlog.Println(
+								"Failed to resolve web extension: No such ID")
+							return
+						}
+						wv.webExtension.conn = c
+						wv.webExtension.client = client
+					}
+					c.Write([]byte("ok\n"))
+				} else if string(line) == "json-rpc-client" {
+					// Serve the client.
+					go server.ServeCodec(jsonrpc.NewServerCodec(c))
+					c.Write([]byte("ok\n"))
+				} else {
+					Errlog.Printf(
+						"Invalid introduction header: '%s'", string(line))
+				}
 			}()
 		}
 	}()
@@ -53,13 +93,13 @@ func NewRPCSession(l net.Listener) *RPCSession {
 }
 
 // NewWindow creates a new window in golem's main process.
-func (s *RPCSession) NewWindow(args *nothing, ret *nothing) error {
+func (s *RPCSession) NewWindow(args *Nothing, ret *Nothing) error {
 	_, err := s.golem.NewWindow("")
 	return err
 }
 
 // NewTabs opens a set of uris in new tabs.
-func (s *RPCSession) NewTabs(uris []string, ret *nothing) error {
+func (s *RPCSession) NewTabs(uris []string, ret *Nothing) error {
 	// we try to split it into parts to allow searches to be passed
 	// via command line. If this fails, we ignore the error and just
 	// pass the whole string instead.
@@ -166,7 +206,7 @@ type VerticalPositionChange struct {
 // position of a web page.
 func (g *RPCSession) VerticalPositionChanged(
 	vpc VerticalPositionChange,
-	ret *nothing) error {
+	ret *Nothing) error {
 
 	wv, ok := g.golem.webViews[vpc.Id]
 	if !ok {
@@ -190,7 +230,7 @@ type InputFocusChange struct {
 // InputFocusChanged is called to signal a change in the input focus of a web
 // page.
 func (g *RPCSession) InputFocusChanged(
-	ifc InputFocusChange, ret *nothing) error {
+	ifc InputFocusChange, ret *Nothing) error {
 
 	wv, ok := g.golem.webViews[ifc.Id]
 	if !ok {

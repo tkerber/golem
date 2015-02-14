@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"errors"
 	"flag"
 	"fmt"
 	"net"
@@ -8,6 +10,7 @@ import (
 	"os"
 	"regexp"
 	"runtime"
+	"time"
 
 	"github.com/conformal/gotk3/gtk"
 	"github.com/mattn/go-shellwords"
@@ -23,6 +26,8 @@ import (
 
 // exitCode contains the exit code that golem should exit with.
 var exitCode = 0
+
+const connectionSetupWait = 1000 * time.Millisecond
 
 // main runs golem (yay!)
 func main() {
@@ -111,14 +116,39 @@ func socketAcquired(l net.Listener, profile string, args []string) {
 	<-g.Quit
 }
 
+// handshake performs golems json-rpc client handshake with server:
+//
+// >>> json-rpc-client
+// <<< ok
+func handshake(c net.Conn) error {
+	_, err := c.Write([]byte("json-rpc-client\n"))
+	if err != nil {
+		return err
+	}
+	reader := bufio.NewReader(c)
+	line, _, err := reader.ReadLine()
+	if err != nil {
+		return err
+	} else if string(line) != "ok" {
+		return errors.New("Handshake failed.")
+	}
+	return nil
+}
+
 // socketFound is executed when a socket occupied by a running golem instance
 // if found. It communicates with the running golem. (Note that the connection
 // if closed outwith this function)
 func socketFound(c net.Conn, args []string) {
+	err := handshake(c)
+	if err != nil {
+		golem.Errlog.Printf("Failed to establish connection: %v", err)
+		exitCode = 1
+		return
+	}
 	rpc := jsonrpc.NewClient(c)
 	// If there are no uris, instead create a new window.
 	if len(args) == 0 {
-		err := rpc.Call("Golem.NewWindow", nil, nil)
+		err := rpc.Call("RPCSession.NewWindow", nil, nil)
 		if err != nil {
 			golem.Errlog.Printf("Failed to open window: %v", err)
 			exitCode = 1
