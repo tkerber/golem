@@ -1,0 +1,3 @@
+[submodule "exten/jsonrpC"]
+	path = exten/jsonrpC
+	url = git://github.com/jhlee4bb/jsonrpC.git
