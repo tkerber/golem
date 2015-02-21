@@ -1,0 +1,1 @@
+jsonrpC/plugins/jsonrpc_plugin_yajl.c
