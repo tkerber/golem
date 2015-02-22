@@ -15,7 +15,9 @@ all: data/srv/pdf.js/enabled data/libgolem.so
 
 exten/jsonrpC/build:
 	mkdir -p $@
-	cd $@; cmake ..
+	# We have to explicitly set the websockets library to be empty. It will still
+	# complain, but it will build it.
+	cd $@; cmake -DWEBSOCKETS_LIBRARY= ..
 	make -C $@ jsonrpc_s
 
 data/libgolem.so: exten/libgolem.o exten/hints.o exten/rpc.o
