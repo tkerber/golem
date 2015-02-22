@@ -1,5 +1,6 @@
 #include "jsonrpc_plugin_g_io_channel.h"
 #include <glib.h>
+#include <stdio.h>
 
 typedef struct queue_item_t {
     struct queue_item_t *next;
@@ -27,7 +28,9 @@ queue_pop(queue_t *queue)
 {
     g_mutex_lock(&queue->mutex);
     queue_item_t *ret = queue->head;
-    queue->head = ret->next;
+    if(ret) {
+        queue->head = ret->next;
+    }
     if(ret == queue->tail) {
         queue->tail = NULL;
     }
@@ -53,7 +56,6 @@ queue_push(queue_t *queue, const char *data, size_t len)
     g_mutex_unlock(&queue->mutex);
 }
 
-// TODO: in progress.
 static void
 gc(jsonrpc_g_io_channel_t *handle)
 {
@@ -72,14 +74,31 @@ read_chan(GIOChannel  *chan,
           GIOCondition cond,
           gpointer     conn)
 {
+    gboolean ret = TRUE;
     gchar *str;
     gsize len;
     jsonrpc_g_io_channel_t *handle = (jsonrpc_g_io_channel_t*)conn;
     g_mutex_lock(&handle->mutex);
-    GIOStatus status = g_io_channel_read_to_end(chan, &str, &len, NULL);
-    if(status == G_IO_STATUS_NORMAL) {
+    GError *err = NULL;
+    GIOStatus status = g_io_channel_read_line(chan, &str, &len, NULL, &err);
+    switch(status) {
+    case G_IO_STATUS_NORMAL:
         queue_push(handle->r_queue, str, len);
         g_free(str);
+        break;
+    // The connection was broken.
+    case G_IO_STATUS_EOF:
+        fprintf(stderr, "RPC Socket connection broken.\n");
+        ret = FALSE;
+        break;
+    case G_IO_STATUS_ERROR:
+        fprintf(stderr, "RPC Socket read error: %s\n", err->message);
+        g_error_free(err);
+        ret = FALSE;
+        break;
+    case G_IO_STATUS_AGAIN:
+        // TODO Not entirely sure how to handle this properly.
+        break;
     }
     g_mutex_unlock(&handle->mutex);
     return TRUE;
@@ -90,6 +109,9 @@ read_chan(GIOChannel  *chan,
 static jsonrpc_handle_t
 open(va_list ap)
 {
+#ifdef JSONRPC_DEBUG
+    printf("open\n");
+#endif
     jsonrpc_g_io_channel_t *ret = g_malloc(sizeof(jsonrpc_g_io_channel_t));
     ret->channel = va_arg(ap, GIOChannel*);
     g_io_channel_ref(ret->channel);
@@ -113,6 +135,9 @@ open(va_list ap)
 static void
 close(jsonrpc_handle_t conn)
 {
+#ifdef JSONRPC_DEBUG
+    printf("close\n");
+#endif
     jsonrpc_g_io_channel_t *handle = (jsonrpc_g_io_channel_t*)conn;
     g_mutex_lock(&handle->mutex);
     gc(handle);
@@ -165,6 +190,9 @@ recv(jsonrpc_handle_t conn,
         }
     }
     g_mutex_unlock(&handle->mutex);
+#ifdef JSONRPC_DEBUG
+    printf("recv %s\n", data);
+#endif
     return data;
 }
 
@@ -180,6 +208,10 @@ write_chan(GIOChannel  *src,
 
     if(data) {
         g_io_channel_write_chars(src, data->data, data->length, NULL, NULL);
+        g_io_channel_flush(src, NULL);
+#ifdef JSONRPC_DEBUG
+        printf("write_chan %s\n", data->data);
+#endif
         // TODO: possibly capture error scenarios. There's not much that can
         // be done in the case of an error though.
         g_free(data->data);

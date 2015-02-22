@@ -1,8 +1,8 @@
 CC = gcc
 CFLAGS = -Iexten/jsonrpC/build/jsonrpc-0.1/include
-CFLAGS += `pkg-config --cflags webkit2gtk-web-extension-4.0 glib-2.0 gio-2.0`
+CFLAGS += `pkg-config --cflags webkit2gtk-web-extension-4.0 glib-2.0 gio-2.0 yajl`
 LFLAGS = -Lexten/jsonrpC/build/jsonrpc-0.1/lib
-LFLAGS += `pkg-config --libs webkit2gtk-web-extension-4.0 glib-2.0 gio-2.0`
+LFLAGS += `pkg-config --libs webkit2gtk-web-extension-4.0 glib-2.0 gio-2.0 yajl`
 ifdef CLOSURE_COMPILER
 PDFJS_METHOD = minified
 else
