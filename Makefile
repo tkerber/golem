@@ -31,17 +31,14 @@ exten/jsonrpC/build:
 data/libgolem.so: $(OBJ)
 	$(CC) -shared -o $@ $^ $(LFLAGS)
 
-data/srv/pdf.js/enabled: pdf.js/
-	cd $< && node make $(PDFJS_METHOD)
+data/srv/pdf.js/enabled:
+	cd pdf.js && node make $(PDFJS_METHOD)
 	mkdir -p data/srv
 	mv pdf.js/build/$(PDFJS_METHOD)/web -T data/srv/pdf.js/web
 	mv pdf.js/build/$(PDFJS_METHOD)/build -T data/srv/pdf.js/build
 	touch $@
 
-pdf.js/:
-	git clone --depth 1 git://github.com/mozilla/pdf.js.git $@
-
 clean:
 	rm exten/*.o
 	rm -rf exten/jsonrpC/build
-	rm -rf pdf.js
+	rm -rf pdf.js/build

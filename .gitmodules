@@ -1,3 +1,6 @@
 [submodule "exten/jsonrpC"]
 	path = exten/jsonrpC
 	url = git://github.com/jhlee4bb/jsonrpC.git
+[submodule "pdf.js"]
+	path = pdf.js
+	url = git://github.com/mozilla/pdf.js.git
