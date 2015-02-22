@@ -14,7 +14,7 @@ OBJ = exten/libgolem.o\
 	exten/jsonrpc_plugin_g_io_channel.o\
 	exten/jsonrpc_plugin_yajl.o
 
-.PHONY: all clean
+.PHONY: all clean pristine
 
 all: data/srv/pdf.js/enabled data/libgolem.so
 
@@ -42,3 +42,7 @@ clean:
 	rm exten/*.o
 	rm -rf exten/jsonrpC/build
 	rm -rf pdf.js/build
+
+pristine:
+	git clean -dfx
+	git submodule foreach --recursive git clean -dfx
