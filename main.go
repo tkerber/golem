@@ -6,7 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	"net/rpc/jsonrpc"
+	"net/rpc"
 	"os"
 	"regexp"
 	"runtime"
@@ -15,6 +15,7 @@ import (
 	"github.com/conformal/gotk3/gtk"
 	"github.com/mattn/go-shellwords"
 	"github.com/tkerber/golem/golem"
+	"github.com/ugorji/go/codec"
 )
 
 // Build web extension & pdf.js
@@ -116,20 +117,20 @@ func socketAcquired(l net.Listener, profile string, args []string) {
 	<-g.Quit
 }
 
-// handshake performs golems json-rpc client handshake with server:
+// handshake performs golems msgpack-rpc client handshake with server:
 //
-// >>> json-rpc-client
-// <<< ok
+// >>> json-rpc-client\0
+// <<< ok\0
 func handshake(c net.Conn) error {
-	_, err := c.Write([]byte("json-rpc-client\n"))
+	_, err := c.Write([]byte("msgpack-rpc-client\u0000"))
 	if err != nil {
 		return err
 	}
 	reader := bufio.NewReader(c)
-	line, _, err := reader.ReadLine()
+	line, err := reader.ReadBytes(0)
 	if err != nil {
 		return err
-	} else if string(line) != "ok" {
+	} else if string(line) != "ok\u0000" {
 		return errors.New("Handshake failed.")
 	}
 	return nil
@@ -145,10 +146,11 @@ func socketFound(c net.Conn, args []string) {
 		exitCode = 1
 		return
 	}
-	rpc := jsonrpc.NewClient(c)
+	rpc := rpc.NewClientWithCodec(
+		codec.MsgpackSpecRpc.ClientCodec(c, new(codec.MsgpackHandle)))
 	// If there are no uris, instead create a new window.
 	if len(args) == 0 {
-		err := rpc.Call("RPCSession.NewWindow", nil, nil)
+		err := rpc.Call("Golem.NewWindow", nil, nil)
 		if err != nil {
 			golem.Errlog.Printf("Failed to open window: %v", err)
 			exitCode = 1

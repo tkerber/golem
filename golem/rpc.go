@@ -7,11 +7,11 @@ import (
 	"math"
 	"net"
 	"net/rpc"
-	"net/rpc/jsonrpc"
 
 	"github.com/mattn/go-shellwords"
 	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/golem/states"
+	"github.com/ugorji/go/codec"
 )
 
 const HintsChars = "FDSARTGBVECWXQZIOPMNHYULKJ"
@@ -29,7 +29,8 @@ type RPCSession struct {
 func NewRPCSession(l net.Listener) *RPCSession {
 	s := &RPCSession{l, false, nil}
 	server := rpc.NewServer()
-	server.Register(s)
+	server.RegisterName("Golem", s)
+	msgpackHandle := new(codec.MsgpackHandle)
 	go func() {
 		for {
 			c, err := s.listener.Accept()
@@ -46,23 +47,27 @@ func NewRPCSession(l net.Listener) *RPCSession {
 			go func() {
 				// One of the following handshakes is performed:
 				//
-				// <<< json-rpc-server
-				// >>> ok
+				// <<< msgpack-rpc-server\0
+				// >>> ok\0
 				//
-				// <<< json-rpc-client
-				// >>> ok
+				// <<< msgpack-rpc-client\0
+				// >>> ok\0
 				//
 				// These idicate that the client is to be treated as the RPC
 				// server or client respectively.
+				//
+				// The handshake occurs using plain text instead of, say,
+				// message pack due to simplicity.
 				reader := bufio.NewReader(c)
-				line, _, err := reader.ReadLine()
+				line, err := reader.ReadBytes(0)
 				if err != nil {
 					Errlog.Printf(
 						"Failed to initialize socket connection: %v", err)
-				} else if string(line) == "json-rpc-server" {
+				} else if string(line) == "msgpack-rpc-server\u0000" {
 					// The "client" is a web view, and will act as a server.
 					// connect to it.
-					client := jsonrpc.NewClient(c)
+					client := rpc.NewClientWithCodec(
+						codec.MsgpackSpecRpc.ClientCodec(c, msgpackHandle))
 					var id uint64
 					// Try getting a web page id. If this call fails, assume that
 					// the connecting client isn't a web extension.
@@ -77,11 +82,12 @@ func NewRPCSession(l net.Listener) *RPCSession {
 						wv.webExtension.conn = c
 						wv.webExtension.client = client
 					}
-					c.Write([]byte("ok\n"))
-				} else if string(line) == "json-rpc-client" {
+					c.Write([]byte("ok\u0000"))
+				} else if string(line) == "msgpack-rpc-client\u0000" {
 					// Serve the client.
-					go server.ServeCodec(jsonrpc.NewServerCodec(c))
-					c.Write([]byte("ok\n"))
+					go server.ServeCodec(
+						codec.MsgpackSpecRpc.ServerCodec(c, msgpackHandle))
+					c.Write([]byte("ok\u0000"))
 				} else {
 					Errlog.Printf(
 						"Invalid introduction header: '%s'", string(line))
