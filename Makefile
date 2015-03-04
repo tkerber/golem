@@ -1,8 +1,8 @@
 CC = gcc
-CFLAGS = -Iexten/jsonrpC/build/jsonrpc-0.1/include
-CFLAGS += `pkg-config --cflags webkit2gtk-web-extension-4.0 glib-2.0 gio-2.0 yajl`
-LFLAGS = -Lexten/jsonrpC/build/jsonrpc-0.1/lib
-LFLAGS += `pkg-config --libs webkit2gtk-web-extension-4.0 glib-2.0 gio-2.0 yajl`
+CFLAGS = -Iexten/build/include
+CFLAGS += `pkg-config --cflags webkit2gtk-web-extension-4.0 glib-2.0 gio-2.0`
+LFLAGS = -Lexten/build/lib
+LFLAGS += `pkg-config --libs webkit2gtk-web-extension-4.0 glib-2.0 gio-2.0`
 ifdef CLOSURE_COMPILER
 PDFJS_METHOD = minified
 else
@@ -10,23 +10,53 @@ PDFJS_METHOD = generic
 endif
 OBJ = exten/libgolem.o\
 	exten/hints.o\
-	exten/rpc.o\
-	exten/jsonrpc_plugin_g_io_channel.o\
-	exten/jsonrpc_plugin_yajl.o
+	exten/rpc.o
+MSGPACK = exten/build/lib/libmsgpack.a\
+	exten/build/lib/libmsgpackc.a\
+	exten/build/include/msgpack\
+	exten/build/include/msgpack.h\
+	exten/build/include/msgpack.hpp
+MPIO = exten/build/lib/libjubatus_mpio.a\
+	exten/build/include/jubatus/mp
+MSGPACK_RPC = exten/build/lib/jubatus_msgpack-rpc.a\
+	exten/build/include/jubatus/msgpack
+
 
 .PHONY: all clean pristine
 
 all: data/srv/pdf.js/enabled data/libgolem.so
 
-%.o: %.c exten/jsonrpC/build
-	$(CC) -c -fPIC -o $@ $< $(CFLAGS)
+%.o: %.c exten/build/lib/libjubatus_msgpack-rpc.a
+	gcc -c -fPIC -o $@ $< $(CFLAGS)
 
-exten/jsonrpC/build:
-	mkdir -p $@
-	# We have to explicitly set the websockets library to be empty. It will still
-	# complain, but it will build it.
-	cd $@; cmake -DWEBSOCKETS_LIBRARY= ..
-	make -C $@ jsonrpc_s
+$(MSGPACK):
+	mkdir -p exten/build
+	cd exten/msgpack-c && ./bootstrap
+	cd exten/msgpack-c && ./configure --prefix=`pwd`/../build
+	make -C exten/msgpack-c
+	make -C exten/msgpack-c install
+
+$(MPIO):
+	mkdir -p exten/build
+	cd exten/jubatus-mpio && ./bootstrap
+	cd exten/jubatus-mpio && ./configure --prefix=`pwd`/../build
+	make -C exten/jubatus-mpio
+	make -C exten/jubatus-mpio install
+	# Techincally this should probably be in a clean, but since git will complain
+	# about untracked content in the submodules, we'll do cleaning regularly for
+	# the jubatus libraries. This should be fine, as they'll rarely need to be
+	# rebuilt.
+	cd exten/jubatus-mpio && git clean -dfx
+
+$(MSGPACK_RPC): $(MSGPACK) $(MPIO)
+	mkdir -p exten/build
+	cd exten/jubatus-msgpack-rpc/cpp && ./bootstrap
+	cd exten/jubatus-msgpack-rpc/cpp && ./configure --prefix=`pwd`/../../build \
+			--with-jubatus-mpio=`pwd`/../../build --with-msgpack=`pwd`/../../build
+	make -C exten/jubatus-msgpack-rpc/cpp
+	make -C exten/jubatus-msgpack-rpc/cpp install
+	# See comment above.
+	cd exten/jubatus-msgpack-rpc && git clean -dfx
 
 data/libgolem.so: $(OBJ)
 	$(CC) -shared -o $@ $^ $(LFLAGS)
@@ -40,7 +70,6 @@ data/srv/pdf.js/enabled:
 
 clean:
 	rm exten/*.o
-	rm -rf exten/jsonrpC/build
 	rm -rf pdf.js/build
 
 pristine:
