@@ -1,6 +1,12 @@
-[submodule "exten/jsonrpC"]
-	path = exten/jsonrpC
-	url = git://github.com/tkerber/jsonrpC.git
 [submodule "pdf.js"]
 	path = pdf.js
 	url = git://github.com/mozilla/pdf.js.git
+[submodule "exten/jubatus-msgpack-rpc"]
+	path = exten/jubatus-msgpack-rpc
+	url = git://github.com/jubatus/jubatus-msgpack-rpc.git
+[submodule "exten/msgpack-c"]
+	path = exten/msgpack-c
+	url = git://github.com/msgpack/msgpack-c.git
+[submodule "exten/jubatus-mpio"]
+	path = exten/jubatus-mpio
+	url = git://github.com/jubatus/jubatus-mpio.git
