@@ -55,7 +55,7 @@ data/srv/pdf.js/enabled:
 clean:
 	rm exten/*.o
 	rm -rf pdf.js/build
-
-pristine:
-	git clean -dfx
 	git submodule foreach --recursive git clean -dfx
+
+pristine: clean
+	git clean -dfx
