@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Iexten/build/include
+CFLAGS = -Iexten/build/include -Iexten/jubatus-msgpack-rpc/cpp/src
 CFLAGS += `pkg-config --cflags webkit2gtk-web-extension-4.0 glib-2.0 gio-2.0`
 LFLAGS = -Lexten/build/lib
 LFLAGS += `pkg-config --libs webkit2gtk-web-extension-4.0 glib-2.0 gio-2.0`
@@ -42,11 +42,6 @@ $(MPIO):
 	cd exten/jubatus-mpio && ./configure --prefix=`pwd`/../build
 	make -C exten/jubatus-mpio
 	make -C exten/jubatus-mpio install
-	# Techincally this should probably be in a clean, but since git will complain
-	# about untracked content in the submodules, we'll do cleaning regularly for
-	# the jubatus libraries. This should be fine, as they'll rarely need to be
-	# rebuilt.
-	cd exten/jubatus-mpio && git clean -dfx
 
 $(MSGPACK_RPC): $(MSGPACK) $(MPIO)
 	mkdir -p exten/build
@@ -55,8 +50,6 @@ $(MSGPACK_RPC): $(MSGPACK) $(MPIO)
 			--with-jubatus-mpio=`pwd`/../../build --with-msgpack=`pwd`/../../build
 	make -C exten/jubatus-msgpack-rpc/cpp
 	make -C exten/jubatus-msgpack-rpc/cpp install
-	# See comment above.
-	cd exten/jubatus-msgpack-rpc && git clean -dfx
 
 data/libgolem.so: $(OBJ)
 	$(CC) -shared -o $@ $^ $(LFLAGS)
