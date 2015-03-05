@@ -8,26 +8,18 @@ PDFJS_METHOD = minified
 else
 PDFJS_METHOD = generic
 endif
-OBJ = exten/libgolem.o\
-	exten/hints.o\
-	exten/rpc.o
-MSGPACK = exten/build/lib/libmsgpack.a\
-	exten/build/lib/libmsgpackc.a\
-	exten/build/include/msgpack\
-	exten/build/include/msgpack.h\
-	exten/build/include/msgpack.hpp
-MPIO = exten/build/lib/libjubatus_mpio.a\
-	exten/build/include/jubatus/mp
-MSGPACK_RPC = exten/build/lib/jubatus_msgpack-rpc.a\
-	exten/build/include/jubatus/msgpack
+OBJ = exten/libgolem.o exten/hints.o exten/rpc.o
+MSGPACK = exten/build/lib/libmsgpack.a exten/build/lib/libmsgpackc.a exten/build/include/msgpack exten/build/include/msgpack.h exten/build/include/msgpack.hpp
+MPIO = exten/build/lib/libjubatus_mpio.a exten/build/include/jubatus/mp
+MSGPACK_RPC = exten/build/lib/libjubatus_msgpack-rpc.a exten/build/include/jubatus/msgpack
 
 
 .PHONY: all clean pristine
 
 all: data/srv/pdf.js/enabled data/libgolem.so
 
-%.o: %.c exten/build/lib/libjubatus_msgpack-rpc.a
-	gcc -c -fPIC -o $@ $< $(CFLAGS)
+%.o: %.c $(MSGPACK_RPC)
+	$(CC) -c -fPIC -o $@ $< $(CFLAGS)
 
 $(MSGPACK):
 	mkdir -p exten/build
@@ -46,8 +38,7 @@ $(MPIO):
 $(MSGPACK_RPC): $(MSGPACK) $(MPIO)
 	mkdir -p exten/build
 	cd exten/jubatus-msgpack-rpc/cpp && ./bootstrap
-	cd exten/jubatus-msgpack-rpc/cpp && ./configure --prefix=`pwd`/../../build \
-			--with-jubatus-mpio=`pwd`/../../build --with-msgpack=`pwd`/../../build
+	cd exten/jubatus-msgpack-rpc/cpp && ./configure --prefix=`pwd`/../../build --with-jubatus-mpio=`pwd`/../../build --with-msgpack=`pwd`/../../build
 	make -C exten/jubatus-msgpack-rpc/cpp
 	make -C exten/jubatus-msgpack-rpc/cpp install
 
