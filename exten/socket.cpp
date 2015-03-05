@@ -4,7 +4,9 @@
 // source to the include path.
 #include <jubatus/msgpack/rpc/transport/base.h>
 #include <jubatus/msgpack/rpc/transport.h>
+extern "C" {
 #include <gio/gio.h>
+}
 
 namespace msgpack {
 namespace rpc {

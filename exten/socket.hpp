@@ -2,7 +2,9 @@
 #define GOLEM_SOCKET_H
 
 #include <jubatus/msgpack/rpc/transport.h>
+extern "C" {
 #include <gio/gio.h>
+}
 
 namespace golem {
 
