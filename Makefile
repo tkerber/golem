@@ -8,7 +8,7 @@ PDFJS_METHOD = minified
 else
 PDFJS_METHOD = generic
 endif
-OBJ = exten/libgolem.o exten/hints.o exten/rpc.o
+OBJ = exten/libgolem.o exten/hints.o exten/rpc.o exten/socket.o
 MSGPACK = exten/build/lib/libmsgpack.a exten/build/lib/libmsgpackc.a exten/build/include/msgpack exten/build/include/msgpack.h exten/build/include/msgpack.hpp
 MPIO = exten/build/lib/libjubatus_mpio.a exten/build/include/jubatus/mp
 MSGPACK_RPC = exten/build/lib/libjubatus_msgpack-rpc.a exten/build/include/jubatus/msgpack
@@ -19,6 +19,9 @@ MSGPACK_RPC = exten/build/lib/libjubatus_msgpack-rpc.a exten/build/include/jubat
 all: data/srv/pdf.js/enabled data/libgolem.so
 
 %.o: %.c $(MSGPACK_RPC)
+	$(CC) -c -fPIC -o $@ $< $(CFLAGS)
+
+%.o: %.cpp $(MSGPACK_RPC)
 	$(CC) -c -fPIC -o $@ $< $(CFLAGS)
 
 $(MSGPACK):

@@ -6,9 +6,12 @@ extern "C" {
 #include <gio/gio.h>
 }
 
-namespace golem {
+namespace msgpack {
+namespace rpc {
 
 class socket_builder: public msgpack::rpc::builder::base<socket_builder> {
+private:
+    GSocket *socket;
 public:
     socket_builder(GSocket* socket);
     ~socket_builder();
@@ -18,6 +21,7 @@ public:
             const msgpack::rpc::address& addr) const;
 };
 
-} // namespace golem
+} // namespace rpc
+} // namespace msgpack
 
 #endif /* GOLEM_SOCKET_H */

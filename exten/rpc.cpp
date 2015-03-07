@@ -1,5 +1,8 @@
 #include <jubatus/msgpack/rpc/server.h>
+#include "socket.hpp"
 extern "C" {
+#include <gio/gio.h>
+#include <gio/gunixsocketaddress.h>
 #include <glib.h>
 #include <webkit2/webkit-web-extension.h>
 #include "rpc.h"
@@ -23,7 +26,7 @@ private:
     Exten *exten;
 public:
     golem_dispatcher(Exten *exten) {
-        this.exten = exten;
+        this->exten = exten;
     }
 public:
     typedef rpc::request request;
@@ -32,47 +35,49 @@ public:
     try {
         std::string method;
         req.method().convert(&method);
-        if(method == "LinkHintsMode") {
+        if(method == "GolemWebExtension.GetPageID") {
+            req.result((unsigned long)exten->page_id);
+        } else if(method == "GolemWebExtension.LinkHintsMode") {
             req.result((long)start_hints_mode(
                         select_links,
-                        hints_call_by_href,
+                        hint_call_by_href,
                         exten));
-        } else if(method == "FormVariableHintsMode") {
+        } else if(method == "GolemWebExtension.FormVariableHintsMode") {
             req.result((long)start_hints_mode(
                         select_form_text_variables,
                         hint_call_by_form_variable_get,
                         exten));
-        } else if(method == "ClickHintsMode") {
+        } else if(method == "GolemWebExtension.ClickHintsMode") {
             req.result((long)start_hints_mode(
                         select_clickable,
                         hint_call_by_click,
                         exten));
-        } else if(method == "EndHintsMode") {
+        } else if(method == "GolemWebExtension.EndHintsMode") {
             end_hints_mode(exten);
             req.result(NULL);
-        } else if(method == "FilterHintsMode") {
+        } else if(method == "GolemWebExtension.FilterHintsMode") {
             msgpack::type::tuple<std::string> params;
             req.params().convert(&params);
             filter_hints_mode(params.get<0>().c_str(), exten);
-        } else if(method == "GetScrollTop" ||
-                method == "GetScrollLeft" ||
-                method == "GetScrollHeight" ||
-                method == "GetScrollWidth" ||
-                method == "GetScrollTargetTop" ||
-                method == "GetScrollTargetHeight" ||
-                method == "GetScrollTargetWidth") {
+        } else if(method == "GolemWebExtension.GetScrollTop" ||
+                method == "GolemWebExtension.GetScrollLeft" ||
+                method == "GolemWebExtension.GetScrollHeight" ||
+                method == "GolemWebExtension.GetScrollWidth" ||
+                method == "GolemWebExtension.GetScrollTargetTop" ||
+                method == "GolemWebExtension.GetScrollTargetHeight" ||
+                method == "GolemWebExtension.GetScrollTargetWidth") {
             WebKitWebPage *wp = exten->web_page;
             WebKitDOMDocument *dom = webkit_web_page_get_dom_document(wp);
             WebKitDOMElement *e = NULL;
-            if(method == "GetScrollTop" ||
-                    method == "GetScrollLeft" ||
-                    method == "GetScrollHeight" ||
-                    method == "GetScrollWidth") {
+            if(method == "GolemWebExtension.GetScrollTop" ||
+                    method == "GolemWebExtension.GetScrollLeft" ||
+                    method == "GolemWebExtension.GetScrollHeight" ||
+                    method == "GolemWebExtension.GetScrollWidth") {
                 e = WEBKIT_DOM_ELEMENT(webkit_dom_document_get_body(dom));
-            } else if(method == "GetScrollTargetTop" ||
-                    method == "GetScrollTargetLeft" ||
-                    method == "GetScrollTargetHeight" ||
-                    method == "GetScrollTargetWidth") {
+            } else if(method == "GolemWebExtension.GetScrollTargetTop" ||
+                    method == "GolemWebExtension.GetScrollTargetLeft" ||
+                    method == "GolemWebExtension.GetScrollTargetHeight" ||
+                    method == "GolemWebExtension.GetScrollTargetWidth") {
                 e = exten->scroll_target;
             }
             if(e == NULL) {
@@ -80,24 +85,24 @@ public:
                 return;
             }
             gint64 ret;
-            if(method == "GetScrollTop" ||
-                    method == "GetScrollTargetTop") {
+            if(method == "GolemWebExtension.GetScrollTop" ||
+                    method == "GolemWebExtension.GetScrollTargetTop") {
                 ret = webkit_dom_element_get_scroll_top(e);
-            } else if(method == "GetScrollLeft" ||
-                    method == "GetScrollTargetLeft") {
+            } else if(method == "GolemWebExtension.GetScrollLeft" ||
+                    method == "GolemWebExtension.GetScrollTargetLeft") {
                 ret = webkit_dom_element_get_scroll_left(e);
-            } else if(method == "GetScrollWidth" ||
-                    method == "GetScrollTargetWidth") {
+            } else if(method == "GolemWebExtension.GetScrollWidth" ||
+                    method == "GolemWebExtension.GetScrollTargetWidth") {
                 ret = webkit_dom_element_get_scroll_width(e);
-            } else if(method == "GetScrollHeight" ||
-                    method == "GetScrollTargetHeight") {
+            } else if(method == "GolemWebExtension.GetScrollHeight" ||
+                    method == "GolemWebExtension.GetScrollTargetHeight") {
                 ret = webkit_dom_element_get_scroll_height(e);
             }
             req.result((long)ret);
-        } else if(method == "SetScrollTop" ||
-                method == "SetScrollLeft" ||
-                method == "SetScrollTargetTop" ||
-                method == "SetScrollTargetLeft") {
+        } else if(method == "GolemWebExtension.SetScrollTop" ||
+                method == "GolemWebExtension.SetScrollLeft" ||
+                method == "GolemWebExtension.SetScrollTargetTop" ||
+                method == "GolemWebExtension.SetScrollTargetLeft") {
             msgpack::type::tuple<long> params;
             req.params().convert(&params);
             gint64 param = (gint64)params.get<0>();
@@ -105,22 +110,22 @@ public:
             WebKitWebPage *wp = exten->web_page;
             WebKitDOMDocument *dom = webkit_web_page_get_dom_document(wp);
             WebKitDOMElement *e = NULL;
-            if(method == "SetScrollTop" ||
-                    method == "SetScrollLeft") {
+            if(method == "GolemWebExtension.SetScrollTop" ||
+                    method == "GolemWebExtension.SetScrollLeft") {
                 e = WEBKIT_DOM_ELEMENT(webkit_dom_document_get_body(dom));
-            } else if(method == "SetScrollTargetTop" ||
-                    method == "SetScrollTargetLeft") {
+            } else if(method == "GolemWebExtension.SetScrollTargetTop" ||
+                    method == "GolemWebExtension.SetScrollTargetLeft") {
                 e = exten->scroll_target;
             }
             if(e == NULL) {
                 req.error(std::string("Scroll element is NULL."));
                 return;
             }
-            if(method == "SetScrollTop" ||
-                    method == "SetScrollTargetTop") {
+            if(method == "GolemWebExtension.SetScrollTop" ||
+                    method == "GolemWebExtension.SetScrollTargetTop") {
                 webkit_dom_element_set_scroll_top(e, param);
-            } else if(method == "SetScrollLeft" ||
-                    method == "SetScrollTargetLeft") {
+            } else if(method == "GolemWebExtension.SetScrollLeft" ||
+                    method == "GolemWebExtension.SetScrollTargetLeft") {
                 webkit_dom_element_set_scroll_left(e, param);
             }
             req.result(NULL);
@@ -146,14 +151,14 @@ get_hints_labels(guint n, Exten *exten, GError **err)
     try {
         std::vector<std::string> ret = exten->rpc_session->client->call(
                 "Golem.GetHintsLabels",
-                (long)n);
-        gchar **cret = g_malloc(sizeof(gchar*) * (ret.size() + 1));
+                (long)n).get<std::vector<std::string> >();
+        gchar **cret = (gchar**)g_malloc(sizeof(gchar*) * (ret.size() + 1));
         cret[ret.size()] = NULL;
         for(int i = 0; i < ret.size(); i++) {
             std::string& at = ret.at(i);
-            cret[i] = g_malloc(sizeof(gchar) * (at.size() + 1));
+            cret[i] = (gchar*)g_malloc(sizeof(gchar) * (at.size() + 1));
             cret[i][at.size()] = '\0';
-            at.copy(cret, at.size());
+            at.copy(cret[i], at.size());
         }
         return cret;
     } catch(std::exception& e) {
@@ -174,7 +179,7 @@ hint_call(const gchar *str, Exten *exten, GError **err)
         bool ret = exten->rpc_session->client->call(
                 "Golem.HintCall",
                 (unsigned long)exten->page_id,
-                std::string(str));
+                std::string(str)).get<bool>();
         return ret ? TRUE : FALSE;
     } catch(std::exception& e) {
         if(err != NULL) {
@@ -230,8 +235,8 @@ domain_elem_hide_css(const char *domain, Exten *exten, GError **err)
     try {
         std::string ret = exten->rpc_session->client->call(
                 "Golem.DomainElemHideCSS",
-                std::string(domain));
-        gchar *cret = g_malloc(sizeof(gchar) * (ret.size() + 1));
+                std::string(domain)).get<std::string>();
+        gchar *cret = (gchar*)g_malloc(sizeof(gchar) * (ret.size() + 1));
         cret[ret.size()] = '\0';
         ret.copy(cret, ret.size());
         return cret;
@@ -258,7 +263,7 @@ blocks(const char *uri,
                 "Golem.Blocks",
                 std::string(uri),
                 std::string(page_uri),
-                (unsigned long) flags);
+                (unsigned long) flags).get<bool>();
         return ret ? TRUE : FALSE;
     } catch(std::exception& e) {
         if(err != NULL) {
@@ -271,20 +276,19 @@ blocks(const char *uri,
 }
 
 static void
-handshake(GSocket *sock, gchar *str, GError **err)
+handshake(GSocket *sock, std::string str, GError **err)
 {
     g_socket_send(
             sock,
-            str,
+            str.c_str(),
             // +1 to account for the \0
-            strlen(str) + 1,
+            str.size() + 1,
             NULL,
             err);
     if(err && *err) {
         return;
     }
     gchar data[3];
-    gchar *data = g_malloc(sizeof(gchar) * 3);
     g_socket_receive(
             sock,
             data,
@@ -319,7 +323,7 @@ rpc_acquire(Exten *exten, GCallback cb, gpointer user_data)
     for(int i = 0; i < 2; i++) {
         socks[i] = g_socket_new(
                 G_SOCKET_FAMILY_UNIX,
-                G_SOCKET_STREAM,
+                G_SOCKET_TYPE_STREAM,
                 G_SOCKET_PROTOCOL_DEFAULT,
                 &err);
         if(err) {
@@ -338,11 +342,18 @@ rpc_acquire(Exten *exten, GCallback cb, gpointer user_data)
     if(err) {
         // DO SHIT.
     }
-    // TODO INIT CLIENT
+    msgpack::rpc::builder *sock_builder = new msgpack::rpc::socket_builder(socks[0]);
+    msgpack::rpc::address dummy_addr = msgpack::rpc::address();
+    exten->rpc_session->client = new msgpack::rpc::client(*sock_builder, dummy_addr);
     handshake(socks[1], "msgpack-rpc-server", &err);
     if(err) {
         // DO SHIT.
     }
-    // TODO INIT SERVER
+    delete sock_builder;
+    sock_builder = new msgpack::rpc::socket_builder(socks[1]);
+    exten->rpc_session->server = new msgpack::rpc::server(*sock_builder);
+    exten->rpc_session->server->listen(dummy_addr);
+    exten->rpc_session->server->start(1);
+    delete sock_builder;
     g_free(golem_socket_path);
 }

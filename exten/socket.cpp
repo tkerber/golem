@@ -41,16 +41,20 @@ private:
 class socket_transport: public client_transport {
     session_impl *session;
     mp::shared_ptr<client_socket> socket;
+    GSocket *g_socket;
 public:
 
     socket_transport(session_impl* s, GSocket *socket) {
         int fd = g_socket_get_fd(socket);
         this->socket = s->get_loop_ref()->add_handler<client_socket>(fd, s);
         this->session = s;
+        this->g_socket = socket;
+        g_object_ref(socket);
     }
 
     ~socket_transport() {
         close_sock();
+        g_object_unref(g_socket);
     }
 
 public:
@@ -76,26 +80,22 @@ private:
 
 };
 
-class socket_builder: public builder::base<socket_builder> {
-    GSocket *socket;
-public:
+socket_builder::socket_builder(GSocket *socket) {
+    this->socket = socket;
+    g_object_ref(this->socket);
+}
 
-    socket_builder(GSocket *socket) {
-        this->socket = socket;
-        g_object_ref(this->socket);
-    }
+socket_builder::~socket_builder() {
+    g_object_unref(this->socket);
+}
 
-    ~socket_builder() {
-        g_object_unref(this->socket);
-    }
-
-    std::auto_ptr<client_transport> build(
-            session_impl* s,
-            const address& addr) const {
-        return std::auto_ptr<client_transport>(
-                new socket_transport(s, this->socket));
-    }
-};
+std::auto_ptr<client_transport>
+socket_builder::build(
+        session_impl* s,
+        const address& addr) const {
+    return std::auto_ptr<client_transport>(
+            new socket_transport(s, this->socket));
+}
 
 } // namespace rpc
 } // namespace msgpack

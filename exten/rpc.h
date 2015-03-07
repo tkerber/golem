@@ -1,11 +1,23 @@
 #ifndef GOLEM_RPC_H
 #define GOLEM_RPC_H
 
+#ifdef __cplusplus
+#include <jubatus/msgpack/rpc/server.h>
+#include <jubatus/msgpack/rpc/client.h>
+extern "C" {
+#endif
+
 #include "libgolem.h"
 #include <glib.h>
 
 typedef struct _RPCSession {
-    GDBusConnection *connection;
+#ifdef __cplusplus
+    msgpack::rpc::client *client;
+    msgpack::rpc::server *server;
+#else
+    void *client;
+    void *server;
+#endif
 } RPCSession;
 
 // get_hints_labels gets the labels for n hints.
@@ -50,3 +62,7 @@ void
 rpc_acquire(Exten *exten, GCallback cb, gpointer user_data);
 
 #endif /* GOLEM_RPC_H */
+
+#ifdef __cplusplus
+}
+#endif
