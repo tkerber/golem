@@ -313,6 +313,7 @@ void
 rpc_acquire(Exten *exten, GCallback cb, gpointer user_data)
 {
     GError *err = NULL;
+    exten->rpc_session = (RPCSession*)g_malloc(sizeof(RPCSession));
     gchar *golem_socket_path = g_strdup_printf(
             "%s/golem-%s",
             g_get_user_runtime_dir(),
@@ -342,18 +343,20 @@ rpc_acquire(Exten *exten, GCallback cb, gpointer user_data)
     if(err) {
         // DO SHIT.
     }
-    msgpack::rpc::builder *sock_builder = new msgpack::rpc::socket_builder(socks[0]);
+    msgpack::rpc::socket_builder sock_builder = msgpack::rpc::socket_builder(socks[0]);
     msgpack::rpc::address dummy_addr = msgpack::rpc::address();
-    exten->rpc_session->client = new msgpack::rpc::client(*sock_builder, dummy_addr);
+    exten->rpc_session->client = new msgpack::rpc::client(sock_builder, dummy_addr);
     handshake(socks[1], "msgpack-rpc-server", &err);
     if(err) {
         // DO SHIT.
     }
-    delete sock_builder;
-    sock_builder = new msgpack::rpc::socket_builder(socks[1]);
-    exten->rpc_session->server = new msgpack::rpc::server(*sock_builder);
-    exten->rpc_session->server->listen(dummy_addr);
-    exten->rpc_session->server->start(1);
-    delete sock_builder;
+    // TODO create server (need listener instead of builder).
+    //sock_builder = new msgpack::rpc::socket_builder(socks[1]);
+    //// TODO this crashes. Why?
+    //exten->rpc_session->server = new msgpack::rpc::server(*sock_builder);
+    //exten->rpc_session->server->listen(dummy_addr);
+    //exten->rpc_session->server->start(1);
+    //delete sock_builder;
+    ((void(*)(gpointer))cb)(user_data);
     g_free(golem_socket_path);
 }
