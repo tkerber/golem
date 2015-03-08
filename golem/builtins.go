@@ -81,6 +81,9 @@ func builtinsFor(w *Window) cmd.Builtins {
 		"tabPrev":              {w.builtinTabPrev, "Goes to the previous tab"},
 		"toggleBookmark":       {w.builtinToggleBookmark, "Toggles bookmark status of the current page"},
 		"toggleQuickmark":      {w.builtinToggleQuickmark, "Toggles quickmark status of the current page"},
+		"toggleStatusBar":      {w.builtinToggleStatusBar, "Toggles the visibility of the status bar"},
+		"toggleTabBar":         {w.builtinToggleTabBar, "Toggles the visibility of the tab bar"},
+		"toggleUI":             {w.builtinToggleUI, "Toggles non-essential UI elements"},
 		"windowEditURI":        {w.builtinWindowEditURI, "Edits URI and opens in a new window"},
 		"windowOpen":           {w.builtinWindowOpen, "Opens a new window"},
 		"windowPasteClipboard": {w.builtinWindowPasteClipboard, "Pastes tabs from clipboard selection into a new window"},
@@ -726,6 +729,21 @@ func (w *Window) builtinToggleQuickmark(_ *int) {
 				uri),
 			w.runCmd))
 	}
+}
+
+// builtinToggleStatusBar toggles the visibility of the status bar.
+func (w *Window) builtinToggleStatusBar(_ *int) {
+	w.Window.ToggleStatusBar()
+}
+
+// builtinToggleTabBar toggles the visibility of the tab bar.
+func (w *Window) builtinToggleTabBar(_ *int) {
+	w.Window.ToggleTabBar()
+}
+
+// builtinToggleUI toggles non-essential UI elements.
+func (w *Window) builtinToggleUI(_ *int) {
+	w.Window.ToggleUI()
 }
 
 // builtinWindowEditURI initiates command mode with a winopen command primed

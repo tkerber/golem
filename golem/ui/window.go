@@ -210,6 +210,34 @@ func (w *Window) Show() {
 	ggtk.GlibMainContextInvoke(w.Window.ShowAll)
 }
 
+// ToggleStatusBar toggles the visibility of the status bar.
+func (w *Window) ToggleStatusBar() {
+	ggtk.GlibMainContextInvoke(func() {
+		if w.StatusBar.Container.IsVisible() {
+			w.StatusBar.Container.Hide()
+		} else {
+			w.StatusBar.Container.Show()
+		}
+	})
+}
+
+// ToggleTabBar toggles the visibility of the tab bar.
+func (w *Window) ToggleTabBar() {
+	ggtk.GlibMainContextInvoke(func() {
+		if w.TabBar.IsVisible() {
+			w.TabBar.Hide()
+		} else {
+			w.TabBar.Show()
+		}
+	})
+}
+
+// ToggleUI toggles all UI (non-webkit) elements.
+func (w *Window) ToggleUI() {
+	w.ToggleStatusBar()
+	w.ToggleTabBar()
+}
+
 // HideUI hides all UI (non-webkit) elements.
 func (w *Window) HideUI() {
 	ggtk.GlibMainContextInvoke(func() {

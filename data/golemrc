@@ -76,6 +76,10 @@ bind ase     builtin:addSearchEngine
 bind m       builtin:toggleQuickmark
 bind M       builtin:toggleBookmark
 
+bind xs      builtin:toggleStatusBar
+bind xt      builtin:toggleTabBar
+bind xx      builtin:toggleUI
+
 " Mediasource isn't supported enough for YouTube yet :(
 " Enabling it leads to choppyness atm, and no real benefit. However, once
 " proper support is added, this is a must.
