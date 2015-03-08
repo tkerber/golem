@@ -10,7 +10,7 @@ else
 PDFJS_METHOD = generic
 endif
 OBJ = exten/libgolem.o exten/hints.o exten/rpc.o exten/socket.o
-STATICLIBS = exten/build/lib/libmsgpack.a exten/build/lib/libjubatus_mpio.a exten/build/lib/libjubatus_msgpack-rpc.a
+STATICLIBS = exten/build/lib/libjubatus_msgpack-rpc.a exten/build/lib/libmsgpack.a exten/build/lib/libjubatus_mpio.a
 MSGPACK = exten/build/lib/libmsgpack.a exten/build/lib/libmsgpackc.a exten/build/include/msgpack exten/build/include/msgpack.h exten/build/include/msgpack.hpp
 MPIO = exten/build/lib/libjubatus_mpio.a exten/build/include/jubatus/mp
 MSGPACK_RPC = exten/build/lib/libjubatus_msgpack-rpc.a exten/build/include/jubatus/msgpack
