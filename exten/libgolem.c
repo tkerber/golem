@@ -418,8 +418,6 @@ web_page_created_callback(WebKitWebExtension *extension,
     exten->active = NULL;
     exten->scroll_target = NULL;
     exten->profile = user_data;
-    exten->golem_name = g_strdup_printf(
-            "com.github.tkerber.Golem.%s", exten->profile);
     exten->registered_documents = NULL;
     guint owner_id;
 

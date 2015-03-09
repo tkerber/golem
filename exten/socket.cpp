@@ -209,11 +209,11 @@ mp::shared_ptr<message_sendable> inline stream_handler<MixIn>::get_response_send
 {
 	return shared_self<stream_handler<MixIn> >();
 }
-}
-
 // END copied code.
 
-class client_socket : public transport::stream_handler<client_socket> {
+namespace socket {
+
+class client_socket : public stream_handler<client_socket> {
 public:
 
     client_socket(int fd, session_impl* s):
@@ -230,7 +230,7 @@ public:
             auto_zone z) {
         shared_session s = this->session.lock();
         if(!s) {
-            throw transport::closed_exception();
+            throw closed_exception();
         }
         s->on_response(msgid, result, error, z);
     }
@@ -240,13 +240,13 @@ private:
 
 };
 
-class socket_transport: public client_transport {
+class client_transport: public rpc::client_transport {
     session_impl *session;
     mp::shared_ptr<client_socket> socket;
     GSocket *g_socket;
 public:
 
-    socket_transport(session_impl* s, GSocket *socket) {
+    client_transport(session_impl* s, GSocket *socket) {
         int fd = g_socket_get_fd(socket);
         this->socket = s->get_loop_ref()->add_handler<client_socket>(fd, s);
         this->session = s;
@@ -254,7 +254,7 @@ public:
         g_object_ref(socket);
     }
 
-    ~socket_transport() {
+    ~client_transport() {
         close_sock();
         g_object_unref(g_socket);
     }
@@ -282,6 +282,76 @@ private:
 
 };
 
+class server_socket : public stream_handler<server_socket> {
+public:
+	server_socket(int fd, shared_server svr);
+	~server_socket();
+
+	void on_request(
+			msgid_t msgid,
+			object method, object params, auto_zone z);
+
+	void on_notify(
+			object method, object params, auto_zone z);
+
+private:
+	weak_server m_svr;
+
+private:
+	server_socket();
+	server_socket(const server_socket&);
+};
+
+server_socket::server_socket(int fd, shared_server svr) :
+	stream_handler<server_socket>(fd, svr->get_loop_ref()),
+	m_svr(svr) { }
+
+server_socket::~server_socket() { }
+
+void server_socket::on_request(
+		msgid_t msgid,
+		object method, object params, auto_zone z)
+{
+	shared_server svr = m_svr.lock();
+	if(!svr) {
+		throw closed_exception();
+	}
+	svr->on_request(get_response_sender(), msgid, method, params, z);
+}
+
+void server_socket::on_notify(
+		object method, object params, auto_zone z)
+{
+	shared_server svr = m_svr.lock();
+	if(!svr) {
+		throw closed_exception();
+	}
+	svr->on_notify(method, params, z);
+}
+
+class server_transport : public rpc::server_transport {
+public:
+	server_transport(server_impl* svr, GSocket *socket);
+	~server_transport();
+
+  void close() { }
+};
+
+server_transport::server_transport(server_impl* svr, GSocket *socket)
+{
+    int fd = g_socket_get_fd(socket);
+    weak_server wsvr = weak_server(mp::static_pointer_cast<server_impl>(
+                svr->shared_from_this()));
+    shared_server ssvr = wsvr.lock();
+    ssvr->get_loop_ref()->add_handler<server_socket>(fd, ssvr);
+    // TODO I think there is something missing here.
+}
+
+server_transport::~server_transport() { }
+
+} // namespace socket
+} // namespace transport
+
 socket_builder::socket_builder(GSocket *socket) {
     this->socket = socket;
     g_object_ref(this->socket);
@@ -296,7 +366,22 @@ socket_builder::build(
         session_impl* s,
         const address& addr) const {
     return std::auto_ptr<client_transport>(
-            new socket_transport(s, this->socket));
+            new transport::socket::client_transport(s, this->socket));
+}
+
+socket_listener::socket_listener(GSocket *socket) {
+    this->socket = socket;
+    g_object_ref(this->socket);
+}
+
+socket_listener::~socket_listener() {
+    g_object_unref(this->socket);
+}
+
+std::auto_ptr<server_transport>
+socket_listener::listen(server_impl* s) const {
+    return std::auto_ptr<server_transport>(
+            new transport::socket::server_transport(s, this->socket));
 }
 
 } // namespace rpc

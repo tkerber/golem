@@ -16,9 +16,19 @@ public:
     socket_builder(GSocket* socket);
     ~socket_builder();
 
-    std::auto_ptr<msgpack::rpc::client_transport> build(
-            msgpack::rpc::session_impl* s,
-            const msgpack::rpc::address& addr) const;
+    std::auto_ptr<client_transport> build(
+            session_impl* s,
+            const address& addr) const;
+};
+
+class socket_listener: public listener::base<socket_listener> {
+private:
+    GSocket *socket;
+public:
+    socket_listener(GSocket* socket);
+    ~socket_listener();
+
+    std::auto_ptr<server_transport> listen(server_impl* svr) const;
 };
 
 } // namespace rpc

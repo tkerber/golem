@@ -64,6 +64,7 @@ func NewRPCSession(l net.Listener) *RPCSession {
 					Errlog.Printf(
 						"Failed to initialize socket connection: %v", err)
 				} else if string(line) == "msgpack-rpc-server\u0000" {
+					c.Write([]byte("ok\u0000"))
 					// The "client" is a web view, and will act as a server.
 					// connect to it.
 					client := rpc.NewClientWithCodec(
@@ -82,7 +83,6 @@ func NewRPCSession(l net.Listener) *RPCSession {
 						wv.webExtension.conn = c
 						wv.webExtension.client = client
 					}
-					c.Write([]byte("ok\u0000"))
 				} else if string(line) == "msgpack-rpc-client\u0000" {
 					// Serve the client.
 					go server.ServeCodec(
@@ -274,8 +274,7 @@ func (w *webExtension) call(
 	if w.client == nil {
 		return errors.New("Failed RPC call: web view not connected.")
 	}
-	w.client.Call(method, args, reply)
-	return nil
+	return w.client.Call(method, args, reply)
 }
 
 // LinkHintsMode initializes hints mode for links.
@@ -316,7 +315,7 @@ func (w *webExtension) FilterHintsMode(filter string) (bool, error) {
 // getInt64 retrieves an int64 value.
 func (w *webExtension) getInt64(name string) (int64, error) {
 	var ret int64
-	err := w.call("GolemWebExtension.Get", name, &ret)
+	err := w.call("GolemWebExtension.Get"+name, name, &ret)
 	return ret, err
 }
 
@@ -364,14 +363,9 @@ func (w *webExtension) getScrollTargetHeight() (int64, error) {
 	return w.getInt64("ScrollTargetHeight")
 }
 
-type Int64SetInstruction struct {
-	Name  string
-	Value int64
-}
-
 // setInf64 sets an int64 value.
 func (w *webExtension) setInt64(name string, to int64) error {
-	return w.call("GolemWebExtension.Set", Int64SetInstruction{name, to}, nil)
+	return w.call("GolemWebExtension.Set"+name, to, nil)
 }
 
 // setScrollTop sets the webExtension's scroll position from the top.

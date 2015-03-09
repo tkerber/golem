@@ -359,6 +359,7 @@ select_clickable(GHashTable *h, Exten *exten)
     GList *ret = NULL;
     GList *docs = NULL;
     scan_documents(exten->document, &docs, exten);
+
     GList *l;
     for(l = docs; l != NULL; l = l->next) {
         guint i;

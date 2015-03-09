@@ -21,9 +21,7 @@ typedef struct _Exten {
     glong              last_top;
     glong              last_height;
     gboolean           last_input_focus;
-    gchar             *object_path;
     gchar             *profile;
-    gchar             *golem_name;
     // Used as a set for documents which have had handlers added.
     GHashTable        *registered_documents;
 } Exten;
