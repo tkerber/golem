@@ -1,9 +1,9 @@
+#ifndef GOLEM_HINTS_H
+#define GOLEM_HINTS_H
+
 #include <webkitdom/webkitdom.h>
 #include <glib.h>
 #include "libgolem.h"
-
-#ifndef HINTS_H
-#define HINTS_H
 
 // Returns a GList of WebKitDOMNodes, which have been ref'd.
 typedef GList *(*NodeSelecter)(GHashTable*, Exten*);
@@ -42,4 +42,4 @@ filter_hints_mode(const gchar *hints, Exten *exten);
 void
 end_hints_mode(Exten *exten);
 
-#endif /* HINTS_H */
+#endif /* GOLEM_HINTS_H */

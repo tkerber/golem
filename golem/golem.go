@@ -5,14 +5,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/conformal/gotk3/gdk"
 	"github.com/conformal/gotk3/gtk"
-	"github.com/guelfey/go.dbus"
 	"github.com/tkerber/golem/adblock"
 	"github.com/tkerber/golem/cmd"
 	"github.com/tkerber/golem/webkit"
@@ -54,12 +52,12 @@ type uriEntry struct {
 // Golem is golem's main instance.
 type Golem struct {
 	*globalCfg
+	*RPCSession
 	windows            []*Window
 	webViews           map[uint64]*webView
 	userContentManager *webkit.UserContentManager
 	closeChan          chan<- *Window
 	Quit               chan bool
-	sBus               *dbus.Conn
 	wMutex             *sync.Mutex
 	rawBindings        []cmd.RawBinding
 
@@ -81,7 +79,7 @@ type Golem struct {
 }
 
 // New creates a new instance of golem.
-func New(sBus *dbus.Conn, profile string) (*Golem, error) {
+func New(session *RPCSession, profile string) (*Golem, error) {
 	ucm, err := webkit.NewUserContentManager()
 	if err != nil {
 		return nil, err
@@ -112,12 +110,12 @@ func New(sBus *dbus.Conn, profile string) (*Golem, error) {
 
 	g := &Golem{
 		defaultCfg,
+		session,
 		make([]*Window, 0, 10),
 		make(map[uint64]*webView, 500),
 		ucm,
 		closeChan,
 		quitChan,
-		sBus,
 		new(sync.Mutex),
 		make([]cmd.RawBinding, 0, 100),
 		webkit.NewSettings(),
@@ -133,6 +131,8 @@ func New(sBus *dbus.Conn, profile string) (*Golem, error) {
 		nil,
 	}
 
+	session.golem = g
+
 	g.profile = profile
 
 	g.files, err = g.newFiles()
@@ -147,10 +147,6 @@ func New(sBus *dbus.Conn, profile string) (*Golem, error) {
 	g.adblocker = adblock.NewBlocker(g.files.filterlistDir)
 
 	g.webkitInit()
-
-	sigChan := make(chan *dbus.Signal, 100)
-	sBus.Signal(sigChan)
-	go g.watchSignals(sigChan)
 
 	for _, rcfile := range g.files.rcFiles() {
 		err := g.useRcFile(rcfile)
@@ -326,62 +322,6 @@ func (g *Golem) quickmark(from string, title string, uri string) {
 
 	for _, w := range g.windows {
 		w.rebuildQuickmarks()
-	}
-}
-
-// watchSignals watches all DBus signals coming in through a channel, and
-// handles them appropriately.
-func (g *Golem) watchSignals(c <-chan *dbus.Signal) {
-	for sig := range c {
-		if !strings.HasPrefix(
-			string(sig.Path),
-			fmt.Sprintf(webExtenDBusPathPrefix, g.profile)) {
-
-			continue
-		}
-		originID, err := strconv.ParseUint(
-			string(sig.Path[len(fmt.Sprintf(
-				webExtenDBusPathPrefix, g.profile,
-			)):len(sig.Path)]),
-			0,
-			64)
-		if err != nil {
-			continue
-		}
-		wv, ok := g.webViews[originID]
-		if !ok {
-			continue
-		}
-		switch sig.Name {
-		case webExtenDBusInterface + ".VerticalPositionChanged":
-			// Update for bookkeeping when tabs are switched
-			wv.top = sig.Body[0].(int64)
-			wv.height = sig.Body[1].(int64)
-			// Update any windows with this webview displayed.
-			for _, w := range g.windows {
-				if wv == w.getWebView() {
-					w.UpdateLocation()
-				}
-			}
-		case webExtenDBusInterface + ".InputFocusChanged":
-			focused := sig.Body[0].(bool)
-			// If it's newly focused, set any windows with this webview
-			// displayed to insert mode.
-			//
-			// Otherwise, if the window is currently in insert mode and it's
-			// newly unfocused, set this webview to normal mode.
-			for _, w := range g.windows {
-				if wv == w.getWebView() {
-					if focused {
-						w.setState(
-							cmd.NewInsertMode(w.State, cmd.SubstateDefault))
-					} else if _, ok := w.State.(*cmd.InsertMode); ok {
-						w.setState(
-							cmd.NewNormalMode(w.State))
-					}
-				}
-			}
-		}
 	}
 }
 

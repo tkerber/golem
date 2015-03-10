@@ -26,12 +26,13 @@ To install golem with the `go` command, instead execute:
 * `go-bindata` which can be obtained with `go get github.com/jteeuwen/go-bindata`
 * `go-version` (`go get github.com/tkerber/go-version`)
 * `node` i.e. node.js
-* `/usr/share/java/closure-compiler/closure-compiler.jar`
+* Google's closure compile is an optional dependency for minifying pdf.js.
+  If the environment variable `CLOSURE_COMPILER` is set for `go generate`,
+  the closure compiler will be used to produce a minified version of pdf.js
+  instead.
 
-If one of the latter two is not available; they are not critical for the
-functioning of `golem`. They first is required for pdf.js, and the latter
-is used to minify it. Minor changes in the Makefile can be done to either
-not build pdf.js at all, or not minify it.
+`node` is not required is pdf.js in disabled entirely. This can be done by
+removing it as a target in the `Makefile`.
 
 ## Naming
 
