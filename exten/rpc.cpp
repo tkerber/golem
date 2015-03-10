@@ -192,10 +192,10 @@ try {
     } else if(method == "GolemWebExtension.FilterHintsMode") {
         msgpack::type::tuple<std::string> params;
         req.params().convert(&params);
-        main_context_call_void(std::bind(
+        req.result(main_context_call<gboolean>(std::bind(
                     filter_hints_mode,
                     params.get<0>().c_str(),
-                    exten));
+                    exten)) == TRUE);
     } else if(method == "GolemWebExtension.GetScrollTop" ||
             method == "GolemWebExtension.GetScrollLeft" ||
             method == "GolemWebExtension.GetScrollHeight" ||
