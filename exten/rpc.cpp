@@ -295,10 +295,13 @@ gboolean
 hint_call(const gchar *str, Exten *exten, GError **err)
 {
     try {
+        msgpack::type::tuple<unsigned long, std::string> args =
+            msgpack::type::tuple<unsigned long, std::string>(
+                    (unsigned long)exten->page_id,
+                    std::string(str));
         bool ret = exten->rpc_session->client->call(
                 "Golem.HintCall",
-                (unsigned long)exten->page_id,
-                std::string(str)).get<bool>();
+                args).get<bool>();
         return ret ? TRUE : FALSE;
     } catch(std::exception& e) {
         if(err != NULL) {
@@ -319,11 +322,14 @@ vertical_position_changed(guint64 page_id,
                           Exten  *exten)
 {
     try {
+        msgpack::type::tuple<unsigned long, long, long> args =
+            msgpack::type::tuple<unsigned long, long, long>(
+                    (unsigned long)exten->page_id,
+                    (long)top,
+                    (long)height);
         exten->rpc_session->client->call(
                 "Golem.VerticalPositionChanged",
-                (unsigned long)exten->page_id,
-                (long)top,
-                (long)height);
+                args);
     } catch(std::exception& e) {
         // TODO maybe print something.
     }
@@ -335,10 +341,13 @@ void
 input_focus_changed(guint64 page_id, gboolean input_focus, Exten *exten)
 {
     try {
+        msgpack::type::tuple<unsigned long, bool> args =
+            msgpack::type::tuple<unsigned long, bool>(
+                    (unsigned long)exten->page_id,
+                    input_focus ? true : false);
         exten->rpc_session->client->call(
                 "Golem.InputFocusChanged",
-                (unsigned long)exten->page_id,
-                input_focus ? true : false);
+                args);
     } catch(std::exception& e) {
         // TODO maybe print something.
     }
@@ -378,11 +387,14 @@ blocks(const char *uri,
        GError **err)
 {
     try {
+        msgpack::type::tuple<std::string, std::string, unsigned long> args =
+            msgpack::type::tuple<std::string, std::string, unsigned long>(
+                    std::string(uri),
+                    std::string(page_uri),
+                    (unsigned long) flags);
         bool ret = exten->rpc_session->client->call(
                 "Golem.Blocks",
-                std::string(uri),
-                std::string(page_uri),
-                (unsigned long) flags).get<bool>();
+                args).get<bool>();
         return ret ? TRUE : FALSE;
     } catch(std::exception& e) {
         if(err != NULL) {
