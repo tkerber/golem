@@ -12,6 +12,8 @@ extern "C" {
 #include "libgolem.h"
 }
 
+#define ERR_NULL_SCROLL_ELEM 0
+
 #define GOLEM_ERROR golem_error_quark()
 
 G_DEFINE_QUARK("golem-error-quark", golem_error);
@@ -22,6 +24,63 @@ namespace rpc {
     using namespace msgpack;
     using namespace msgpack::rpc;
 }  // namespace rpc
+
+template <typename R> struct mc_cb_data {
+    R                  *ret;
+    std::function<R()>  func;
+    GCond              *cond;
+};
+
+struct mc_cb_data_void {
+    std::function<void()>  func;
+    GCond                 *cond;
+};
+
+template <typename R>
+gboolean glib_mc_cb(gpointer user_data)
+{
+    struct mc_cb_data<R> *data = (struct mc_cb_data<R> *)user_data;
+    *(data->ret) = data->func();
+    g_cond_broadcast(data->cond);
+    return FALSE;
+}
+
+gboolean glib_mc_cb_void(gpointer user_data)
+{
+    struct mc_cb_data_void *data = (struct mc_cb_data_void*)user_data;
+    data->func();
+    g_cond_broadcast(data->cond);
+    return FALSE;
+}
+
+template <typename R>
+R main_context_call(std::function<R()> func)
+{
+    GMutex mutex;
+    g_mutex_init(&mutex);
+    g_mutex_lock(&mutex);
+    GCond cond;
+    g_cond_init(&cond);
+    R ret;
+    struct mc_cb_data<R> data = {.ret = &ret, .func = func, .cond = &cond};
+    g_main_context_invoke(NULL, glib_mc_cb<R>, &data);
+    g_cond_wait(&cond, &mutex);
+    g_mutex_unlock(&mutex);
+    return ret;
+}
+
+void main_context_call_void(std::function<void()> func)
+{
+    GMutex mutex;
+    g_mutex_init(&mutex);
+    g_mutex_lock(&mutex);
+    GCond cond;
+    g_cond_init(&cond);
+    struct mc_cb_data_void data = {.func = func, .cond = &cond};
+    g_main_context_invoke(NULL, glib_mc_cb_void, &data);
+    g_cond_wait(&cond, &mutex);
+    g_mutex_unlock(&mutex);
+}
 
 typedef rpc::request request;
 
@@ -39,6 +98,68 @@ golem_dispatcher::golem_dispatcher(Exten *exten) {
     this->exten = exten;
 }
 
+static void
+set_call(std::string method, gint64 param, int *err, Exten *exten)
+{
+    WebKitWebPage *wp = exten->web_page;
+    WebKitDOMDocument *dom = webkit_web_page_get_dom_document(wp);
+    WebKitDOMElement *e = NULL;
+    if(method == "GolemWebExtension.SetScrollTop" ||
+            method == "GolemWebExtension.SetScrollLeft") {
+        e = WEBKIT_DOM_ELEMENT(webkit_dom_document_get_body(dom));
+    } else if(method == "GolemWebExtension.SetScrollTargetTop" ||
+            method == "GolemWebExtension.SetScrollTargetLeft") {
+        e = exten->scroll_target;
+    }
+    if(e == NULL) {
+        *err = ERR_NULL_SCROLL_ELEM;
+        return;
+    }
+    if(method == "GolemWebExtension.SetScrollTop" ||
+            method == "GolemWebExtension.SetScrollTargetTop") {
+        webkit_dom_element_set_scroll_top(e, param);
+    } else if(method == "GolemWebExtension.SetScrollLeft" ||
+            method == "GolemWebExtension.SetScrollTargetLeft") {
+        webkit_dom_element_set_scroll_left(e, param);
+    }
+}
+
+static void
+get_call(std::string method, gint64 *ret, int *err, Exten *exten)
+{
+    WebKitWebPage *wp = exten->web_page;
+    WebKitDOMDocument *dom = webkit_web_page_get_dom_document(wp);
+    WebKitDOMElement *e = NULL;
+    if(method == "GolemWebExtension.GetScrollTop" ||
+            method == "GolemWebExtension.GetScrollLeft" ||
+            method == "GolemWebExtension.GetScrollHeight" ||
+            method == "GolemWebExtension.GetScrollWidth") {
+        e = WEBKIT_DOM_ELEMENT(webkit_dom_document_get_body(dom));
+    } else if(method == "GolemWebExtension.GetScrollTargetTop" ||
+            method == "GolemWebExtension.GetScrollTargetLeft" ||
+            method == "GolemWebExtension.GetScrollTargetHeight" ||
+            method == "GolemWebExtension.GetScrollTargetWidth") {
+        e = exten->scroll_target;
+    }
+    if(e == NULL) {
+        *err = ERR_NULL_SCROLL_ELEM;
+        return;
+    }
+    if(method == "GolemWebExtension.GetScrollTop" ||
+            method == "GolemWebExtension.GetScrollTargetTop") {
+        *ret = webkit_dom_element_get_scroll_top(e);
+    } else if(method == "GolemWebExtension.GetScrollLeft" ||
+            method == "GolemWebExtension.GetScrollTargetLeft") {
+        *ret = webkit_dom_element_get_scroll_left(e);
+    } else if(method == "GolemWebExtension.GetScrollWidth" ||
+            method == "GolemWebExtension.GetScrollTargetWidth") {
+        *ret = webkit_dom_element_get_scroll_width(e);
+    } else if(method == "GolemWebExtension.GetScrollHeight" ||
+            method == "GolemWebExtension.GetScrollTargetHeight") {
+        *ret = webkit_dom_element_get_scroll_height(e);
+    }
+}
+
 // must run in main context.
 void golem_dispatcher::dispatch(request req)
 // FIXME: run extension stuff in glib main context.
@@ -48,27 +169,33 @@ try {
     if(method == "GolemWebExtension.GetPageID") {
         req.result((unsigned long)exten->page_id);
     } else if(method == "GolemWebExtension.LinkHintsMode") {
-        req.result((long)start_hints_mode(
-                    select_links,
-                    hint_call_by_href,
-                    exten));
+        req.result((long)main_context_call<gint64>(std::bind(
+                        start_hints_mode,
+                        select_links,
+                        hint_call_by_href,
+                        exten)));
     } else if(method == "GolemWebExtension.FormVariableHintsMode") {
-        req.result((long)start_hints_mode(
-                    select_form_text_variables,
-                    hint_call_by_form_variable_get,
-                    exten));
+        req.result((long)main_context_call<gint64>(std::bind(
+                        start_hints_mode,
+                        select_form_text_variables,
+                        hint_call_by_form_variable_get,
+                        exten)));
     } else if(method == "GolemWebExtension.ClickHintsMode") {
-        req.result((long)start_hints_mode(
-                    select_clickable,
-                    hint_call_by_click,
-                    exten));
+        req.result((long)main_context_call<gint64>(std::bind(
+                        start_hints_mode,
+                        select_clickable,
+                        hint_call_by_click,
+                        exten)));
     } else if(method == "GolemWebExtension.EndHintsMode") {
-        end_hints_mode(exten);
+        main_context_call_void(std::bind(end_hints_mode, exten));
         req.result(NULL);
     } else if(method == "GolemWebExtension.FilterHintsMode") {
         msgpack::type::tuple<std::string> params;
         req.params().convert(&params);
-        filter_hints_mode(params.get<0>().c_str(), exten);
+        main_context_call_void(std::bind(
+                    filter_hints_mode,
+                    params.get<0>().c_str(),
+                    exten));
     } else if(method == "GolemWebExtension.GetScrollTop" ||
             method == "GolemWebExtension.GetScrollLeft" ||
             method == "GolemWebExtension.GetScrollHeight" ||
@@ -76,39 +203,26 @@ try {
             method == "GolemWebExtension.GetScrollTargetTop" ||
             method == "GolemWebExtension.GetScrollTargetHeight" ||
             method == "GolemWebExtension.GetScrollTargetWidth") {
-        WebKitWebPage *wp = exten->web_page;
-        WebKitDOMDocument *dom = webkit_web_page_get_dom_document(wp);
-        WebKitDOMElement *e = NULL;
-        if(method == "GolemWebExtension.GetScrollTop" ||
-                method == "GolemWebExtension.GetScrollLeft" ||
-                method == "GolemWebExtension.GetScrollHeight" ||
-                method == "GolemWebExtension.GetScrollWidth") {
-            e = WEBKIT_DOM_ELEMENT(webkit_dom_document_get_body(dom));
-        } else if(method == "GolemWebExtension.GetScrollTargetTop" ||
-                method == "GolemWebExtension.GetScrollTargetLeft" ||
-                method == "GolemWebExtension.GetScrollTargetHeight" ||
-                method == "GolemWebExtension.GetScrollTargetWidth") {
-            e = exten->scroll_target;
-        }
-        if(e == NULL) {
-            req.error(std::string("Scroll element is NULL."));
-            return;
-        }
         gint64 ret;
-        if(method == "GolemWebExtension.GetScrollTop" ||
-                method == "GolemWebExtension.GetScrollTargetTop") {
-            ret = webkit_dom_element_get_scroll_top(e);
-        } else if(method == "GolemWebExtension.GetScrollLeft" ||
-                method == "GolemWebExtension.GetScrollTargetLeft") {
-            ret = webkit_dom_element_get_scroll_left(e);
-        } else if(method == "GolemWebExtension.GetScrollWidth" ||
-                method == "GolemWebExtension.GetScrollTargetWidth") {
-            ret = webkit_dom_element_get_scroll_width(e);
-        } else if(method == "GolemWebExtension.GetScrollHeight" ||
-                method == "GolemWebExtension.GetScrollTargetHeight") {
-            ret = webkit_dom_element_get_scroll_height(e);
+        // Error codes defined:
+        // 0: Scroll element is NULL
+        int err = -1;
+        main_context_call_void(std::bind(
+                    get_call,
+                    method,
+                    &ret,
+                    &err,
+                    exten));
+        if(err != -1) {
+            switch(err) {
+            case ERR_NULL_SCROLL_ELEM:
+                req.error(std::string("Scroll element is NULL."));
+            default:
+                req.error(std::string("Unknown error code."));
+            }
+        } else {
+            req.result((long)ret);
         }
-        req.result((long)ret);
     } else if(method == "GolemWebExtension.SetScrollTop" ||
             method == "GolemWebExtension.SetScrollLeft" ||
             method == "GolemWebExtension.SetScrollTargetTop" ||
@@ -116,27 +230,24 @@ try {
         msgpack::type::tuple<long> params;
         req.params().convert(&params);
         gint64 param = (gint64)params.get<0>();
-
-        WebKitWebPage *wp = exten->web_page;
-        WebKitDOMDocument *dom = webkit_web_page_get_dom_document(wp);
-        WebKitDOMElement *e = NULL;
-        if(method == "GolemWebExtension.SetScrollTop" ||
-                method == "GolemWebExtension.SetScrollLeft") {
-            e = WEBKIT_DOM_ELEMENT(webkit_dom_document_get_body(dom));
-        } else if(method == "GolemWebExtension.SetScrollTargetTop" ||
-                method == "GolemWebExtension.SetScrollTargetLeft") {
-            e = exten->scroll_target;
-        }
-        if(e == NULL) {
-            req.error(std::string("Scroll element is NULL."));
-            return;
-        }
-        if(method == "GolemWebExtension.SetScrollTop" ||
-                method == "GolemWebExtension.SetScrollTargetTop") {
-            webkit_dom_element_set_scroll_top(e, param);
-        } else if(method == "GolemWebExtension.SetScrollLeft" ||
-                method == "GolemWebExtension.SetScrollTargetLeft") {
-            webkit_dom_element_set_scroll_left(e, param);
+        // Error codes defined:
+        // 0: Scroll element is NULL
+        int err = -1;
+        main_context_call_void(std::bind(
+                    set_call,
+                    method,
+                    param,
+                    &err,
+                    exten));
+        if(err != -1) {
+            switch(err) {
+            case ERR_NULL_SCROLL_ELEM:
+                req.error(std::string("Scroll element is NULL."));
+            default:
+                req.error(std::string("Unknown error code."));
+            }
+        } else {
+            req.result(NULL);
         }
         req.result(NULL);
     } else {

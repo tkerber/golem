@@ -1,5 +1,6 @@
 CC = gcc
 CPPC = g++
+CPPFLAGS = -std=c++11 -Wno-deprecated-declarations
 CFLAGS = -Iexten/build/include -Iexten/jubatus-msgpack-rpc/cpp/src
 CFLAGS += `pkg-config --cflags webkit2gtk-web-extension-4.0 glib-2.0 gio-2.0`
 LFLAGS = -Lexten/build/lib -lpthread
@@ -24,7 +25,7 @@ all: data/srv/pdf.js/enabled data/libgolem.so
 	$(CC) -c -fPIC -o $@ $< $(CFLAGS)
 
 %.o: %.cpp $(MSGPACK_RPC)
-	$(CPPC) -c -fPIC -o $@ $< $(CFLAGS)
+	$(CPPC) -c -fPIC -o $@ $< $(CFLAGS) $(CPPFLAGS)
 
 $(MSGPACK):
 	mkdir -p exten/build
