@@ -274,6 +274,7 @@ inject_adblock_css(WebKitDOMDocument *doc,
             &err);
     if(err != NULL) {
         printf("Failed to inject style: %s\n", err->message);
+        g_object_unref(style_elem);
         g_error_free(err);
         g_free(domain);
         g_free(css);
@@ -284,6 +285,7 @@ inject_adblock_css(WebKitDOMDocument *doc,
             WEBKIT_DOM_NODE(head),
             WEBKIT_DOM_NODE(style_elem),
             &err);
+    g_object_unref(style_elem);
     if(err != NULL) {
         printf("Failed to inject style: %s\n", err->message);
         g_error_free(err);
@@ -291,6 +293,8 @@ inject_adblock_css(WebKitDOMDocument *doc,
         g_free(css);
         return;
     }
+    g_free(domain);
+    g_free(css);
 }
 
 // frame_document_loaded watches signals emitted from the given document.
