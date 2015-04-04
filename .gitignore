@@ -11,3 +11,5 @@
 /golem/version/version.go
 # Built libraries
 /exten/build
+# Development build
+/golem.dev
